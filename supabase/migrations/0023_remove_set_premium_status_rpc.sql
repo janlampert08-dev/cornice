@@ -1,0 +1,24 @@
+-- Entfernt set_premium_status (0022): eine security-definer-Funktion, deren
+-- einziger Schutz ein Secret war, das im Klartext direkt im SQL-Quelltext
+-- dieser (versionierten) Migration stand — und die per
+-- "grant execute ... to anon, authenticated" mit dem öffentlichen anon-Key
+-- direkt aus dem Browser aufrufbar war. Jeder, der die Migration lesen
+-- konnte, konnte damit ist_premium für einen beliebigen stripe_customer_id
+-- auf true setzen (Gratis-Premium) oder bei zahlenden Nutzern auf false
+-- (Abo-Sabotage).
+--
+-- Ersetzt durch app/api/stripe/webhook/route.ts, das den Premium-Status
+-- direkt über einen Service-Role-Client setzt (lib/supabase/admin.ts) —
+-- erreichbar ausschliesslich über diesen Route Handler, der die
+-- Stripe-Signatur bereits verifiziert hat, bevor setPremium aufgerufen wird.
+--
+-- Das alte INTERNAL_WEBHOOK_SECRET (aus .env.local) ist durch diese
+-- Migration bereits kompromittiert (stand im Klartext im Git-Verlauf) und
+-- wird nirgends mehr verwendet — es kann ersatzlos aus .env.local entfernt
+-- werden. Stattdessen muss SUPABASE_SECRET_KEY (Supabase Dashboard →
+-- Project Settings → API → Secret key) in .env.local gesetzt sein, damit
+-- der Webhook-Handler funktioniert.
+-- drop ... if exists entfernt Funktion samt aller ihrer Grants in einem
+-- Schritt — ein separates "revoke" davor scheitert (im Gegensatz zu "drop
+-- if exists"), falls die Funktion auf dieser Datenbank nie angelegt wurde.
+drop function if exists public.set_premium_status(text, boolean, text);

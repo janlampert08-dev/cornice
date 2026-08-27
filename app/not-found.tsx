@@ -1,0 +1,18 @@
+import Link from "next/link";
+
+export default function NotFound() {
+  return (
+    <div className="flex h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+      <p className="text-lg font-semibold">Seite nicht gefunden.</p>
+      <p className="max-w-sm text-sm text-[#8A8F98]">
+        Diese Strecke oder Seite existiert nicht (mehr).
+      </p>
+      <Link
+        href="/"
+        className="border border-[#131316] bg-[#131316] px-4 py-2 text-sm font-medium text-[#FAFAFA] hover:opacity-90"
+      >
+        Zur Übersicht
+      </Link>
+    </div>
+  );
+}
