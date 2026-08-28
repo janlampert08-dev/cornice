@@ -1,7 +1,6 @@
 import Link from "next/link";
 import Header from "@/components/Header";
 import TrackLeaderboardChooser from "@/components/TrackLeaderboardChooser";
-import TrophyBadge from "@/components/TrophyBadge";
 import { getGlobalLeaderboards, type LeaderboardEntry } from "@/lib/leaderboard";
 import { getRoutes } from "@/lib/routes";
 
@@ -32,10 +31,11 @@ function LeaderboardSection({
                 <span className="mr-2 font-mono text-[#8A8F98] tabular-nums">{i + 1}.</span>
                 <Link
                   href={`/fahrer/${entry.userId}`}
-                  className="inline-flex items-center gap-1 transition-colors duration-150 hover:text-[#3D5AFE]"
+                  className={`transition-colors duration-150 hover:text-[#3D5AFE] ${
+                    entry.isPremiumBadge ? "text-[#C9A227]" : ""
+                  }`}
                 >
                   {entry.name}
-                  {entry.isPremiumBadge && <TrophyBadge />}
                 </Link>
               </span>
               <span className="font-mono tabular-nums text-[#8A8F98]">

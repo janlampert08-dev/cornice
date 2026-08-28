@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Avatar from "@/components/Avatar";
-import TrophyBadge from "@/components/TrophyBadge";
 import { getPublicProfile } from "@/lib/profile";
 
 export default async function FahrerPage({
@@ -29,9 +28,10 @@ export default async function FahrerPage({
             name={profile.displayName}
             size={64}
           />
-          <h1 className="flex items-center gap-1.5 text-xl font-semibold">
+          <h1
+            className={`text-xl font-semibold ${profile.zeigtPremiumBadge ? "text-[#C9A227]" : ""}`}
+          >
             {profile.displayName ?? "Fahrer"}
-            {profile.zeigtPremiumBadge && <TrophyBadge className="h-4 w-4" />}
           </h1>
         </div>
 

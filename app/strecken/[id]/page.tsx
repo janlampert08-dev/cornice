@@ -9,7 +9,6 @@ import RouteActionsMenu from "@/components/RouteActionsMenu";
 import PublishRouteButton from "@/components/PublishRouteButton";
 import ElevationProfile from "@/components/ElevationProfile";
 import PhotoGallery from "@/components/PhotoGallery";
-import TrophyBadge from "@/components/TrophyBadge";
 import { getRoute } from "@/lib/routes";
 import { getRatings, getOwnRating } from "@/lib/ratings";
 import { getPersonalBestSeconds } from "@/lib/completions";
@@ -17,6 +16,7 @@ import { getRoutePhotos } from "@/lib/photos";
 import { isFavorite } from "@/lib/favorites";
 import { isModerator } from "@/lib/moderation";
 import { getRouteLeaderboard } from "@/lib/leaderboard";
+import { fetchCurrentWeather } from "@/lib/weather";
 import { createClient } from "@/lib/supabase/server";
 import { KATEGORIEN } from "@/lib/constants";
 import { formatDuration } from "@/lib/format";
@@ -35,17 +35,18 @@ export default async function StreckeDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const route = await getRoute(id);
+  const supabase = await createClient();
+
+  // getRoute() und auth.getUser() sind voneinander unabhängig (Routenabruf
+  // braucht den Nutzer nicht, RLS entscheidet allein über die route_id) —
+  // parallel statt nacheinander gestartet.
+  const [route, {
+    data: { user },
+  }] = await Promise.all([getRoute(id), supabase.auth.getUser()]);
 
   if (!route) notFound();
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const moderator = user ? await isModerator(user.id) : false;
-
-  const [ratings, ownRating, favorite, vehicles, personalBestSeconds, photos, leaderboard] =
+  const [ratings, ownRating, favorite, vehicles, personalBestSeconds, photos, leaderboard, weather, moderator] =
     await Promise.all([
       getRatings(id),
       user ? getOwnRating(id, user.id) : Promise.resolve(null),
@@ -60,6 +61,8 @@ export default async function StreckeDetailPage({
       user ? getPersonalBestSeconds(id, user.id) : Promise.resolve(null),
       getRoutePhotos(id),
       getRouteLeaderboard(id),
+      fetchCurrentWeather(route.start_geojson.coordinates as [number, number]),
+      user ? isModerator(user.id) : Promise.resolve(false),
     ]);
   const record = leaderboard[0] ?? null;
 
@@ -153,6 +156,21 @@ export default async function StreckeDetailPage({
               </dd>
             </div>
             <div>
+              <dt className="text-[#8A8F98]">Wetter</dt>
+              <dd className="font-mono tabular-nums">
+                {weather ? (
+                  <>
+                    {weather.tempC}°C
+                    <span className="ml-1.5 font-sans text-xs normal-case text-[#8A8F98]">
+                      {weather.label}
+                    </span>
+                  </>
+                ) : (
+                  "—"
+                )}
+              </dd>
+            </div>
+            <div>
               <dt className="text-[#8A8F98]">Rekord</dt>
               <dd className="font-mono tabular-nums">
                 {record ? (
@@ -160,10 +178,11 @@ export default async function StreckeDetailPage({
                     <span>{formatDuration(record.dauerSekunden)}</span>
                     <Link
                       href={`/fahrer/${record.userId}`}
-                      className="inline-flex w-fit items-center gap-1 font-sans text-xs font-normal normal-case text-[#8A8F98] hover:text-[#3D5AFE]"
+                      className={`w-fit font-sans text-xs font-normal normal-case hover:text-[#3D5AFE] ${
+                        record.isPremiumBadge ? "text-[#C9A227]" : "text-[#8A8F98]"
+                      }`}
                     >
                       {record.name}
-                      {record.isPremiumBadge && <TrophyBadge />}
                     </Link>
                   </div>
                 ) : (
