@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import RouteMap from "@/components/RouteMap";
+import dynamic from "next/dynamic";
 import TrafficIndicator, { type TrafficChipState } from "@/components/TrafficIndicator";
 import { SPEED_LEGEND } from "@/lib/speed";
 import {
@@ -12,6 +12,12 @@ import {
   type CongestionLevel,
 } from "@/lib/traffic";
 import type { RouteGeoJSON } from "@/types/database";
+
+// Siehe ExploreView.tsx für die Begründung des dynamischen Imports.
+const RouteMap = dynamic(() => import("@/components/RouteMap"), {
+  ssr: false,
+  loading: () => <div className="h-full w-full bg-[#FAFAFA]" />,
+});
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 

@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatDuration } from "@/lib/format";
 import type { RouteTimeEntry } from "@/lib/leaderboard";
-import TrophyBadge from "@/components/TrophyBadge";
 
 const COLLAPSED_SIZE = 5;
 const EXPANDED_SIZE = 10;
@@ -89,10 +88,11 @@ export default function TrackLeaderboardChooser({
                   <span className="mr-2 font-mono text-[#8A8F98] tabular-nums">{i + 1}.</span>
                   <Link
                     href={`/fahrer/${entry.userId}`}
-                    className="inline-flex items-center gap-1 transition-colors duration-150 hover:text-[#3D5AFE]"
+                    className={`transition-colors duration-150 hover:text-[#3D5AFE] ${
+                      entry.isPremiumBadge ? "text-[#C9A227]" : ""
+                    }`}
                   >
                     {entry.name}
-                    {entry.isPremiumBadge && <TrophyBadge />}
                   </Link>
                 </span>
                 <span className="font-mono tabular-nums text-[#3D5AFE]">

@@ -1,12 +1,21 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import RouteMap from "@/components/RouteMap";
+import dynamic from "next/dynamic";
 import ExploreSidebar from "@/components/ExploreSidebar";
 import { haversineKm } from "@/lib/geo";
 import { matchesSearch } from "@/lib/search";
 import { computeSignatures } from "@/lib/signature";
 import type { RouteGeoJSON } from "@/types/database";
+
+// mapbox-gl ist eine schwere Abhängigkeit (WebGL, eigenes CSS) — dynamisch
+// geladen, damit Suchfeld/Streckenliste interaktiv werden, ohne auf den
+// Kartencode zu warten, statt beides in einem Chunk zu bündeln. ssr:false,
+// da mapbox-gl direkten DOM-/WebGL-Zugriff braucht.
+const RouteMap = dynamic(() => import("@/components/RouteMap"), {
+  ssr: false,
+  loading: () => <div className="h-full w-full bg-[#FAFAFA]" />,
+});
 
 export default function ExploreView({
   routes,

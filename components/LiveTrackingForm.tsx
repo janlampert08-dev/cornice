@@ -1,15 +1,22 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import dynamic from "next/dynamic";
 import { logTrackedCompletion, type CompletionFormState } from "@/lib/actions/completions";
+import { addVehicleInline } from "@/lib/actions/vehicles";
 import { haversineKm, type TrailPoint } from "@/lib/geo";
 import { interpolateElevation } from "@/lib/elevation";
 import { computeRouteCoverage, COVERAGE_THRESHOLD_PERCENT } from "@/lib/routeCoverage";
 import { formatDuration } from "@/lib/format";
 import PhotoInput from "@/components/PhotoInput";
-import RouteMap from "@/components/RouteMap";
 import { GlobeIcon, LockIcon } from "@/components/VisibilityIcons";
 import type { RouteGeoJSON, Vehicle } from "@/types/database";
+
+// Siehe ExploreView.tsx für die Begründung des dynamischen Imports.
+const RouteMap = dynamic(() => import("@/components/RouteMap"), {
+  ssr: false,
+  loading: () => <div className="h-full w-full bg-[#FAFAFA]" />,
+});
 
 const initialState: CompletionFormState = { error: null };
 const MIN_ACCURACY_M = 50;
@@ -56,6 +63,48 @@ export default function LiveTrackingForm({
   const [isPublic, setIsPublic] = useState(false);
   const [notiz, setNotiz] = useState("");
   const [submitted, setSubmitted] = useState(false);
+
+  // Fahrzeug-Liste lokal gehalten und ohne Navigation ergänzbar (siehe
+  // handleAddVehicle) — ein <a target="_blank"> zu /profil/fahrzeuge/neu
+  // (frühere Lösung) verlässt sich darauf, dass der Browser wirklich einen
+  // neuen Tab öffnet; tut er das nicht (z.B. manche mobilen/PWA-Kontexte),
+  // navigiert der aktuelle Tab weg und die komplette, nur im Speicher
+  // gehaltene Aufzeichnung geht verloren.
+  const [vehicleList, setVehicleList] = useState<Vehicle[]>(vehicles);
+  const [selectedVehicleId, setSelectedVehicleId] = useState("");
+  const [showAddVehicle, setShowAddVehicle] = useState(false);
+  const [newVehicleTyp, setNewVehicleTyp] = useState("auto");
+  const [newVehicleMarke, setNewVehicleMarke] = useState("");
+  const [newVehicleModell, setNewVehicleModell] = useState("");
+  const [newVehicleGetriebe, setNewVehicleGetriebe] = useState("manuell");
+  const [newVehicleBaujahr, setNewVehicleBaujahr] = useState("");
+  const [addVehicleError, setAddVehicleError] = useState<string | null>(null);
+  const [addVehiclePending, startAddVehicleTransition] = useTransition();
+
+  function handleAddVehicle() {
+    setAddVehicleError(null);
+    const formData = new FormData();
+    formData.set("typ", newVehicleTyp);
+    formData.set("marke", newVehicleMarke);
+    formData.set("modell", newVehicleModell);
+    formData.set("getriebe", newVehicleGetriebe);
+    formData.set("baujahr", newVehicleBaujahr);
+
+    startAddVehicleTransition(async () => {
+      const result = await addVehicleInline(formData);
+      if (result.error || !result.vehicle) {
+        setAddVehicleError(result.error ?? "Fahrzeug konnte nicht gespeichert werden.");
+        return;
+      }
+      setVehicleList((list) => [...list, result.vehicle as Vehicle]);
+      setSelectedVehicleId(result.vehicle.id);
+      setShowAddVehicle(false);
+      setNewVehicleMarke("");
+      setNewVehicleModell("");
+      setNewVehicleBaujahr("");
+    });
+  }
+
   const belowCoverageThreshold =
     coveragePercent !== null && coveragePercent < COVERAGE_THRESHOLD_PERCENT;
   const notizLength = notiz.length;
@@ -420,29 +469,103 @@ export default function LiveTrackingForm({
               berechneten Werte, denen vertraut würde. */}
           <input type="hidden" name="trail" value={trailJson} />
 
-          <div className="flex flex-col gap-1 text-sm">
+          <div className="flex flex-col gap-2 text-sm">
             Fahrzeug
-            {vehicles.length > 0 ? (
+            {vehicleList.length > 0 && (
               <select
                 name="fahrzeug_id"
+                value={selectedVehicleId}
+                onChange={(e) => setSelectedVehicleId(e.target.value)}
                 className="border border-[#131316]/30 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE]"
               >
                 <option value="">—</option>
-                {vehicles.map((v) => (
+                {vehicleList.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.marke} {v.modell}
                   </option>
                 ))}
               </select>
-            ) : (
-              <a
-                href="/profil/fahrzeuge/neu"
-                target="_blank"
-                rel="noopener noreferrer"
+            )}
+            {vehicleList.length === 0 && <input type="hidden" name="fahrzeug_id" value="" />}
+
+            {!showAddVehicle ? (
+              <button
+                type="button"
+                onClick={() => setShowAddVehicle(true)}
                 className="self-start text-sm text-[#3D5AFE] hover:underline"
               >
                 + Fahrzeug hinzufügen
-              </a>
+              </button>
+            ) : (
+              // Bewusst kein verschachteltes <form> — dieser Block liegt
+              // innerhalb des äusseren Fahrt-Speichern-Formulars, und
+              // HTML erlaubt keine geschachtelten Formulare. handleAddVehicle
+              // baut die FormData manuell und ruft die Server Action direkt
+              // auf, statt über eine native Formular-Submission zu gehen.
+              <div className="flex flex-col gap-2 border border-[#131316]/20 p-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <select
+                    value={newVehicleTyp}
+                    onChange={(e) => setNewVehicleTyp(e.target.value)}
+                    className="border border-[#131316]/30 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE]"
+                  >
+                    <option value="auto">Auto</option>
+                    <option value="motorrad">Motorrad</option>
+                  </select>
+                  <select
+                    value={newVehicleGetriebe}
+                    onChange={(e) => setNewVehicleGetriebe(e.target.value)}
+                    className="border border-[#131316]/30 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE]"
+                  >
+                    <option value="manuell">Manuell</option>
+                    <option value="automatik">Automatik</option>
+                  </select>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Marke"
+                  value={newVehicleMarke}
+                  onChange={(e) => setNewVehicleMarke(e.target.value)}
+                  className="border border-[#131316]/30 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE]"
+                />
+                <input
+                  type="text"
+                  placeholder="Modell"
+                  value={newVehicleModell}
+                  onChange={(e) => setNewVehicleModell(e.target.value)}
+                  className="border border-[#131316]/30 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE]"
+                />
+                <input
+                  type="number"
+                  placeholder="Baujahr (optional)"
+                  min={1900}
+                  max={2100}
+                  value={newVehicleBaujahr}
+                  onChange={(e) => setNewVehicleBaujahr(e.target.value)}
+                  className="border border-[#131316]/30 bg-transparent px-3 py-2 text-sm font-mono outline-none focus:border-[#3D5AFE]"
+                />
+                {addVehicleError && <p className="text-xs text-red-600">{addVehicleError}</p>}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleAddVehicle}
+                    disabled={addVehiclePending || !newVehicleMarke.trim() || !newVehicleModell.trim()}
+                    className="border border-[#131316] bg-[#131316] px-3 py-1.5 text-sm font-medium text-[#FAFAFA] hover:opacity-90 disabled:opacity-50"
+                  >
+                    {addVehiclePending ? "Speichern…" : "Speichern"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddVehicle(false);
+                      setAddVehicleError(null);
+                    }}
+                    className="border border-[#131316]/30 px-3 py-1.5 text-sm text-[#8A8F98] hover:border-[#131316]"
+                  >
+                    Abbrechen
+                  </button>
+                </div>
+              </div>
             )}
           </div>
 

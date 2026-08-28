@@ -22,21 +22,20 @@ export async function submitRating(
 
   if (!user) return { error: "Bitte melde dich zuerst an." };
 
-  const sterne = Number(formData.get("sterne"));
   const kommentar = String(formData.get("kommentar") ?? "").trim() || null;
 
-  if (!Number.isInteger(sterne) || sterne < 1 || sterne > 5) {
-    return { error: "Bitte wähle 1–5 Sterne." };
+  if (!kommentar) {
+    return { error: "Bitte gib einen Kommentar ein." };
   }
 
   if (await isRateLimited(supabase, "route_ratings", "erstellt_am", "user_id", user.id, RATING_COOLDOWN_MS)) {
-    return { error: "Bitte warte einen Moment, bevor du erneut bewertest." };
+    return { error: "Bitte warte einen Moment, bevor du erneut kommentierst." };
   }
 
   const { error } = await supabase
     .from("route_ratings")
     .upsert(
-      { route_id: routeId, user_id: user.id, sterne, kommentar },
+      { route_id: routeId, user_id: user.id, kommentar },
       { onConflict: "route_id,user_id" },
     );
 
@@ -45,9 +44,9 @@ export async function submitRating(
     // oben ist nur ein schnelles Vorab-Feedback und kann bei parallelen
     // Requests theoretisch durchrutschen.
     if (error.message.includes("cooldown_active")) {
-      return { error: "Bitte warte einen Moment, bevor du erneut bewertest." };
+      return { error: "Bitte warte einen Moment, bevor du erneut kommentierst." };
     }
-    return { error: "Bewertung konnte nicht gespeichert werden." };
+    return { error: "Kommentar konnte nicht gespeichert werden." };
   }
 
   revalidatePath(`/strecken/${routeId}`);

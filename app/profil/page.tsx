@@ -21,29 +21,90 @@ export default async function ProfilPage() {
     redirect("/anmelden");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name, avatar_url, zeigt_fahrzeuge, ist_premium")
-    .eq("id", user.id)
-    .single();
-
-  // Explizit auf den eigenen Nutzer filtern statt allein auf RLS zu
-  // vertrauen: die zweite SELECT-Policy "Fahrzeuge sichtbar wenn
-  // freigegeben" (0015) erlaubt RLS-seitig auch fremde Fahrzeuge, deren
-  // Besitzer zeigt_fahrzeuge aktiviert hat (fürs öffentliche Profil gedacht,
-  // siehe lib/profile.ts) — ohne dieses .eq() würden beide Policies
-  // per OR kombiniert und fremde freigegebene Fahrzeuge hier mit einfliessen.
-  const { data: vehicles } = await supabase
-    .from("vehicles")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
-
-  const { data: completions } = await supabase
-    .from("route_completions")
-    .select("route_id, routes(hoehe_m)")
-    .eq("user_id", user.id)
-    .returns<{ route_id: string; routes: { hoehe_m: number | null } | null }[]>();
+  // Alle voneinander unabhängigen Abfragen parallel statt nacheinander —
+  // spart auf einer Seite mit sechs Queries einen entsprechend langen
+  // Round-Trip-Wasserfall (vorher: jede Query wartete auf die vorherige,
+  // obwohl keine von einer anderen abhängt).
+  const [
+    { data: profile },
+    { data: vehicles },
+    { data: completions },
+    { data: trackedRides },
+    { data: ownRoutes },
+    { data: favorites },
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("display_name, avatar_url, zeigt_fahrzeuge, ist_premium")
+      .eq("id", user.id)
+      .single(),
+    // Explizit auf den eigenen Nutzer filtern statt allein auf RLS zu
+    // vertrauen: die zweite SELECT-Policy "Fahrzeuge sichtbar wenn
+    // freigegeben" (0015) erlaubt RLS-seitig auch fremde Fahrzeuge, deren
+    // Besitzer zeigt_fahrzeuge aktiviert hat (fürs öffentliche Profil gedacht,
+    // siehe lib/profile.ts) — ohne dieses .eq() würden beide Policies
+    // per OR kombiniert und fremde freigegebene Fahrzeuge hier mit einfliessen.
+    supabase
+      .from("vehicles")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("route_completions")
+      .select("route_id, routes(hoehe_m)")
+      .eq("user_id", user.id)
+      .returns<{ route_id: string; routes: { hoehe_m: number | null } | null }[]>(),
+    supabase
+      .from("route_completions")
+      .select(
+        "id, route_id, datum, dauer_sekunden, distanz_km, ist_oeffentlich, abdeckung_prozent, notiz, routes(name)",
+      )
+      .eq("user_id", user.id)
+      .not("dauer_sekunden", "is", null)
+      // Neueste zuerst — created_at als Tiebreaker, da datum nur ein Datum
+      // (kein Zeitstempel) ist und mehrere Fahrten am selben Tag sonst in
+      // unbestimmter Reihenfolge stünden.
+      .order("datum", { ascending: false })
+      .order("created_at", { ascending: false })
+      .returns<
+        {
+          id: string;
+          route_id: string;
+          datum: string;
+          dauer_sekunden: number;
+          distanz_km: number;
+          ist_oeffentlich: boolean;
+          abdeckung_prozent: number;
+          notiz: string | null;
+          routes: { name: string } | null;
+        }[]
+      >(),
+    supabase
+      .from("routes")
+      .select("id, name, status_ok, abgelehnt_am, ist_privat")
+      .eq("erstellt_von", user.id)
+      .order("created_at", { ascending: false })
+      .returns<
+        {
+          id: string;
+          name: string;
+          status_ok: boolean;
+          abgelehnt_am: string | null;
+          ist_privat: boolean;
+        }[]
+      >(),
+    supabase
+      .from("favorites")
+      .select("route_id, routes(id, name, region, laenge_km)")
+      .eq("user_id", user.id)
+      .order("erstellt_am", { ascending: false })
+      .returns<
+        {
+          route_id: string;
+          routes: { id: string; name: string; region: string; laenge_km: number } | null;
+        }[]
+      >(),
+  ]);
 
   // Pro Strecke nur einmal zählen (auch bei mehrfacher Befahrung) — sonst
   // widersprechen sich passCount (dedupliziert) und hoehenmeter auf demselben
@@ -55,59 +116,10 @@ export default async function ProfilPage() {
   const passCount = hoeheProRoute.size;
   const hoehenmeter = [...hoeheProRoute.values()].reduce((sum, h) => sum + h, 0);
 
-  const { data: trackedRides } = await supabase
-    .from("route_completions")
-    .select(
-      "id, route_id, datum, dauer_sekunden, distanz_km, ist_oeffentlich, abdeckung_prozent, notiz, routes(name)",
-    )
-    .eq("user_id", user.id)
-    .not("dauer_sekunden", "is", null)
-    .order("datum", { ascending: false })
-    .returns<
-      {
-        id: string;
-        route_id: string;
-        datum: string;
-        dauer_sekunden: number;
-        distanz_km: number;
-        ist_oeffentlich: boolean;
-        abdeckung_prozent: number;
-        notiz: string | null;
-        routes: { name: string } | null;
-      }[]
-    >();
-
   const getrackteDistanzGesamt = (trackedRides ?? []).reduce(
     (sum, r) => sum + r.distanz_km,
     0,
   );
-
-  const { data: ownRoutes } = await supabase
-    .from("routes")
-    .select("id, name, status_ok, abgelehnt_am, ist_privat")
-    .eq("erstellt_von", user.id)
-    .order("created_at", { ascending: false })
-    .returns<
-      {
-        id: string;
-        name: string;
-        status_ok: boolean;
-        abgelehnt_am: string | null;
-        ist_privat: boolean;
-      }[]
-    >();
-
-  const { data: favorites } = await supabase
-    .from("favorites")
-    .select("route_id, routes(id, name, region, laenge_km)")
-    .eq("user_id", user.id)
-    .order("erstellt_am", { ascending: false })
-    .returns<
-      {
-        route_id: string;
-        routes: { id: string; name: string; region: string; laenge_km: number } | null;
-      }[]
-    >();
 
   return (
     <div className="flex h-screen flex-col">
@@ -176,6 +188,59 @@ export default async function ProfilPage() {
         </dl>
 
         <section className="flex flex-col gap-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-[#8A8F98]">
+            Getrackte Fahrten
+          </h2>
+          {trackedRides && trackedRides.length > 0 ? (
+            <ul className="flex flex-col">
+              {trackedRides.map((ride) => {
+                const avgKmh =
+                  ride.dauer_sekunden > 0 ? ride.distanz_km / (ride.dauer_sekunden / 3600) : 0;
+                return (
+                  <li key={ride.id} className="border-b border-[#131316]/10 py-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <Link
+                        href={`/strecken/${ride.route_id}`}
+                        className="flex min-w-0 flex-1 items-baseline justify-between text-sm transition-colors duration-150 hover:text-[#3D5AFE]"
+                      >
+                        <span className="truncate">
+                          {ride.routes?.name ?? "Strecke"}
+                          <span className="ml-2 text-xs text-[#8A8F98]">
+                            {new Date(ride.datum).toLocaleDateString("de-CH")}
+                          </span>
+                        </span>
+                        <span className="ml-2 shrink-0 font-mono tabular-nums text-[#8A8F98]">
+                          {ride.distanz_km.toFixed(1)} km · {formatDuration(ride.dauer_sekunden)} ·{" "}
+                          {avgKmh.toFixed(0)} km/h
+                        </span>
+                      </Link>
+                      <div className="flex shrink-0 items-center gap-3">
+                        <ShareRideButton
+                          routeId={ride.route_id}
+                          distanceKm={ride.distanz_km}
+                          durationSeconds={ride.dauer_sekunden}
+                          date={ride.datum}
+                        />
+                        <RideVisibilityToggle
+                          completionId={ride.id}
+                          isPublic={ride.ist_oeffentlich}
+                          coveragePercent={ride.abdeckung_prozent}
+                        />
+                      </div>
+                    </div>
+                    {ride.notiz && (
+                      <p className="mt-1 text-sm text-[#8A8F98]">{ride.notiz}</p>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="text-sm text-[#8A8F98]">Noch keine Fahrten aufgezeichnet.</p>
+          )}
+        </section>
+
+        <section className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-[#8A8F98]">
               Fahrzeuge
@@ -229,57 +294,6 @@ export default async function ProfilPage() {
                       )}
                       {route.abgelehnt_am && <DeleteProposalButton routeId={route.id} />}
                     </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        )}
-
-        {trackedRides && trackedRides.length > 0 && (
-          <section className="flex flex-col gap-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-[#8A8F98]">
-              Getrackte Fahrten
-            </h2>
-            <ul className="flex flex-col">
-              {trackedRides.map((ride) => {
-                const avgKmh =
-                  ride.dauer_sekunden > 0 ? ride.distanz_km / (ride.dauer_sekunden / 3600) : 0;
-                return (
-                  <li key={ride.id} className="border-b border-[#131316]/10 py-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <Link
-                        href={`/strecken/${ride.route_id}`}
-                        className="flex min-w-0 flex-1 items-baseline justify-between text-sm transition-colors duration-150 hover:text-[#3D5AFE]"
-                      >
-                        <span className="truncate">
-                          {ride.routes?.name ?? "Strecke"}
-                          <span className="ml-2 text-xs text-[#8A8F98]">
-                            {new Date(ride.datum).toLocaleDateString("de-CH")}
-                          </span>
-                        </span>
-                        <span className="ml-2 shrink-0 font-mono tabular-nums text-[#8A8F98]">
-                          {ride.distanz_km.toFixed(1)} km · {formatDuration(ride.dauer_sekunden)} ·{" "}
-                          {avgKmh.toFixed(0)} km/h
-                        </span>
-                      </Link>
-                      <div className="flex shrink-0 items-center gap-3">
-                        <ShareRideButton
-                          routeId={ride.route_id}
-                          distanceKm={ride.distanz_km}
-                          durationSeconds={ride.dauer_sekunden}
-                          date={ride.datum}
-                        />
-                        <RideVisibilityToggle
-                          completionId={ride.id}
-                          isPublic={ride.ist_oeffentlich}
-                          coveragePercent={ride.abdeckung_prozent}
-                        />
-                      </div>
-                    </div>
-                    {ride.notiz && (
-                      <p className="mt-1 text-sm text-[#8A8F98]">{ride.notiz}</p>
-                    )}
                   </li>
                 );
               })}

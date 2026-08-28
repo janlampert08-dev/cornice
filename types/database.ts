@@ -107,7 +107,10 @@ export interface RouteRating {
   id: string;
   route_id: string;
   user_id: string;
-  sterne: number; // 1-5
+  // Sterne-Bewertung entfernt (siehe 0025_ratings_ohne_sterne.sql) — Spalte
+  // bleibt in der DB für evtl. schon vorhandene Alt-Daten, wird von der App
+  // aber nicht mehr geschrieben oder angezeigt.
+  sterne: number | null;
   kommentar: string | null;
   erstellt_am: string;
 }
