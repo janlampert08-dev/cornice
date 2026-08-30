@@ -26,6 +26,9 @@ const MAX_NOTIZ_LENGTH = 280;
 // Streckenanfang, aber eng genug, um zu verhindern, dass die Zeitmessung
 // schon Kilometer vor dem eigentlichen Start beginnt.
 const START_PROXIMITY_KM = 0.15;
+// Gleicher Toleranzwert für den Zielpunkt — die Aufzeichnung stoppt
+// automatisch, sobald der Nutzer ihn erreicht.
+const END_PROXIMITY_KM = 0.15;
 
 type Phase = "idle" | "tracking" | "finished";
 
@@ -123,6 +126,15 @@ export default function LiveTrackingForm({
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const trailRef = useRef<TrailPoint[]>([]);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  // Spiegelt distanceKm für den watchPosition-Callback und handleStop, damit
+  // auch ein automatischer Stopp (ausgelöst aus der beim Start erzeugten
+  // Callback-Closure) den aktuellen Stand nutzt statt eines veralteten
+  // State-Werts aus dem ersten Render.
+  const distanceKmRef = useRef(0);
+  // Verhindert, dass die Zielnähe-Prüfung bei Rundfahrten (Start = Ziel)
+  // sofort nach dem Start greift — erst nachdem der Nutzer den Startpunkt
+  // tatsächlich verlassen hat, zählt eine erneute Annäherung als Ankunft.
+  const hasLeftStartRef = useRef(false);
   // Spiegelt hasStarted für den watchPosition-Callback — der Callback ist
   // eine einmal beim Start erzeugte Closure und würde sonst den veralteten
   // Wert aus dem ersten Render sehen, statt auf die Ref-gestützte Prüfung
@@ -201,8 +213,11 @@ export default function LiveTrackingForm({
     lastPointTimeRef.current = null;
     trailRef.current = [];
     startTimeRef.current = null;
+    distanceKmRef.current = 0;
+    hasLeftStartRef.current = false;
 
     const startPoint = route.start_geojson.coordinates as [number, number];
+    const endPoint = route.ziel_geojson.coordinates as [number, number];
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
@@ -246,13 +261,24 @@ export default function LiveTrackingForm({
                 ? position.coords.speed * 3.6
                 : null;
             setCurrentSpeedKmh(gpsSpeedKmh ?? (dtHours > 0 ? segment / dtHours : null));
-            setDistanceKm((d) => d + segment);
+            distanceKmRef.current += segment;
+            setDistanceKm(distanceKmRef.current);
             lastPointRef.current = point;
             lastPointTimeRef.current = now;
           }
         } else {
           lastPointRef.current = point;
           lastPointTimeRef.current = now;
+        }
+
+        // Ankunft am Ziel erkennen und die Aufzeichnung automatisch beenden
+        // — analog zum automatischen Start am Startpunkt. Bei Rundfahrten
+        // (Start = Ziel) erst scharf schalten, nachdem die Startnähe wirklich
+        // verlassen wurde, sonst würde direkt nach dem Start sofort gestoppt.
+        if (!hasLeftStartRef.current) {
+          if (haversineKm(point, startPoint) > END_PROXIMITY_KM) hasLeftStartRef.current = true;
+        } else if (haversineKm(point, endPoint) <= END_PROXIMITY_KM) {
+          handleStop();
         }
       },
       () => setLocationError("Standort konnte nicht ermittelt werden."),
@@ -285,6 +311,10 @@ export default function LiveTrackingForm({
     onExit();
   }
 
+  // Nutzt Refs statt der distanceKm/elapsedSeconds-States, damit ein Aufruf
+  // aus der beim Start erzeugten watchPosition-Closure (automatischer Stopp
+  // am Ziel) nicht auf veraltete Werte aus dem ersten Render zugreift — nur
+  // ein Klick auf "Strecke beenden" hätte einen aktuellen State-Closure.
   function handleStop() {
     if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -293,7 +323,12 @@ export default function LiveTrackingForm({
     wakeLockRef.current?.release();
     wakeLockRef.current = null;
 
-    setResult({ distanceKm, seconds: elapsedSeconds });
+    const finalDistanceKm = distanceKmRef.current;
+    const finalSeconds = startTimeRef.current
+      ? Math.round((Date.now() - startTimeRef.current) / 1000)
+      : elapsedSeconds;
+
+    setResult({ distanceKm: finalDistanceKm, seconds: finalSeconds });
     setCoveragePercent(
       computeRouteCoverage(
         route.geometry_geojson.coordinates as [number, number][],
