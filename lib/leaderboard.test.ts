@@ -15,15 +15,15 @@ function row(overrides: Partial<LeaderboardRow>): LeaderboardRow {
 }
 
 describe("aggregateLeaderboards", () => {
-  it("counts distinct routes per user, not total completions", () => {
+  it("counts every recorded completion per user, including repeats of the same route", () => {
     const rows = [
       row({ user_id: "u1", route_id: "r1" }),
-      row({ user_id: "u1", route_id: "r1" }), // same route driven twice
+      row({ user_id: "u1", route_id: "r1" }), // same route driven twice — counts twice
       row({ user_id: "u1", route_id: "r2" }),
     ];
-    const { meistePaesse } = aggregateLeaderboards(rows);
-    expect(meistePaesse).toEqual([
-      { userId: "u1", name: "Alice", value: 2, isPremiumBadge: false },
+    const { meisteFahrten } = aggregateLeaderboards(rows);
+    expect(meisteFahrten).toEqual([
+      { userId: "u1", name: "Alice", value: 3, isPremiumBadge: false },
     ]);
   });
 
@@ -32,8 +32,8 @@ describe("aggregateLeaderboards", () => {
       row({ user_id: "u1", ist_premium: true, zeigt_premium_badge: true }),
       row({ user_id: "u2", route_id: "r2", ist_premium: true, zeigt_premium_badge: false }),
     ];
-    const { meistePaesse } = aggregateLeaderboards(rows);
-    const badgeByUser = new Map(meistePaesse.map((e) => [e.userId, e.isPremiumBadge]));
+    const { meisteFahrten } = aggregateLeaderboards(rows);
+    const badgeByUser = new Map(meisteFahrten.map((e) => [e.userId, e.isPremiumBadge]));
     expect(badgeByUser.get("u1")).toBe(false);
     expect(badgeByUser.get("u2")).toBe(false);
   });

@@ -76,7 +76,7 @@ export default function ExploreSidebar({
       {/* Horizontal scrollbare Chip-Reihe statt Checkboxen/Dropdown — mehrere
           Tags lassen sich per Antippen kombinieren (ODER-Verknüpfung, siehe
           ExploreView), ohne dass die Auswahl auf Mobile viel Platz braucht. */}
-      <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:-mx-6 sm:px-6">
+      <div className="-mx-5 flex gap-2 overflow-x-auto scrollbar-hide px-5 pb-1 sm:-mx-6 sm:px-6">
         {KATEGORIEN.map((k) => {
           const active = selectedKategorien.includes(k.value);
           return (

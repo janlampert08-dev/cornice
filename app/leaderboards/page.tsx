@@ -48,7 +48,7 @@ function LeaderboardSection({
 }
 
 export default async function LeaderboardsPage() {
-  const [{ meistePaesse, meisteHoehenmeter, meisteKm }, { routes }] = await Promise.all([
+  const [{ meisteFahrten, meisteHoehenmeter, meisteKm }, { routes }] = await Promise.all([
     getGlobalLeaderboards(),
     getRoutes(),
   ]);
@@ -60,12 +60,12 @@ export default async function LeaderboardsPage() {
         <div>
           <h1 className="text-xl font-semibold">Bestenlisten</h1>
           <p className="mt-1 text-sm text-muted">
-            Nach Distanz, Höhenmetern und Anzahl befahrener Pässe. Streckenbestzeiten unten zeigen
-            nur Fahrten, die freiwillig dafür geteilt wurden.
+            Nach Distanz, Höhenmetern und Anzahl aufgezeichneter Fahrten. Streckenbestzeiten unten
+            zeigen nur Fahrten, die freiwillig dafür geteilt wurden.
           </p>
         </div>
 
-        <LeaderboardSection title="Meiste Pässe" entries={meistePaesse} unit="Pässe" />
+        <LeaderboardSection title="Meiste Fahrten" entries={meisteFahrten} unit="Fahrten" />
         <LeaderboardSection
           title="Meiste Höhenmeter"
           entries={meisteHoehenmeter}
