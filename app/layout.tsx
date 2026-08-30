@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import "./globals.css";
 
 const inter = Inter({
@@ -7,10 +8,19 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
+// Für die Auflösung relativer URLs in opengraph-image/twitter-image nötig
+// (sonst Next-Build-Warnung, Fallback auf localhost). VERCEL_PROJECT_PRODUCTION_URL
+// ist die stabile Produktions-Domain, von Vercel automatisch gesetzt.
+const metadataBase = new URL(
+  process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "http://localhost:3000",
+);
+
 export const metadata: Metadata = {
+  metadataBase,
   title: "Cornice",
   description: "Kuratierte Fahrstrecken für Auto und Motorrad",
-  manifest: "/manifest.json",
   appleWebApp: {
     // "standalone" entfernt die Safari-Chrome, sobald die Seite via
     // "Zum Home-Bildschirm" installiert ist — Grundvoraussetzung dafür,
@@ -35,7 +45,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="de" className={`${inter.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+      <body className="min-h-full flex flex-col font-sans">
+        {children}
+        <ServiceWorkerRegister />
+      </body>
     </html>
   );
 }

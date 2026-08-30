@@ -1,8 +1,11 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import Header from "@/components/Header";
 import TrackLeaderboardChooser from "@/components/TrackLeaderboardChooser";
 import { getGlobalLeaderboards, type LeaderboardEntry } from "@/lib/leaderboard";
 import { getRoutes } from "@/lib/routes";
+
+export const metadata: Metadata = { title: "Bestenlisten – Cornice" };
 
 function LeaderboardSection({
   title,

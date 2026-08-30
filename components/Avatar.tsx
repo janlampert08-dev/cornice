@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 export default function Avatar({
   url,
   name,
@@ -9,12 +11,12 @@ export default function Avatar({
 }) {
   if (url) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
+      <Image
         src={url}
         alt={name ? `Profilbild von ${name}` : "Profilbild"}
+        width={size}
+        height={size}
         className="shrink-0 rounded-full border border-foreground/10 object-cover"
-        style={{ width: size, height: size }}
       />
     );
   }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 import type { RoutePhoto } from "@/types/database";
 
 export default function PhotoGallery({ photos }: { photos: RoutePhoto[] }) {
@@ -51,15 +52,15 @@ export default function PhotoGallery({ photos }: { photos: RoutePhoto[] }) {
             key={photo.id}
             type="button"
             onClick={() => setOpenIndex(i)}
-            className="aspect-square overflow-hidden bg-foreground/5"
+            className="relative aspect-square overflow-hidden bg-foreground/5"
             title={photo.display_name ?? undefined}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={photo.foto_url}
               alt={`Foto von ${photo.display_name ?? "Nutzer"}`}
-              className="h-full w-full object-cover"
-              loading="lazy"
+              fill
+              sizes="33vw"
+              className="object-cover"
             />
           </button>
         ))}

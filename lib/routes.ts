@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import type { RouteGeoJSON } from "@/types/database";
 
@@ -22,7 +23,12 @@ export async function getRoutes(): Promise<{ routes: RouteGeoJSON[]; error: bool
 // Wirft bei einem echten Ladefehler (statt "nicht gefunden" mit null
 // zurückzugeben), damit der aufrufenden Seite ein error.tsx-Boundary greift
 // und nicht fälschlich eine 404 angezeigt wird.
-export async function getRoute(id: string): Promise<RouteGeoJSON | null> {
+//
+// Mit React cache() umschlossen: generateMetadata, die Page selbst und
+// opengraph-image.tsx rufen getRoute(id) für denselben Request unabhängig
+// voneinander auf — ohne Memoisierung wäre das dieselbe DB-Abfrage
+// dreifach pro Seitenaufruf.
+export const getRoute = cache(async function getRoute(id: string): Promise<RouteGeoJSON | null> {
   if (!UUID_RE.test(id)) return null;
 
   const supabase = await createClient();
@@ -39,4 +45,4 @@ export async function getRoute(id: string): Promise<RouteGeoJSON | null> {
   }
 
   return data as RouteGeoJSON;
-}
+});
