@@ -18,15 +18,6 @@ export async function updateVisibilitySettings(
 
   if (!user) return { error: "Bitte melde dich zuerst an." };
 
-  // Serverseitig erzwungen: das Premium-Symbol lässt sich nur aktivieren,
-  // wenn der Nutzer tatsächlich Premium ist — VisibilitySettings zeigt die
-  // Checkbox Nicht-Premium-Nutzern ohnehin gar nicht erst an.
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("ist_premium")
-    .eq("id", user.id)
-    .maybeSingle();
-
   const { error } = await supabase
     .from("profiles")
     .update({
@@ -35,7 +26,8 @@ export async function updateVisibilitySettings(
       zeigt_paesse: formData.get("zeigt_paesse") === "true",
       zeigt_hoehenmeter: formData.get("zeigt_hoehenmeter") === "true",
       zeigt_distanz: formData.get("zeigt_distanz") === "true",
-      zeigt_premium_badge: Boolean(profile?.ist_premium) && formData.get("zeigt_premium_badge") === "true",
+      // Premium-Feature (Gold-Badge) vorerst deaktiviert — bleibt aus.
+      zeigt_premium_badge: false,
     })
     .eq("id", user.id);
 

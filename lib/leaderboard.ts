@@ -22,53 +22,47 @@ const TOP_N = 3;
 function toTopEntries(
   values: Map<string, number>,
   names: Map<string, string>,
-  badges: Map<string, boolean>,
 ): LeaderboardEntry[] {
   return Array.from(values.entries())
     .map(([userId, value]) => ({
       userId,
       name: names.get(userId) ?? "Anonym",
       value,
-      isPremiumBadge: badges.get(userId) ?? false,
+      // Premium-Feature (Gold-Badge) vorerst deaktiviert.
+      isPremiumBadge: false,
     }))
     .sort((a, b) => b.value - a.value)
     .slice(0, TOP_N);
 }
 
 // Drei bewusst nicht-zeitbezogene Bestenlisten (siehe 0013_leaderboard_view.sql
-// für die Begründung) — belohnen Distanz/Höhenmeter/Anzahl befahrener Pässe,
-// nie Geschwindigkeit.
+// für die Begründung) — belohnen Distanz/Höhenmeter/Anzahl aufgezeichneter
+// Fahrten, nie Geschwindigkeit.
 export function aggregateLeaderboards(rows: LeaderboardRow[]): {
-  meistePaesse: LeaderboardEntry[];
+  meisteFahrten: LeaderboardEntry[];
   meisteHoehenmeter: LeaderboardEntry[];
   meisteKm: LeaderboardEntry[];
 } {
   const names = new Map<string, string>();
-  const badges = new Map<string, boolean>();
-  const routesByUser = new Map<string, Set<string>>();
+  const fahrtenByUser = new Map<string, number>();
   const hoehenmeterByUser = new Map<string, number>();
   const kmByUser = new Map<string, number>();
 
   for (const row of rows) {
     names.set(row.user_id, row.display_name ?? "Anonym");
-    badges.set(row.user_id, row.ist_premium && row.zeigt_premium_badge);
 
-    const routes = routesByUser.get(row.user_id) ?? new Set<string>();
-    routes.add(row.route_id);
-    routesByUser.set(row.user_id, routes);
+    // Jede Aufzeichnung zählt, auch mehrfach gefahrene Strecken — im
+    // Gegensatz zu passCount (lib/profile.ts), das pro Strecke dedupliziert.
+    fahrtenByUser.set(row.user_id, (fahrtenByUser.get(row.user_id) ?? 0) + 1);
 
     hoehenmeterByUser.set(row.user_id, (hoehenmeterByUser.get(row.user_id) ?? 0) + (row.hoehe_m ?? 0));
     kmByUser.set(row.user_id, (kmByUser.get(row.user_id) ?? 0) + (row.effektive_distanz_km ?? 0));
   }
 
-  const paesseByUser = new Map(
-    Array.from(routesByUser.entries()).map(([userId, routes]) => [userId, routes.size]),
-  );
-
   return {
-    meistePaesse: toTopEntries(paesseByUser, names, badges),
-    meisteHoehenmeter: toTopEntries(hoehenmeterByUser, names, badges),
-    meisteKm: toTopEntries(kmByUser, names, badges),
+    meisteFahrten: toTopEntries(fahrtenByUser, names),
+    meisteHoehenmeter: toTopEntries(hoehenmeterByUser, names),
+    meisteKm: toTopEntries(kmByUser, names),
   };
 }
 
@@ -79,7 +73,7 @@ export async function getGlobalLeaderboards(): Promise<
   const { data, error } = await supabase.from("leaderboard_completions").select("*");
 
   if (error || !data) {
-    return { meistePaesse: [], meisteHoehenmeter: [], meisteKm: [] };
+    return { meisteFahrten: [], meisteHoehenmeter: [], meisteKm: [] };
   }
 
   return aggregateLeaderboards(data as LeaderboardRow[]);
@@ -122,6 +116,7 @@ export async function getRouteLeaderboard(routeId: string): Promise<RouteTimeEnt
     userId: r.user_id,
     name: r.display_name ?? "Anonym",
     dauerSekunden: r.dauer_sekunden,
-    isPremiumBadge: r.ist_premium && r.zeigt_premium_badge,
+    // Premium-Feature (Gold-Badge) vorerst deaktiviert.
+    isPremiumBadge: false,
   }));
 }

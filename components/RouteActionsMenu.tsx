@@ -88,16 +88,16 @@ export default function RouteActionsMenu({
         onClick={() => setOpen((v) => !v)}
         aria-label="Weitere Aktionen"
         aria-expanded={open}
-        className="rounded-xl border border-[#131316]/20 px-3 py-1.5 text-sm text-[#131316] hover:border-[#131316]"
+        className="rounded-xl border border-foreground/20 px-3 py-1.5 text-sm text-foreground hover:border-foreground"
       >
         ⋮
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-10 mt-1 flex w-56 flex-col rounded-xl border border-[#131316]/15 shadow-sm bg-[#FAFAFA]">
+        <div className="absolute left-0 top-full z-10 mt-1 flex w-56 flex-col rounded-xl border border-foreground/15 shadow-sm bg-background">
           <button
             type="button"
             onClick={handleShare}
-            className="px-3 py-2 text-left text-sm text-[#131316] hover:bg-[#131316]/[0.05]"
+            className="px-3 py-2 text-left text-sm text-foreground hover:bg-foreground/[0.05]"
           >
             {copied ? "Link kopiert ✓" : "Teilen"}
           </button>
@@ -106,14 +106,14 @@ export default function RouteActionsMenu({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setOpen(false)}
-            className="border-t border-[#131316]/10 px-3 py-2 text-left text-sm text-[#131316] hover:bg-[#131316]/[0.05]"
+            className="border-t border-foreground/10 px-3 py-2 text-left text-sm text-foreground hover:bg-foreground/[0.05]"
           >
             In Google Maps öffnen ↗
           </a>
           <button
             type="button"
             onClick={handleGpxExport}
-            className="border-t border-[#131316]/10 px-3 py-2 text-left text-sm text-[#131316] hover:bg-[#131316]/[0.05]"
+            className="border-t border-foreground/10 px-3 py-2 text-left text-sm text-foreground hover:bg-foreground/[0.05]"
           >
             GPX exportieren
           </button>
@@ -123,7 +123,7 @@ export default function RouteActionsMenu({
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setOpen(false)}
-              className="border-t border-[#131316]/10 px-3 py-2 text-left text-sm text-[#131316] hover:bg-[#131316]/[0.05]"
+              className="border-t border-foreground/10 px-3 py-2 text-left text-sm text-foreground hover:bg-foreground/[0.05]"
             >
               Live-Passstatus (TCS) ↗
             </a>
@@ -132,7 +132,7 @@ export default function RouteActionsMenu({
             <Link
               href={`/strecken/${route.id}/bearbeiten`}
               onClick={() => setOpen(false)}
-              className="border-t border-[#131316]/10 px-3 py-2 text-left text-sm text-[#131316] hover:bg-[#131316]/[0.05]"
+              className="border-t border-foreground/10 px-3 py-2 text-left text-sm text-foreground hover:bg-foreground/[0.05]"
             >
               Bearbeiten
             </Link>
@@ -142,7 +142,7 @@ export default function RouteActionsMenu({
               <Link
                 href={`/strecken/${route.id}/bearbeiten`}
                 onClick={() => setOpen(false)}
-                className="border-t border-[#131316]/10 px-3 py-2 text-left text-sm text-[#131316] hover:bg-[#131316]/[0.05]"
+                className="border-t border-foreground/10 px-3 py-2 text-left text-sm text-foreground hover:bg-foreground/[0.05]"
               >
                 Bearbeiten (Moderation)
               </Link>
@@ -150,7 +150,7 @@ export default function RouteActionsMenu({
                 type="button"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="border-t border-[#131316]/10 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-600/5 disabled:opacity-50"
+                className="border-t border-foreground/10 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-600/5 disabled:opacity-50"
               >
                 {deleting ? "Wird gelöscht…" : "Strecke löschen"}
               </button>

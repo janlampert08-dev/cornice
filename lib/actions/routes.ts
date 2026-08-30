@@ -93,19 +93,11 @@ export async function proposeRoute(
     return { error: "Strecke konnte nicht gespeichert werden." };
   }
 
-  // Serverseitig erzwungen: "privat" wird nur übernommen, wenn der Nutzer
-  // tatsächlich Premium ist — unabhängig davon, was das Formular schickt
-  // (NeueStreckeForm zeigt die Option Nicht-Premium-Nutzern ohnehin nicht an).
+  // Premium-Gating vorerst deaktiviert — private Strecken ohne
+  // Moderationspflicht stehen allen Nutzern offen, siehe
+  // components/PremiumCard.tsx.
   if (requestedPrivat) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("ist_premium")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (profile?.ist_premium) {
-      await supabase.from("routes").update({ ist_privat: true }).eq("id", data);
-    }
+    await supabase.from("routes").update({ ist_privat: true }).eq("id", data);
   }
 
   redirect(`/strecken/${data}`);

@@ -28,24 +28,20 @@ export default async function FahrerPage({
             name={profile.displayName}
             size={64}
           />
-          <h1
-            className={`text-xl font-semibold ${profile.zeigtPremiumBadge ? "text-[#C9A227]" : ""}`}
-          >
-            {profile.displayName ?? "Fahrer"}
-          </h1>
+          <h1 className="text-xl font-semibold">{profile.displayName ?? "Fahrer"}</h1>
         </div>
 
         {zeigtStatistiken && (
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-y border-[#131316]/10 py-4 text-sm">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-y border-foreground/10 py-4 text-sm">
             {profile.zeigtPaesse && (
               <div>
-                <dt className="text-[#8A8F98]">Pässe befahren</dt>
+                <dt className="text-muted">Pässe befahren</dt>
                 <dd className="font-mono text-lg tabular-nums">{profile.passCount}</dd>
               </div>
             )}
             {profile.zeigtHoehenmeter && (
               <div>
-                <dt className="text-[#8A8F98]">Höhenmeter gesammelt</dt>
+                <dt className="text-muted">Höhenmeter gesammelt</dt>
                 <dd className="font-mono text-lg tabular-nums">
                   {profile.hoehenmeter.toLocaleString("de-CH")} m
                 </dd>
@@ -53,7 +49,7 @@ export default async function FahrerPage({
             )}
             {profile.zeigtDistanz && (
               <div>
-                <dt className="text-[#8A8F98]">GPS-getrackte Distanz</dt>
+                <dt className="text-muted">GPS-getrackte Distanz</dt>
                 <dd className="font-mono text-lg tabular-nums">
                   {profile.distanzKm.toFixed(0)} km
                 </dd>
@@ -64,20 +60,20 @@ export default async function FahrerPage({
 
         {profile.zeigtFahrzeuge && (
           <section className="flex flex-col gap-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-[#8A8F98]">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
               Fahrzeuge
             </h2>
             {profile.vehicles.length === 0 ? (
-              <p className="text-sm text-[#8A8F98]">Keine Fahrzeuge hinterlegt.</p>
+              <p className="text-sm text-muted">Keine Fahrzeuge hinterlegt.</p>
             ) : (
               <ul className="flex flex-col">
                 {profile.vehicles.map((v) => (
                   <li
                     key={v.id}
-                    className="border-b border-[#131316]/10 py-2 text-sm text-[#131316]"
+                    className="border-b border-foreground/10 py-2 text-sm text-foreground"
                   >
                     {v.marke} {v.modell}
-                    {v.baujahr && <span className="ml-2 text-[#8A8F98]">({v.baujahr})</span>}
+                    {v.baujahr && <span className="ml-2 text-muted">({v.baujahr})</span>}
                   </li>
                 ))}
               </ul>
@@ -86,21 +82,21 @@ export default async function FahrerPage({
         )}
 
         <section className="flex flex-col gap-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-[#8A8F98]">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
             Gefahrene Strecken
           </h2>
           {profile.fahrten.length === 0 ? (
-            <p className="text-sm text-[#8A8F98]">Noch keine öffentlichen Fahrten.</p>
+            <p className="text-sm text-muted">Noch keine öffentlichen Fahrten.</p>
           ) : (
             <ul className="flex flex-col">
               {profile.fahrten.map((f, i) => (
                 <li key={`${f.route_id}-${f.datum}-${i}`}>
                   <Link
                     href={`/strecken/${f.route_id}`}
-                    className="flex items-baseline justify-between border-b border-[#131316]/10 py-2 text-sm transition-colors duration-150 hover:text-[#3D5AFE]"
+                    className="flex items-baseline justify-between border-b border-foreground/10 py-2 text-sm transition-colors duration-150 hover:text-accent"
                   >
                     <span>{f.route_name}</span>
-                    <span className="font-mono text-xs tabular-nums text-[#8A8F98]">
+                    <span className="font-mono text-xs tabular-nums text-muted">
                       {new Date(f.datum).toLocaleDateString("de-CH")}
                     </span>
                   </Link>
@@ -110,7 +106,7 @@ export default async function FahrerPage({
           )}
         </section>
 
-        {istPrivat && <p className="text-sm text-[#8A8F98]">Dieses Profil ist privat.</p>}
+        {istPrivat && <p className="text-sm text-muted">Dieses Profil ist privat.</p>}
       </main>
     </div>
   );

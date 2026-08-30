@@ -71,7 +71,8 @@ export async function getPublicProfile(userId: string): Promise<PublicProfile | 
     zeigtPaesse: profile.zeigt_paesse,
     zeigtHoehenmeter: profile.zeigt_hoehenmeter,
     zeigtDistanz: profile.zeigt_distanz,
-    zeigtPremiumBadge: profile.ist_premium && profile.zeigt_premium_badge,
+    // Premium-Feature (Gold-Badge) vorerst deaktiviert.
+    zeigtPremiumBadge: false,
     vehicles: (vehiclesResult.data as Vehicle[]) ?? [],
     fahrten,
     passCount,

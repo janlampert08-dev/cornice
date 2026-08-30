@@ -41,7 +41,7 @@ export default function ElevationProfile({ punkte }: { punkte: HoehenprofilPunkt
         <path d={linePath} fill="none" stroke="#3D5AFE" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
         <circle cx={x(gipfel.km)} cy={y(gipfel.m)} r="3" fill="#3D5AFE" />
       </svg>
-      <div className="flex justify-between font-mono text-xs tabular-nums text-[#8A8F98]">
+      <div className="flex justify-between font-mono text-xs tabular-nums text-muted">
         <span>{mMin} m</span>
         <span>{gipfel.m} m bei km {gipfel.km.toFixed(0)}</span>
         <span>{mMax} m</span>

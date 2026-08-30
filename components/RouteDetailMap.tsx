@@ -16,7 +16,7 @@ import type { RouteGeoJSON } from "@/types/database";
 // Siehe ExploreView.tsx für die Begründung des dynamischen Imports.
 const RouteMap = dynamic(() => import("@/components/RouteMap"), {
   ssr: false,
-  loading: () => <div className="h-full w-full bg-[#FAFAFA]" />,
+  loading: () => <div className="h-full w-full bg-background" />,
 });
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -79,18 +79,20 @@ export default function RouteDetailMap({ route }: { route: RouteGeoJSON }) {
 
   return (
     <div className="relative h-full w-full">
-      <RouteMap
-        routes={[route]}
-        showSpeedLimits={showSpeedLimits}
-        showTraffic={showTraffic}
-        trafficSegments={trafficSegments}
-      />
+      <div className="h-full w-full" role="img" aria-label={`Kartenansicht der Strecke ${route.name}`}>
+        <RouteMap
+          routes={[route]}
+          showSpeedLimits={showSpeedLimits}
+          showTraffic={showTraffic}
+          trafficSegments={trafficSegments}
+        />
+      </div>
       <div className="absolute left-4 top-4 flex flex-col items-start gap-2">
         <div className="flex flex-wrap gap-2">
           {hasTempolimits && (
             <button
               onClick={() => setShowSpeedLimits((v) => !v)}
-              className="border border-[#131316] bg-[#FAFAFA] px-3 py-1.5 text-sm font-medium text-[#131316] hover:bg-[#131316] hover:text-[#FAFAFA]"
+              className="border border-foreground bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-foreground hover:text-background"
             >
               {showSpeedLimits ? "Tempolimits ausblenden" : "Tempolimits anzeigen"}
             </button>
@@ -102,7 +104,7 @@ export default function RouteDetailMap({ route }: { route: RouteGeoJSON }) {
           />
         </div>
         {showSpeedLimits && (
-          <div className="flex flex-col gap-1 rounded-xl border border-[#131316]/15 shadow-sm bg-[#FAFAFA] px-3 py-2 text-xs text-[#131316]">
+          <div className="flex flex-col gap-1 rounded-xl border border-foreground/15 shadow-sm bg-background px-3 py-2 text-xs text-foreground">
             {SPEED_LEGEND.map((l) => (
               <div key={l.label} className="flex items-center gap-2">
                 <span className="h-0.5 w-4" style={{ backgroundColor: l.color }} />
@@ -112,7 +114,7 @@ export default function RouteDetailMap({ route }: { route: RouteGeoJSON }) {
           </div>
         )}
         {showTraffic && trafficSegments.length > 0 && (
-          <div className="flex flex-col gap-1 rounded-xl border border-[#131316]/15 shadow-sm bg-[#FAFAFA] px-3 py-2 text-xs text-[#131316]">
+          <div className="flex flex-col gap-1 rounded-xl border border-foreground/15 shadow-sm bg-background px-3 py-2 text-xs text-foreground">
             {Object.values(CONGESTION_META).map((meta) => (
               <div key={meta.label} className="flex items-center gap-2">
                 <span className="h-0.5 w-4" style={{ backgroundColor: meta.color }} />

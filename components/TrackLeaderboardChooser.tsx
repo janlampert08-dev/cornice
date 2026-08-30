@@ -47,7 +47,7 @@ export default function TrackLeaderboardChooser({
   return (
     <section className="flex flex-col gap-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-[#8A8F98]">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
           Streckenbestzeiten
         </h2>
         {routes.length > 0 && (
@@ -57,7 +57,7 @@ export default function TrackLeaderboardChooser({
               setRouteId(e.target.value);
               setExpanded(false);
             }}
-            className="w-full rounded-xl border border-[#131316]/20 bg-transparent px-2 py-1 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow sm:w-auto sm:max-w-[60%]"
+            className="w-full rounded-xl border border-foreground/20 bg-transparent px-2 py-1 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow sm:w-auto sm:max-w-[60%]"
           >
             {routes.map((r) => (
               <option key={r.id} value={r.id}>
@@ -69,9 +69,9 @@ export default function TrackLeaderboardChooser({
       </div>
 
       {routes.length === 0 ? (
-        <p className="text-sm text-[#8A8F98]">Noch keine Strecken vorhanden.</p>
+        <p className="text-sm text-muted">Noch keine Strecken vorhanden.</p>
       ) : entries.length === 0 ? (
-        <p className={`text-sm text-[#8A8F98] transition-opacity ${loading ? "opacity-40" : ""}`}>
+        <p className={`text-sm text-muted transition-opacity ${loading ? "opacity-40" : ""}`}>
           Noch keine geteilten Zeiten für diese Strecke.
         </p>
       ) : (
@@ -82,20 +82,18 @@ export default function TrackLeaderboardChooser({
             {visible.map((entry, i) => (
               <li
                 key={entry.completionId}
-                className="flex items-baseline justify-between border-b border-[#131316]/10 py-2 text-sm"
+                className="flex items-baseline justify-between border-b border-foreground/10 py-2 text-sm"
               >
                 <span>
-                  <span className="mr-2 font-mono text-[#8A8F98] tabular-nums">{i + 1}.</span>
+                  <span className="mr-2 font-mono text-muted tabular-nums">{i + 1}.</span>
                   <Link
                     href={`/fahrer/${entry.userId}`}
-                    className={`transition-colors duration-150 hover:text-[#3D5AFE] ${
-                      entry.isPremiumBadge ? "text-[#C9A227]" : ""
-                    }`}
+                    className="transition-colors duration-150 hover:text-accent"
                   >
                     {entry.name}
                   </Link>
                 </span>
-                <span className="font-mono tabular-nums text-[#3D5AFE]">
+                <span className="font-mono tabular-nums text-accent">
                   {formatDuration(entry.dauerSekunden)}
                 </span>
               </li>
@@ -105,7 +103,7 @@ export default function TrackLeaderboardChooser({
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
-              className="self-start text-xs text-[#3D5AFE] hover:underline"
+              className="self-start text-xs text-accent hover:underline"
             >
               {expanded ? "Weniger anzeigen" : "Top 10 anzeigen"}
             </button>

@@ -52,15 +52,15 @@ export default function PhotoInput({ name, id }: { name: string; id: string }) {
         className="sr-only"
       />
       {preview ? (
-        <div className="flex items-center gap-3 rounded-xl border border-[#131316]/20 px-3 py-2">
+        <div className="flex items-center gap-3 rounded-xl border border-foreground/20 px-3 py-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={preview} alt="" className="h-10 w-10 shrink-0 object-cover" />
-          <span className="flex-1 truncate text-[#131316]">{fileName}</span>
+          <span className="flex-1 truncate text-foreground">{fileName}</span>
           <button
             type="button"
             onClick={clear}
             aria-label="Foto entfernen"
-            className="shrink-0 text-[#8A8F98] hover:text-[#131316]"
+            className="shrink-0 text-muted hover:text-foreground"
           >
             ✕
           </button>
@@ -68,7 +68,7 @@ export default function PhotoInput({ name, id }: { name: string; id: string }) {
       ) : (
         <label
           htmlFor={id}
-          className="cursor-pointer border border-dashed border-[#131316]/30 px-3 py-3 text-center text-[#8A8F98] hover:border-[#131316] hover:text-[#131316]"
+          className="cursor-pointer border border-dashed border-foreground/30 px-3 py-3 text-center text-muted hover:border-foreground hover:text-foreground"
         >
           + Foto hinzufügen
         </label>

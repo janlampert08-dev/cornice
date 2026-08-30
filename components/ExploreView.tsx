@@ -14,7 +14,7 @@ import type { Kategorie, RouteGeoJSON } from "@/types/database";
 // da mapbox-gl direkten DOM-/WebGL-Zugriff braucht.
 const RouteMap = dynamic(() => import("@/components/RouteMap"), {
   ssr: false,
-  loading: () => <div className="h-full w-full bg-[#FAFAFA]" />,
+  loading: () => <div className="h-full w-full bg-background" />,
 });
 
 export default function ExploreView({
@@ -104,7 +104,11 @@ export default function ExploreView({
 
   return (
     <main className="flex flex-1 flex-col overflow-hidden md:flex-row">
-      <div className="h-64 shrink-0 md:order-2 md:h-auto md:flex-1">
+      <div
+        className="h-64 shrink-0 md:order-2 md:h-auto md:flex-1"
+        role="img"
+        aria-label="Kartenansicht der Strecken — die vollständige Liste steht in der Seitenleiste."
+      >
         <RouteMap
           routes={visibleRoutes}
           userLocation={userLocation}

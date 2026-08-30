@@ -1,3 +1,7 @@
+// Premium-UI ist vorerst deaktiviert (siehe components/PremiumCard.tsx) —
+// dieser Webhook bleibt unverändert aktiv und signaturgeprüft bestehen,
+// falls Stripe zwischenzeitlich Events für bestehende Abos sendet, und damit
+// Premium später ohne Backend-Änderungen reaktiviert werden kann.
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";

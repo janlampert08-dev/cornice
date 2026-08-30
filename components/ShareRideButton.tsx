@@ -69,7 +69,7 @@ export default function ShareRideButton({
       title="Fahrt als Bild teilen"
       disabled={loading}
       onClick={handleShare}
-      className="shrink-0 text-xs text-[#3D5AFE] hover:underline disabled:opacity-50"
+      className="shrink-0 text-xs text-accent hover:underline disabled:opacity-50"
     >
       {loading ? "…" : "Teilen"}
     </button>

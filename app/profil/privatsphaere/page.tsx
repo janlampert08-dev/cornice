@@ -13,9 +13,7 @@ export default async function PrivatsphaerePage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select(
-      "zeigt_fahrzeuge, zeigt_avatar, zeigt_paesse, zeigt_hoehenmeter, zeigt_distanz, ist_premium, zeigt_premium_badge",
-    )
+    .select("zeigt_fahrzeuge, zeigt_avatar, zeigt_paesse, zeigt_hoehenmeter, zeigt_distanz")
     .eq("id", user.id)
     .single();
 
@@ -25,7 +23,7 @@ export default async function PrivatsphaerePage() {
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 overflow-y-auto px-5 py-8 sm:px-6 sm:py-10">
         <div>
           <h1 className="text-xl font-semibold">Privatsphäre</h1>
-          <p className="mt-1 text-sm text-[#8A8F98]">
+          <p className="mt-1 text-sm text-muted">
             Legt fest, was andere Nutzer auf deinem öffentlichen Profil sehen. Standardmässig ist
             alles aus. Ob eine einzelne Fahrt öffentlich ist, entscheidest du separat im
             Fazit-Screen beim Speichern oder per Symbol bei &bdquo;Getrackte Fahrten&ldquo; in
@@ -39,8 +37,6 @@ export default async function PrivatsphaerePage() {
           zeigtPaesse={profile?.zeigt_paesse ?? false}
           zeigtHoehenmeter={profile?.zeigt_hoehenmeter ?? false}
           zeigtDistanz={profile?.zeigt_distanz ?? false}
-          istPremium={profile?.ist_premium ?? false}
-          zeigtPremiumBadge={profile?.zeigt_premium_badge ?? false}
         />
       </main>
     </div>

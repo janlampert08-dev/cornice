@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import RoutePicker from "@/components/RoutePicker";
+import BackButton from "@/components/BackButton";
 import { GlobeIcon, LockIcon } from "@/components/VisibilityIcons";
 import { KATEGORIEN } from "@/lib/constants";
 import { fetchDrivingRoute, type DirectionsResult } from "@/lib/mapboxDirections";
@@ -9,7 +10,7 @@ import { proposeRoute, type ProposeRouteState } from "@/lib/actions/routes";
 
 const initialState: ProposeRouteState = { error: null };
 
-export default function NeueStreckeForm({ istPremium }: { istPremium: boolean }) {
+export default function NeueStreckeForm() {
   const [state, formAction, pending] = useActionState(proposeRoute, initialState);
   const [waypoints, setWaypoints] = useState<[number, number][]>([]);
   const [rundfahrt, setRundfahrt] = useState(false);
@@ -60,11 +61,13 @@ export default function NeueStreckeForm({ istPremium }: { istPremium: boolean })
     <div className="flex h-dvh flex-col md:flex-row">
       <form
         action={formAction}
-        className="flex w-full flex-1 flex-col gap-4 overflow-y-auto border-[#131316]/10 px-6 py-8 md:max-w-sm md:border-r"
+        className="flex w-full flex-1 flex-col gap-4 overflow-y-auto border-foreground/10 px-6 py-8 md:max-w-sm md:border-r"
       >
+        <BackButton fallbackHref="/" />
+
         <div>
           <h1 className="text-xl font-semibold">Strecke vorschlagen</h1>
-          <p className="mt-1 text-sm text-[#8A8F98]">
+          <p className="mt-1 text-sm text-muted">
             Setze nacheinander Wegpunkte auf der Karte — die Route wird automatisch entlang
             echter Strassen berechnet. Öffentliche Vorschläge prüft ein Moderator, bevor sie
             sichtbar werden.
@@ -76,7 +79,7 @@ export default function NeueStreckeForm({ istPremium }: { istPremium: boolean })
           <input
             name="name"
             required
-            className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
+            className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
           />
         </label>
 
@@ -85,7 +88,7 @@ export default function NeueStreckeForm({ istPremium }: { istPremium: boolean })
           <input
             name="region"
             required
-            className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
+            className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
           />
         </label>
 
@@ -106,7 +109,7 @@ export default function NeueStreckeForm({ istPremium }: { istPremium: boolean })
               required
               value={startOrt}
               onChange={(e) => setStartOrt(e.target.value)}
-              className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
+              className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
             />
           </label>
           {rundfahrt ? (
@@ -117,27 +120,27 @@ export default function NeueStreckeForm({ istPremium }: { istPremium: boolean })
               <input
                 name="ziel_ort"
                 required
-                className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
+                className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
               />
             </label>
           )}
         </div>
 
-        <div className="flex items-center gap-3 text-xs text-[#8A8F98]">
+        <div className="flex items-center gap-3 text-xs text-muted">
           <span>{waypoints.length} Wegpunkt(e) gesetzt</span>
           {waypoints.length > 0 && (
-            <button type="button" onClick={undoLast} className="text-[#3D5AFE]">
+            <button type="button" onClick={undoLast} className="text-accent">
               Letzten entfernen
             </button>
           )}
           {waypoints.length > 0 && (
-            <button type="button" onClick={reset} className="text-[#3D5AFE]">
+            <button type="button" onClick={reset} className="text-accent">
               Zurücksetzen
             </button>
           )}
         </div>
 
-        <p className="text-xs text-[#8A8F98]">
+        <p className="text-xs text-muted">
           {waypoints.length === 0 && "Klicke auf die Karte, um den Startpunkt zu setzen."}
           {waypoints.length === 1 && "Klicke weitere Punkte entlang der gewünschten Strecke."}
           {waypoints.length > 1 && routing && "Route wird berechnet…"}
@@ -172,12 +175,12 @@ export default function NeueStreckeForm({ istPremium }: { istPremium: boolean })
             required
             readOnly
             value={activeDirections ? activeDirections.distanceKm.toFixed(1) : ""}
-            className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm font-mono outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
+            className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm font-mono outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
           />
         </label>
 
         <fieldset className="flex flex-col gap-2 text-sm">
-          <legend className="mb-1 text-[#8A8F98]">Kategorien</legend>
+          <legend className="mb-1 text-muted">Kategorien</legend>
           {KATEGORIEN.map((k) => (
             <label key={k.value} className="flex items-center gap-2">
               <input type="checkbox" name="kategorien" value={k.value} />
@@ -191,25 +194,19 @@ export default function NeueStreckeForm({ istPremium }: { istPremium: boolean })
           <textarea
             name="charakter_text"
             rows={3}
-            className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
+            className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
           />
         </label>
 
-        <div
-          title={istPremium ? undefined : "Nur mit Premium verfügbar"}
-          className={`flex flex-col gap-2 rounded-xl border border-[#131316]/15 shadow-sm bg-[#131316]/[0.03] px-3 py-3 text-sm ${
-            istPremium ? "" : "cursor-not-allowed opacity-40"
-          }`}
-        >
+        <div className="flex flex-col gap-2 rounded-xl border border-foreground/15 shadow-sm bg-foreground/[0.03] px-3 py-3 text-sm">
           <div className="flex gap-2">
             <button
               type="button"
-              disabled={!istPremium}
               onClick={() => setIstPrivat(true)}
-              className={`flex items-center gap-1.5 border px-3 py-1.5 text-sm disabled:cursor-not-allowed ${
+              className={`flex items-center gap-1.5 border px-3 py-1.5 text-sm ${
                 istPrivat
-                  ? "border-[#131316] bg-[#131316] text-[#FAFAFA]"
-                  : "border-[#131316]/30 text-[#8A8F98] hover:enabled:border-[#131316]"
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-foreground/30 text-muted hover:border-foreground"
               }`}
             >
               <LockIcon className="h-4 w-4" />
@@ -217,34 +214,35 @@ export default function NeueStreckeForm({ istPremium }: { istPremium: boolean })
             </button>
             <button
               type="button"
-              disabled={!istPremium}
               onClick={() => setIstPrivat(false)}
-              className={`flex items-center gap-1.5 border px-3 py-1.5 text-sm disabled:cursor-not-allowed ${
+              className={`flex items-center gap-1.5 border px-3 py-1.5 text-sm ${
                 !istPrivat
-                  ? "border-[#131316] bg-[#131316] text-[#FAFAFA]"
-                  : "border-[#131316]/30 text-[#8A8F98] hover:enabled:border-[#131316]"
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-foreground/30 text-muted hover:border-foreground"
               }`}
             >
               <GlobeIcon className="h-4 w-4" />
               Öffentlich
             </button>
           </div>
-          <p className="text-xs text-[#8A8F98]">
-            {!istPremium
-              ? "Nur mit Premium verfügbar."
-              : istPrivat
-                ? "Nur für dich sichtbar, bis du sie selbst veröffentlichst."
-                : "Durchläuft die Moderation und wird danach öffentlich."}
+          <p className="text-xs text-muted">
+            {istPrivat
+              ? "Nur für dich sichtbar, bis du sie selbst veröffentlichst."
+              : "Durchläuft die Moderation und wird danach öffentlich."}
           </p>
         </div>
-        <input type="hidden" name="ist_privat" value={istPremium && istPrivat ? "true" : "false"} />
+        <input type="hidden" name="ist_privat" value={istPrivat ? "true" : "false"} />
 
-        {state.error && <p className="text-sm text-red-600">{state.error}</p>}
+        {state.error && (
+          <p role="alert" className="text-sm text-red-600">
+            {state.error}
+          </p>
+        )}
 
         <button
           type="submit"
           disabled={pending || !activeDirections}
-          className="rounded-full border border-[#131316] bg-[#131316] shadow-sm transition-transform active:scale-95 px-4 py-2 text-sm font-medium text-[#FAFAFA] hover:opacity-90 disabled:opacity-50"
+          className="rounded-full border border-foreground bg-foreground shadow-sm transition-transform active:scale-95 px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
         >
           {pending ? "Speichern…" : istPrivat ? "Privat speichern" : "Vorschlagen"}
         </button>
