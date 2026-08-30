@@ -73,10 +73,12 @@ export default function ExploreSidebar({
         {locationError && <p className="text-xs text-muted">{locationError}</p>}
       </div>
 
-      {/* Horizontal scrollbare Chip-Reihe statt Checkboxen/Dropdown — mehrere
-          Tags lassen sich per Antippen kombinieren (ODER-Verknüpfung, siehe
-          ExploreView), ohne dass die Auswahl auf Mobile viel Platz braucht. */}
-      <div className="-mx-5 flex gap-2 overflow-x-auto scrollbar-hide px-5 pb-1 sm:-mx-6 sm:px-6">
+      {/* Umbrechende Chip-Reihe statt Checkboxen/Dropdown — mehrere Tags lassen
+          sich per Antippen kombinieren (ODER-Verknüpfung, siehe ExploreView).
+          Bewusst kein horizontales Scrollen: bei nur 4 Kategorien zeigt
+          Umbrechen alle Optionen sofort, statt einen Teil ohne erkennbaren
+          Scroll-Hinweis ausserhalb des sichtbaren Bereichs zu verstecken. */}
+      <div className="flex flex-wrap gap-2">
         {KATEGORIEN.map((k) => {
           const active = selectedKategorien.includes(k.value);
           return (

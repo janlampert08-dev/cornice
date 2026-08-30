@@ -53,14 +53,3 @@ textarea {
     padding-bottom: calc(4.25rem + var(--safe-bottom));
   }
 }
-
-/* Für horizontal scrollbare Chip-/Tag-Reihen (z.B. Kategorie-Filter) — das
-   Scrollen per Wisch/Trackpad bleibt erhalten, nur der native, unbestylte
-   Scrollbalken wird ausgeblendet, wie in nativen iOS/Android-Apps üblich. */
-.scrollbar-hide {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
