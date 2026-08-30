@@ -6,7 +6,7 @@ export async function GET(request: Request) {
     // Simple API key auth
     const requiredKey = process.env.AGENT_API_KEY;
     const url = new URL(request.url);
-    const providedKey = request.headers.get('x-agent-api-key') || url.searchParams.get('apiKey');
+    const providedKey = request.headers.get('x-agent-api-key');
     if (!requiredKey) {
       return new Response(JSON.stringify({ success: false, error: 'Server misconfigured: AGENT_API_KEY not set' }), { status: 500, headers: { 'content-type': 'application/json' } });
     }

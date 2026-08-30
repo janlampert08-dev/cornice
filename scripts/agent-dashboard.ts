@@ -4,6 +4,12 @@ import { ExpressAdapter } from '@bull-board/express';
 import { BullMQAdapter } from '@bull-board/api/bullMQ';
 import queueModule from '../lib/queue';
 
+// Dashboard must only run in development/local contexts
+if (process.env.NODE_ENV === 'production') {
+  console.error('Agent dashboard should NOT run in production. Exiting.');
+  process.exit(1);
+}
+
 const app = express();
 const serverAdapter = new ExpressAdapter();
 serverAdapter.setBasePath('/admin/queues');
