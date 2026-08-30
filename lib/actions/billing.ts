@@ -1,5 +1,9 @@
 "use server";
 
+// Premium-UI ist vorerst deaktiviert (siehe components/PremiumCard.tsx) —
+// diese Actions sind dadurch von keiner Seite mehr aus erreichbar, bleiben
+// aber unverändert bestehen, damit Premium später ohne Backend-Änderungen
+// reaktiviert werden kann.
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";

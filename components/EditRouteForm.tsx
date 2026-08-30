@@ -32,7 +32,7 @@ export default function EditRouteForm({
         <h1 className="text-xl font-semibold">
           {adminMode ? "Strecke bearbeiten (Moderation)" : "Vorschlag bearbeiten"}
         </h1>
-        <p className="mt-1 text-sm text-[#8A8F98]">
+        <p className="mt-1 text-sm text-muted">
           {adminMode
             ? "Der Streckenverlauf selbst kann hier nicht geändert werden. Änderungen sind sofort für alle sichtbar."
             : "Der Streckenverlauf selbst kann hier nicht geändert werden — bei Problemen mit der Route lieber neu vorschlagen. Nach dem Speichern geht der Vorschlag erneut zur Prüfung."}
@@ -45,7 +45,7 @@ export default function EditRouteForm({
           name="name"
           required
           defaultValue={route.name}
-          className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
+          className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
         />
       </label>
 
@@ -55,7 +55,7 @@ export default function EditRouteForm({
           name="region"
           required
           defaultValue={route.region}
-          className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
+          className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
         />
       </label>
 
@@ -67,7 +67,7 @@ export default function EditRouteForm({
             required
             value={startOrt}
             onChange={(e) => setStartOrt(e.target.value)}
-            className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
+            className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
           />
         </label>
         {route.ist_rundfahrt ? (
@@ -79,14 +79,14 @@ export default function EditRouteForm({
               name="ziel_ort"
               required
               defaultValue={route.ziel_ort}
-              className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
+              className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
             />
           </label>
         )}
       </div>
 
       <fieldset className="flex flex-col gap-2 text-sm">
-        <legend className="mb-1 text-[#8A8F98]">Kategorien</legend>
+        <legend className="mb-1 text-muted">Kategorien</legend>
         {KATEGORIEN.map((k) => (
           <label key={k.value} className="flex items-center gap-2">
             <input
@@ -106,7 +106,7 @@ export default function EditRouteForm({
           name="charakter_text"
           rows={3}
           defaultValue={route.charakter_text ?? ""}
-          className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
+          className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
         />
       </label>
 
@@ -115,7 +115,7 @@ export default function EditRouteForm({
       <button
         type="submit"
         disabled={pending}
-        className="self-start rounded-full border border-[#131316] bg-[#131316] shadow-sm transition-transform active:scale-95 px-4 py-2 text-sm font-medium text-[#FAFAFA] hover:opacity-90 disabled:opacity-50"
+        className="self-start rounded-full border border-foreground bg-foreground shadow-sm transition-transform active:scale-95 px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
       >
         {pending ? "Speichern…" : "Speichern"}
       </button>

@@ -28,7 +28,8 @@ export async function getRatings(routeId: string): Promise<RatingWithAuthor[]> {
     return {
       ...r,
       display_name: profile?.display_name ?? null,
-      is_premium_badge: Boolean(profile?.ist_premium && profile?.zeigt_premium_badge),
+      // Premium-Feature (Gold-Badge) vorerst deaktiviert.
+      is_premium_badge: false,
     };
   });
 }

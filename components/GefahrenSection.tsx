@@ -22,15 +22,15 @@ export default function GefahrenSection({
 
   if (!open) {
     return (
-      <div className="flex flex-col items-center gap-2 border-t border-[#131316]/10 pt-6 text-center">
+      <div className="flex flex-col items-center gap-2 border-t border-foreground/10 pt-6 text-center">
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="rounded-full border border-[#131316] bg-[#131316] shadow-sm transition-transform active:scale-95 px-10 py-3.5 text-base font-medium text-[#FAFAFA] hover:opacity-90"
+          className="rounded-full border border-accent bg-accent shadow-sm transition-transform active:scale-95 px-10 py-3.5 text-base font-medium text-background hover:opacity-90"
         >
           Strecke starten
         </button>
-        <p className="max-w-xs text-xs text-[#8A8F98]">
+        <p className="max-w-xs text-xs text-muted">
           Fahr nur so schnell, wie es sicher und erlaubt ist. Nutzt den Standort deines
           Browsers — der Tab muss während der Fahrt geöffnet bleiben.
         </p>

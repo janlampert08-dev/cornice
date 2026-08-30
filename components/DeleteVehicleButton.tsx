@@ -14,7 +14,7 @@ export default function DeleteVehicleButton({ vehicleId }: { vehicleId: string }
         }
       }}
       disabled={pending}
-      className="text-xs text-[#8A8F98] hover:text-[#131316] disabled:opacity-50"
+      className="text-xs text-muted hover:text-foreground disabled:opacity-50"
     >
       Entfernen
     </button>

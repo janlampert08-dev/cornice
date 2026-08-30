@@ -1,3 +1,7 @@
+// Premium-UI ist vorerst deaktiviert (siehe components/PremiumCard.tsx) —
+// aktuell nur noch von den auskommentierten components/PremiumCheckoutForm.tsx
+// referenziert, bleibt aber unverändert bestehen, um Premium später ohne
+// Backend-Änderungen reaktivieren zu können.
 import { loadStripe, type Stripe } from "@stripe/stripe-js";
 
 let stripePromise: Promise<Stripe | null> | undefined;

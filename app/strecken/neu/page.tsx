@@ -10,11 +10,5 @@ export default async function NeueStreckePage() {
 
   if (!user) redirect("/anmelden");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("ist_premium")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  return <NeueStreckeForm istPremium={profile?.ist_premium ?? false} />;
+  return <NeueStreckeForm />;
 }

@@ -31,7 +31,7 @@ export default function AvatarUpload({
         />
         <label
           htmlFor="avatar-input"
-          className="cursor-pointer self-start rounded-xl border border-[#131316]/20 px-3 py-1.5 text-sm text-[#131316] hover:border-[#131316]"
+          className="cursor-pointer self-start rounded-xl border border-foreground/20 px-3 py-1.5 text-sm text-foreground hover:border-foreground"
         >
           {pending ? "Wird hochgeladen…" : "Profilbild ändern"}
         </label>

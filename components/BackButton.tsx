@@ -11,7 +11,7 @@ export default function BackButton({ fallbackHref }: { fallbackHref: string }) {
         if (window.history.length > 1) router.back();
         else router.push(fallbackHref);
       }}
-      className="flex shrink-0 items-center gap-1 whitespace-nowrap text-sm text-[#8A8F98] hover:text-[#131316]"
+      className="flex shrink-0 items-center gap-1 whitespace-nowrap text-sm text-muted hover:text-foreground"
     >
       ← Zurück
     </button>

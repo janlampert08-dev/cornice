@@ -27,14 +27,14 @@ describe("aggregateLeaderboards", () => {
     ]);
   });
 
-  it("shows the premium badge only when both ist_premium and zeigt_premium_badge are true", () => {
+  it("never shows the premium badge while the Premium feature is disabled", () => {
     const rows = [
       row({ user_id: "u1", ist_premium: true, zeigt_premium_badge: true }),
       row({ user_id: "u2", route_id: "r2", ist_premium: true, zeigt_premium_badge: false }),
     ];
     const { meistePaesse } = aggregateLeaderboards(rows);
     const badgeByUser = new Map(meistePaesse.map((e) => [e.userId, e.isPremiumBadge]));
-    expect(badgeByUser.get("u1")).toBe(true);
+    expect(badgeByUser.get("u1")).toBe(false);
     expect(badgeByUser.get("u2")).toBe(false);
   });
 

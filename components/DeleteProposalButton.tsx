@@ -15,7 +15,7 @@ export default function DeleteProposalButton({ routeId }: { routeId: string }) {
         }
       }}
       disabled={pending}
-      className="shrink-0 text-xs text-[#8A8F98] hover:text-red-600 disabled:opacity-50"
+      className="shrink-0 text-xs text-muted hover:text-red-600 disabled:opacity-50"
     >
       Löschen
     </button>

@@ -49,20 +49,20 @@ export default function ExploreSidebar({
   );
 
   return (
-    <div className="flex w-full flex-col gap-5 overflow-y-auto overscroll-y-contain border-[#131316]/10 px-5 py-5 sm:px-6 sm:py-6 md:max-w-sm md:border-r">
+    <div className="flex w-full flex-col gap-5 overflow-y-auto overscroll-y-contain border-foreground/10 px-5 py-5 sm:px-6 sm:py-6 md:max-w-sm md:border-r">
       <input
         type="search"
         value={searchQuery}
         onChange={(e) => onSearchChange(e.target.value)}
         placeholder="Strecke, Region oder Ort suchen…"
-        className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
+        className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
       />
 
-      <div className="flex flex-col items-start gap-2 border-b border-[#131316]/10 pb-6">
+      <div className="flex flex-col items-start gap-2 border-b border-foreground/10 pb-6">
         <button
           onClick={onRequestLocation}
           disabled={locating}
-          className="border border-[#131316] bg-[#FAFAFA] px-3 py-1.5 text-sm font-medium text-[#131316] hover:bg-[#131316] hover:text-[#FAFAFA] disabled:opacity-50"
+          className="border border-foreground bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-foreground hover:text-background disabled:opacity-50"
         >
           {locating
             ? "Suche Standort…"
@@ -70,7 +70,7 @@ export default function ExploreSidebar({
               ? "Standort aktualisieren"
               : "Strecken in meiner Nähe"}
         </button>
-        {locationError && <p className="text-xs text-[#8A8F98]">{locationError}</p>}
+        {locationError && <p className="text-xs text-muted">{locationError}</p>}
       </div>
 
       {/* Horizontal scrollbare Chip-Reihe statt Checkboxen/Dropdown — mehrere
@@ -87,8 +87,8 @@ export default function ExploreSidebar({
               aria-pressed={active}
               className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-medium transition-colors duration-150 active:scale-95 ${
                 active
-                  ? "border-[#3D5AFE] bg-[#3D5AFE] text-[#FAFAFA]"
-                  : "border-[#131316]/20 bg-transparent text-[#131316] hover:border-[#131316]"
+                  ? "border-accent bg-accent text-background"
+                  : "border-foreground/20 bg-transparent text-foreground hover:border-foreground"
               }`}
             >
               {k.label}
@@ -104,7 +104,7 @@ export default function ExploreSidebar({
           </li>
         )}
         {routes.length === 0 && !loadError && (
-          <li className="text-sm text-[#8A8F98]">Keine Strecken für diese Suche.</li>
+          <li className="text-sm text-muted">Keine Strecken für diese Suche.</li>
         )}
         {routes.map((route) => {
           const signature = signatures.get(route.id);
@@ -130,7 +130,7 @@ export default function ExploreSidebar({
                     borderLeftColor: withAlpha(trackColor, 0.55),
                   } as CSSProperties
                 }
-                className="group flex h-20 items-center gap-3 border-b border-[#131316]/10 border-l-[3px] py-3 pl-3 pr-2 transition-colors duration-150 hover:bg-[var(--track-hover-bg)] active:bg-[var(--track-hover-bg)]"
+                className="group flex h-20 items-center gap-3 border-b border-foreground/10 border-l-[3px] py-3 pl-3 pr-2 transition-colors duration-150 hover:bg-[var(--track-hover-bg)] active:bg-[var(--track-hover-bg)]"
               >
                 <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
                   <span className="truncate text-base font-medium transition-colors duration-150 group-hover:text-[var(--track-color)]">
@@ -138,7 +138,7 @@ export default function ExploreSidebar({
                   </span>
                   <div className="flex items-center gap-2">
                     {showPlainKm && (
-                      <span className="font-mono text-sm tabular-nums text-[#8A8F98]">
+                      <span className="font-mono text-sm tabular-nums text-muted">
                         {route.laenge_km} km
                       </span>
                     )}

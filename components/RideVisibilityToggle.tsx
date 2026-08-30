@@ -37,12 +37,12 @@ export default function RideVisibilityToggle({
             setError(result.error);
           })
         }
-        className="text-[#8A8F98] transition-colors duration-150 hover:text-[#3D5AFE] disabled:opacity-30"
+        className="text-muted transition-colors duration-150 hover:text-accent disabled:opacity-30"
       >
         {isPublic ? <GlobeIcon className="h-4 w-4" /> : <LockIcon className="h-4 w-4" />}
       </button>
       {error && (
-        <p className="absolute right-0 top-full z-10 mt-1 w-48 rounded-xl border border-[#131316]/15 shadow-sm bg-[#FAFAFA] p-2 text-right text-xs text-red-600">
+        <p className="absolute right-0 top-full z-10 mt-1 w-48 rounded-xl border border-foreground/15 shadow-sm bg-background p-2 text-right text-xs text-red-600">
           {error}
         </p>
       )}

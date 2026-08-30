@@ -11,7 +11,6 @@ export interface VisibilityFlags {
   zeigtPaesse: boolean;
   zeigtHoehenmeter: boolean;
   zeigtDistanz: boolean;
-  zeigtPremiumBadge: boolean;
 }
 
 const FIELDS: { name: keyof VisibilityFlags; formKey: string; label: string }[] = [
@@ -22,10 +21,7 @@ const FIELDS: { name: keyof VisibilityFlags; formKey: string; label: string }[] 
   { name: "zeigtDistanz", formKey: "zeigt_distanz", label: "GPS-getrackte Gesamtdistanz zeigen" },
 ];
 
-export default function VisibilitySettings({
-  istPremium,
-  ...flags
-}: VisibilityFlags & { istPremium: boolean }) {
+export default function VisibilitySettings(flags: VisibilityFlags) {
   const [state, formAction, pending] = useActionState(updateVisibilitySettings, initialState);
 
   return (
@@ -42,23 +38,18 @@ export default function VisibilitySettings({
         </label>
       ))}
 
-      {istPremium && (
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            name="zeigt_premium_badge"
-            value="true"
-            defaultChecked={flags.zeigtPremiumBadge}
-          />
-          Premium-Symbol neben dem Namen zeigen
-        </label>
-      )}
+      {/* Premium-Symbol-Einstellung vorerst deaktiviert, siehe
+          components/PremiumCard.tsx. */}
 
-      {state.error && <p className="text-sm text-red-600">{state.error}</p>}
+      {state.error && (
+        <p role="alert" className="text-sm text-red-600">
+          {state.error}
+        </p>
+      )}
       <button
         type="submit"
         disabled={pending}
-        className="self-start rounded-full border border-[#131316] bg-[#131316] shadow-sm transition-transform active:scale-95 px-4 py-2 text-sm font-medium text-[#FAFAFA] hover:opacity-90 disabled:opacity-50"
+        className="self-start rounded-full border border-foreground bg-foreground shadow-sm transition-transform active:scale-95 px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
       >
         {pending ? "Speichern…" : "Einstellungen speichern"}
       </button>

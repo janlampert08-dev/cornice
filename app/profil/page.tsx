@@ -6,7 +6,7 @@ import DeleteProposalButton from "@/components/DeleteProposalButton";
 import AvatarUpload from "@/components/AvatarUpload";
 import RideVisibilityToggle from "@/components/RideVisibilityToggle";
 import ShareRideButton from "@/components/ShareRideButton";
-import PremiumCard from "@/components/PremiumCard";
+// Premium-Feature vorerst deaktiviert, siehe components/PremiumCard.tsx.
 import { createClient } from "@/lib/supabase/server";
 import { formatDuration } from "@/lib/format";
 import type { Vehicle } from "@/types/database";
@@ -35,7 +35,7 @@ export default async function ProfilPage() {
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("display_name, avatar_url, zeigt_fahrzeuge, ist_premium")
+      .select("display_name, avatar_url, zeigt_fahrzeuge")
       .eq("id", user.id)
       .single(),
     // Explizit auf den eigenen Nutzer filtern statt allein auf RLS zu
@@ -129,7 +129,7 @@ export default async function ProfilPage() {
           <div className="flex items-start justify-between gap-4">
             <AvatarUpload avatarUrl={profile?.avatar_url ?? null} name={profile?.display_name ?? null} />
             <form action="/auth/abmelden" method="post" className="shrink-0">
-              <button className="whitespace-nowrap text-sm text-[#8A8F98] hover:text-[#131316]">
+              <button className="whitespace-nowrap text-sm text-muted hover:text-foreground">
                 Abmelden
               </button>
             </form>
@@ -138,57 +138,55 @@ export default async function ProfilPage() {
             <h1 className="text-xl font-semibold">
               {profile?.display_name ?? user.email}
             </h1>
-            <p className="text-sm text-[#8A8F98]">{user.email}</p>
+            <p className="text-sm text-muted">{user.email}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
               href="/strecken/neu"
-              className="self-start rounded-full border border-[#131316] transition-transform active:scale-95 px-3 py-1.5 text-sm font-medium text-[#131316] hover:bg-[#131316] hover:text-[#FAFAFA]"
+              className="self-start rounded-full border border-foreground transition-transform active:scale-95 px-3 py-1.5 text-sm font-medium text-foreground hover:bg-foreground hover:text-background"
             >
               + Strecke vorschlagen
             </Link>
             <Link
               href={`/fahrer/${user.id}`}
-              className="self-start rounded-xl border border-[#131316]/20 px-3 py-1.5 text-sm text-[#131316] hover:border-[#131316]"
+              className="self-start rounded-xl border border-foreground/20 px-3 py-1.5 text-sm text-foreground hover:border-foreground"
             >
               Öffentliches Profil ansehen
             </Link>
             <Link
               href="/profil/privatsphaere"
-              className="self-start rounded-xl border border-[#131316]/20 px-3 py-1.5 text-sm text-[#131316] hover:border-[#131316]"
+              className="self-start rounded-xl border border-foreground/20 px-3 py-1.5 text-sm text-foreground hover:border-foreground"
             >
               Privatsphäre-Einstellungen
             </Link>
           </div>
         </div>
 
-        <PremiumCard istPremium={profile?.ist_premium ?? false} />
-
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-y border-[#131316]/10 py-4 text-sm">
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-y border-foreground/10 py-4 text-sm">
           <div>
-            <dt className="text-[#8A8F98]">Pässe befahren</dt>
+            <dt className="text-muted">Pässe befahren</dt>
             <dd className="font-mono text-lg tabular-nums">{passCount}</dd>
           </div>
           <div>
-            <dt className="text-[#8A8F98]">Höhenmeter gesammelt</dt>
+            <dt className="text-muted">Höhenmeter gesammelt</dt>
             <dd className="font-mono text-lg tabular-nums">
               {hoehenmeter.toLocaleString("de-CH")} m
             </dd>
           </div>
           <div>
-            <dt className="text-[#8A8F98]">Km gefahren</dt>
+            <dt className="text-muted">Km gefahren</dt>
             <dd className="font-mono text-lg tabular-nums">
               {getrackteDistanzGesamt.toFixed(0)} km
             </dd>
           </div>
           <div>
-            <dt className="text-[#8A8F98]">Anzahl Fahrten</dt>
+            <dt className="text-muted">Anzahl Fahrten</dt>
             <dd className="font-mono text-lg tabular-nums">{trackedRides?.length ?? 0}</dd>
           </div>
         </dl>
 
         <section className="flex flex-col gap-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-[#8A8F98]">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
             Getrackte Fahrten
           </h2>
           {trackedRides && trackedRides.length > 0 ? (
@@ -197,19 +195,19 @@ export default async function ProfilPage() {
                 const avgKmh =
                   ride.dauer_sekunden > 0 ? ride.distanz_km / (ride.dauer_sekunden / 3600) : 0;
                 return (
-                  <li key={ride.id} className="border-b border-[#131316]/10 py-2">
+                  <li key={ride.id} className="border-b border-foreground/10 py-2">
                     <div className="flex items-center justify-between gap-3">
                       <Link
                         href={`/strecken/${ride.route_id}`}
-                        className="flex min-w-0 flex-1 items-baseline justify-between text-sm transition-colors duration-150 hover:text-[#3D5AFE]"
+                        className="flex min-w-0 flex-1 items-baseline justify-between text-sm transition-colors duration-150 hover:text-accent"
                       >
                         <span className="truncate">
                           {ride.routes?.name ?? "Strecke"}
-                          <span className="ml-2 text-xs text-[#8A8F98]">
+                          <span className="ml-2 text-xs text-muted">
                             {new Date(ride.datum).toLocaleDateString("de-CH")}
                           </span>
                         </span>
-                        <span className="ml-2 shrink-0 font-mono tabular-nums text-[#8A8F98]">
+                        <span className="ml-2 shrink-0 font-mono tabular-nums text-muted">
                           {ride.distanz_km.toFixed(1)} km · {formatDuration(ride.dauer_sekunden)} ·{" "}
                           {avgKmh.toFixed(0)} km/h
                         </span>
@@ -229,23 +227,23 @@ export default async function ProfilPage() {
                       </div>
                     </div>
                     {ride.notiz && (
-                      <p className="mt-1 text-sm text-[#8A8F98]">{ride.notiz}</p>
+                      <p className="mt-1 text-sm text-muted">{ride.notiz}</p>
                     )}
                   </li>
                 );
               })}
             </ul>
           ) : (
-            <p className="text-sm text-[#8A8F98]">Noch keine Fahrten aufgezeichnet.</p>
+            <p className="text-sm text-muted">Noch keine Fahrten aufgezeichnet.</p>
           )}
         </section>
 
         <section className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-[#8A8F98]">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
               Fahrzeuge
             </h2>
-            <Link href="/profil/fahrzeuge/neu" className="text-sm text-[#3D5AFE]">
+            <Link href="/profil/fahrzeuge/neu" className="text-sm text-accent">
               + Fahrzeug hinzufügen
             </Link>
           </div>
@@ -254,7 +252,7 @@ export default async function ProfilPage() {
 
         {ownRoutes && ownRoutes.length > 0 && (
           <section className="flex flex-col gap-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-[#8A8F98]">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
               Meine Streckenvorschläge
             </h2>
             <ul className="flex flex-col">
@@ -267,18 +265,18 @@ export default async function ProfilPage() {
                       ? "Abgelehnt"
                       : "Ausstehend";
                 const color = route.status_ok
-                  ? "text-[#3D5AFE]"
+                  ? "text-accent"
                   : route.abgelehnt_am
                     ? "text-red-600"
-                    : "text-[#8A8F98]";
+                    : "text-muted";
                 return (
                   <li
                     key={route.id}
-                    className="flex items-center justify-between gap-3 border-b border-[#131316]/10 py-2"
+                    className="flex items-center justify-between gap-3 border-b border-foreground/10 py-2"
                   >
                     <Link
                       href={`/strecken/${route.id}`}
-                      className="truncate transition-colors duration-150 hover:text-[#3D5AFE]"
+                      className="truncate transition-colors duration-150 hover:text-accent"
                     >
                       {route.name}
                     </Link>
@@ -287,7 +285,7 @@ export default async function ProfilPage() {
                       {!route.status_ok && (
                         <Link
                           href={`/strecken/${route.id}/bearbeiten`}
-                          className="text-xs text-[#8A8F98] hover:text-[#131316]"
+                          className="text-xs text-muted hover:text-foreground"
                         >
                           Bearbeiten
                         </Link>
@@ -302,7 +300,7 @@ export default async function ProfilPage() {
         )}
 
         <section className="flex flex-col gap-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-[#8A8F98]">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
             Favoriten
           </h2>
           {favorites && favorites.length > 0 ? (
@@ -312,12 +310,12 @@ export default async function ProfilPage() {
                   <li key={f.route_id}>
                     <Link
                       href={`/strecken/${f.route_id}`}
-                      className="group flex items-baseline justify-between border-b border-[#131316]/10 py-2 transition-colors duration-150 hover:bg-[#3D5AFE]/[0.06]"
+                      className="group flex items-baseline justify-between border-b border-foreground/10 py-2 transition-colors duration-150 hover:bg-accent/[0.06]"
                     >
-                      <span className="transition-colors duration-150 group-hover:text-[#3D5AFE]">
+                      <span className="transition-colors duration-150 group-hover:text-accent">
                         {f.routes.name}
                       </span>
-                      <span className="font-mono text-sm tabular-nums text-[#8A8F98]">
+                      <span className="font-mono text-sm tabular-nums text-muted">
                         {f.routes.laenge_km} km
                       </span>
                     </Link>
@@ -326,7 +324,7 @@ export default async function ProfilPage() {
               )}
             </ul>
           ) : (
-            <p className="text-sm text-[#8A8F98]">Noch keine Favoriten gemerkt.</p>
+            <p className="text-sm text-muted">Noch keine Favoriten gemerkt.</p>
           )}
         </section>
 
