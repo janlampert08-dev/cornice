@@ -44,13 +44,13 @@ export default function RatingSection({
             defaultValue={ownRating?.kommentar ?? ""}
             placeholder="Kommentar"
             rows={2}
-            className="border border-[#131316]/30 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE]"
+            className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
           />
           {state.error && <p className="text-sm text-red-600">{state.error}</p>}
           <button
             type="submit"
             disabled={pending}
-            className="self-start border border-[#131316] px-3 py-1.5 text-sm font-medium hover:bg-[#131316] hover:text-[#FAFAFA] disabled:opacity-50"
+            className="self-start rounded-full border border-[#131316] transition-transform active:scale-95 px-3 py-1.5 text-sm font-medium hover:bg-[#131316] hover:text-[#FAFAFA] disabled:opacity-50"
           >
             {ownRating ? "Kommentar aktualisieren" : "Kommentieren"}
           </button>

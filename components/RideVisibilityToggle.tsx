@@ -42,7 +42,7 @@ export default function RideVisibilityToggle({
         {isPublic ? <GlobeIcon className="h-4 w-4" /> : <LockIcon className="h-4 w-4" />}
       </button>
       {error && (
-        <p className="absolute right-0 top-full z-10 mt-1 w-48 border border-[#131316]/20 bg-[#FAFAFA] p-2 text-right text-xs text-red-600">
+        <p className="absolute right-0 top-full z-10 mt-1 w-48 rounded-xl border border-[#131316]/15 shadow-sm bg-[#FAFAFA] p-2 text-right text-xs text-red-600">
           {error}
         </p>
       )}

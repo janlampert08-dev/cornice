@@ -102,7 +102,7 @@ export default function RouteDetailMap({ route }: { route: RouteGeoJSON }) {
           />
         </div>
         {showSpeedLimits && (
-          <div className="flex flex-col gap-1 border border-[#131316]/20 bg-[#FAFAFA] px-3 py-2 text-xs text-[#131316]">
+          <div className="flex flex-col gap-1 rounded-xl border border-[#131316]/15 shadow-sm bg-[#FAFAFA] px-3 py-2 text-xs text-[#131316]">
             {SPEED_LEGEND.map((l) => (
               <div key={l.label} className="flex items-center gap-2">
                 <span className="h-0.5 w-4" style={{ backgroundColor: l.color }} />
@@ -112,7 +112,7 @@ export default function RouteDetailMap({ route }: { route: RouteGeoJSON }) {
           </div>
         )}
         {showTraffic && trafficSegments.length > 0 && (
-          <div className="flex flex-col gap-1 border border-[#131316]/20 bg-[#FAFAFA] px-3 py-2 text-xs text-[#131316]">
+          <div className="flex flex-col gap-1 rounded-xl border border-[#131316]/15 shadow-sm bg-[#FAFAFA] px-3 py-2 text-xs text-[#131316]">
             {Object.values(CONGESTION_META).map((meta) => (
               <div key={meta.label} className="flex items-center gap-2">
                 <span className="h-0.5 w-4" style={{ backgroundColor: meta.color }} />

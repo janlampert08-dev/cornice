@@ -50,7 +50,7 @@ export default function ExploreSidebar({
         value={searchQuery}
         onChange={(e) => onSearchChange(e.target.value)}
         placeholder="Strecke, Region oder Ort suchen…"
-        className="border border-[#131316]/30 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE]"
+        className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
       />
 
       <div className="flex flex-col items-start gap-2 border-b border-[#131316]/10 pb-6">

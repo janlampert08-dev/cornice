@@ -3,7 +3,7 @@ import { createPortalSession } from "@/lib/actions/billing";
 
 export default function PremiumCard({ istPremium }: { istPremium: boolean }) {
   return (
-    <section className="flex flex-col gap-3 border border-[#131316]/20 bg-[#131316]/[0.03] px-4 py-4">
+    <section className="flex flex-col gap-3 rounded-xl border border-[#131316]/15 shadow-sm bg-[#131316]/[0.03] px-4 py-4">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-[#8A8F98]">Premium</h2>
       {istPremium ? (
         <>
@@ -11,7 +11,7 @@ export default function PremiumCard({ istPremium }: { istPremium: boolean }) {
           <form action={createPortalSession}>
             <button
               type="submit"
-              className="self-start border border-[#131316]/30 px-4 py-2 text-sm text-[#131316] hover:border-[#131316]"
+              className="self-start rounded-xl border border-[#131316]/20 px-4 py-2 text-sm text-[#131316] hover:border-[#131316]"
             >
               Abo verwalten
             </button>
@@ -25,7 +25,7 @@ export default function PremiumCard({ istPremium }: { istPremium: boolean }) {
           </p>
           <Link
             href="/profil/premium"
-            className="self-start border border-[#131316] bg-[#131316] px-4 py-2 text-sm font-medium text-[#FAFAFA] hover:opacity-90"
+            className="self-start rounded-full border border-[#131316] bg-[#131316] shadow-sm transition-transform active:scale-95 px-4 py-2 text-sm font-medium text-[#FAFAFA] hover:opacity-90"
           >
             Premium werden
           </Link>

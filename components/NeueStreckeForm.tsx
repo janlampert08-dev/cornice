@@ -76,7 +76,7 @@ export default function NeueStreckeForm({ istPremium }: { istPremium: boolean })
           <input
             name="name"
             required
-            className="border border-[#131316]/30 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE]"
+            className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
           />
         </label>
 
@@ -85,7 +85,7 @@ export default function NeueStreckeForm({ istPremium }: { istPremium: boolean })
           <input
             name="region"
             required
-            className="border border-[#131316]/30 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE]"
+            className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
           />
         </label>
 
@@ -106,7 +106,7 @@ export default function NeueStreckeForm({ istPremium }: { istPremium: boolean })
               required
               value={startOrt}
               onChange={(e) => setStartOrt(e.target.value)}
-              className="border border-[#131316]/30 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE]"
+              className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
             />
           </label>
           {rundfahrt ? (
@@ -117,7 +117,7 @@ export default function NeueStreckeForm({ istPremium }: { istPremium: boolean })
               <input
                 name="ziel_ort"
                 required
-                className="border border-[#131316]/30 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE]"
+                className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
               />
             </label>
           )}
@@ -172,7 +172,7 @@ export default function NeueStreckeForm({ istPremium }: { istPremium: boolean })
             required
             readOnly
             value={activeDirections ? activeDirections.distanceKm.toFixed(1) : ""}
-            className="border border-[#131316]/30 bg-transparent px-3 py-2 text-sm font-mono outline-none focus:border-[#3D5AFE]"
+            className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm font-mono outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
           />
         </label>
 
@@ -191,13 +191,13 @@ export default function NeueStreckeForm({ istPremium }: { istPremium: boolean })
           <textarea
             name="charakter_text"
             rows={3}
-            className="border border-[#131316]/30 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE]"
+            className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
           />
         </label>
 
         <div
           title={istPremium ? undefined : "Nur mit Premium verfügbar"}
-          className={`flex flex-col gap-2 border border-[#131316]/20 bg-[#131316]/[0.03] px-3 py-3 text-sm ${
+          className={`flex flex-col gap-2 rounded-xl border border-[#131316]/15 shadow-sm bg-[#131316]/[0.03] px-3 py-3 text-sm ${
             istPremium ? "" : "cursor-not-allowed opacity-40"
           }`}
         >
@@ -244,7 +244,7 @@ export default function NeueStreckeForm({ istPremium }: { istPremium: boolean })
         <button
           type="submit"
           disabled={pending || !activeDirections}
-          className="border border-[#131316] bg-[#131316] px-4 py-2 text-sm font-medium text-[#FAFAFA] hover:opacity-90 disabled:opacity-50"
+          className="rounded-full border border-[#131316] bg-[#131316] shadow-sm transition-transform active:scale-95 px-4 py-2 text-sm font-medium text-[#FAFAFA] hover:opacity-90 disabled:opacity-50"
         >
           {pending ? "Speichern…" : istPrivat ? "Privat speichern" : "Vorschlagen"}
         </button>

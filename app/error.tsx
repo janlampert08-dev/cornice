@@ -17,13 +17,13 @@ export default function GlobalError({
       <div className="flex gap-3">
         <button
           onClick={reset}
-          className="border border-[#131316] bg-[#131316] px-4 py-2 text-sm font-medium text-[#FAFAFA] hover:opacity-90"
+          className="rounded-full border border-[#131316] bg-[#131316] shadow-sm transition-transform active:scale-95 px-4 py-2 text-sm font-medium text-[#FAFAFA] hover:opacity-90"
         >
           Erneut versuchen
         </button>
         <Link
           href="/"
-          className="border border-[#131316]/30 px-4 py-2 text-sm text-[#131316] hover:border-[#131316]"
+          className="rounded-xl border border-[#131316]/20 px-4 py-2 text-sm text-[#131316] hover:border-[#131316]"
         >
           Zur Übersicht
         </Link>

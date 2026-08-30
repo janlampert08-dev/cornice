@@ -143,19 +143,19 @@ export default async function ProfilPage() {
           <div className="flex flex-wrap gap-2">
             <Link
               href="/strecken/neu"
-              className="self-start border border-[#131316] px-3 py-1.5 text-sm font-medium text-[#131316] hover:bg-[#131316] hover:text-[#FAFAFA]"
+              className="self-start rounded-full border border-[#131316] transition-transform active:scale-95 px-3 py-1.5 text-sm font-medium text-[#131316] hover:bg-[#131316] hover:text-[#FAFAFA]"
             >
               + Strecke vorschlagen
             </Link>
             <Link
               href={`/fahrer/${user.id}`}
-              className="self-start border border-[#131316]/30 px-3 py-1.5 text-sm text-[#131316] hover:border-[#131316]"
+              className="self-start rounded-xl border border-[#131316]/20 px-3 py-1.5 text-sm text-[#131316] hover:border-[#131316]"
             >
               Öffentliches Profil ansehen
             </Link>
             <Link
               href="/profil/privatsphaere"
-              className="self-start border border-[#131316]/30 px-3 py-1.5 text-sm text-[#131316] hover:border-[#131316]"
+              className="self-start rounded-xl border border-[#131316]/20 px-3 py-1.5 text-sm text-[#131316] hover:border-[#131316]"
             >
               Privatsphäre-Einstellungen
             </Link>

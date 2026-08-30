@@ -88,12 +88,12 @@ export default function RouteActionsMenu({
         onClick={() => setOpen((v) => !v)}
         aria-label="Weitere Aktionen"
         aria-expanded={open}
-        className="border border-[#131316]/30 px-3 py-1.5 text-sm text-[#131316] hover:border-[#131316]"
+        className="rounded-xl border border-[#131316]/20 px-3 py-1.5 text-sm text-[#131316] hover:border-[#131316]"
       >
         ⋮
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-10 mt-1 flex w-56 flex-col border border-[#131316]/20 bg-[#FAFAFA]">
+        <div className="absolute left-0 top-full z-10 mt-1 flex w-56 flex-col rounded-xl border border-[#131316]/15 shadow-sm bg-[#FAFAFA]">
           <button
             type="button"
             onClick={handleShare}

@@ -469,7 +469,7 @@ export default function RouteMap({
 
   if (!MAPBOX_TOKEN) {
     return (
-      <div className="flex h-full w-full items-center justify-center border border-[#8A8F98]/30 text-sm text-[#8A8F98]">
+      <div className="flex h-full w-full items-center justify-center rounded-xl border border-[#8A8F98]/25 text-sm text-[#8A8F98]">
         NEXT_PUBLIC_MAPBOX_TOKEN fehlt in .env.local
       </div>
     );

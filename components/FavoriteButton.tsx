@@ -25,7 +25,7 @@ export default function FavoriteButton({
     <button
       onClick={handleClick}
       disabled={pending}
-      className="self-start border border-[#131316]/30 px-3 py-1.5 text-sm text-[#131316] hover:border-[#131316] disabled:opacity-50"
+      className="self-start rounded-xl border border-[#131316]/20 px-3 py-1.5 text-sm text-[#131316] hover:border-[#131316] disabled:opacity-50"
     >
       {favorite ? "★ Gemerkt" : "☆ Merken"}
     </button>
