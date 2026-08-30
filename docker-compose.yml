@@ -1,0 +1,40 @@
+version: '3.8'
+services:
+  redis:
+    image: redis:7
+    container_name: cornice-redis
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    build: .
+    container_name: cornice-agent-worker
+    command: npm run worker
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - AGENT_API_KEY=changeme
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
+  dashboard:
+    build: .
+    container_name: cornice-agent-dashboard
+    command: npm run dashboard
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DASHBOARD_PORT=3001
+    ports:
+      - '3001:3001'
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app

@@ -33,3 +33,7 @@ Hintergrund `#FAFAFA`, Text `#131316`, Akzent `#3D5AFE`, Sekundärtext
 
  siehe
 `route_completions` in `supabase/migrations/0001_init.sql`.
+
+## Agent framework (local dev)
+
+A minimal agent framework exists under lib/ and a short guide is in docs/agents.md — it shows how to run a worker, dashboard, and enqueue agent jobs for local testing.
