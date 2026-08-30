@@ -86,7 +86,7 @@ export default async function StreckeDetailPage({
           </div>
 
           {route.ist_privat && user?.id === route.erstellt_von && (
-            <div className="flex items-center justify-between gap-3 border border-[#131316]/20 bg-[#131316]/[0.03] px-3 py-2 text-sm">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-[#131316]/15 shadow-sm bg-[#131316]/[0.03] px-3 py-2 text-sm">
               <span className="text-[#8A8F98]">Privat — nur du siehst diese Strecke.</span>
               <PublishRouteButton routeId={id} />
             </div>
@@ -102,7 +102,7 @@ export default async function StreckeDetailPage({
             {!moderator && user?.id === route.erstellt_von && !route.status_ok && (
               <Link
                 href={`/strecken/${id}/bearbeiten`}
-                className="self-start border border-[#131316]/30 px-3 py-1.5 text-sm text-[#131316] hover:border-[#131316]"
+                className="self-start rounded-xl border border-[#131316]/20 px-3 py-1.5 text-sm text-[#131316] hover:border-[#131316]"
               >
                 Bearbeiten
               </Link>
@@ -197,7 +197,7 @@ export default async function StreckeDetailPage({
               {route.kategorien.map((k) => (
                 <span
                   key={k}
-                  className="border border-[#131316]/20 px-2 py-1 text-xs text-[#131316]"
+                  className="rounded-xl border border-[#131316]/15 shadow-sm px-2 py-1 text-xs text-[#131316]"
                 >
                   {KATEGORIE_LABEL[k] ?? k}
                 </span>

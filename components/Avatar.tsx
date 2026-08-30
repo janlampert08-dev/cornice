@@ -13,7 +13,7 @@ export default function Avatar({
       <img
         src={url}
         alt={name ? `Profilbild von ${name}` : "Profilbild"}
-        className="shrink-0 border border-[#131316]/10 object-cover"
+        className="shrink-0 rounded-full border border-[#131316]/10 object-cover"
         style={{ width: size, height: size }}
       />
     );
@@ -22,7 +22,7 @@ export default function Avatar({
   const initial = (name ?? "?").trim().charAt(0).toUpperCase() || "?";
   return (
     <div
-      className="flex shrink-0 items-center justify-center border border-[#131316]/10 bg-[#131316]/5 text-[#8A8F98]"
+      className="flex shrink-0 items-center justify-center rounded-full border border-[#131316]/10 bg-[#131316]/5 font-medium text-[#8A8F98]"
       style={{ width: size, height: size, fontSize: size * 0.4 }}
       aria-hidden="true"
     >

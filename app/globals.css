@@ -14,14 +14,42 @@
   --color-muted: var(--color-muted);
   --font-sans: var(--font-inter);
   --font-mono: var(--font-inter);
-  --radius-none: 0px;
-}
-
-* {
-  border-radius: 0 !important;
 }
 
 body {
   background: var(--color-background);
   color: var(--color-foreground);
+  /* Kein blaues Antipp-Aufblitzen auf iOS/Android — eigene, dezente
+     :active-Zustände (siehe Button-/Link-Klassen) übernehmen dieses Feedback. */
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+/* Sinnvoller Default für native Formularelemente, die nicht überall einzeln
+   mit rounded-* annotiert sind — Utility-Klassen an einzelnen Elementen
+   überschreiben das wie gewohnt (Tailwind lädt danach). */
+button,
+input,
+select,
+textarea {
+  border-radius: 0.75rem;
+}
+
+/* Sichere Bereiche (Notch/Home-Indicator) — genutzt von Bottom-Nav und den
+   Vollbild-Overlays (Live-Tracking). Erfordert viewport-fit=cover, siehe
+   app/layout.tsx. */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Reserviert unten Platz für die fixierte BottomNav (Header.tsx), damit sie
+   nirgends den letzten sichtbaren Inhalt eines scrollbaren <main> verdeckt —
+   zentral hier statt in jeder Seite einzeln, da <main> überall als
+   Scroll-Container verwendet wird. Nur < md, da BottomNav ab dort
+   (md:hidden) gar nicht mehr angezeigt wird. */
+@media (max-width: 767px) {
+  main {
+    padding-bottom: calc(4.25rem + var(--safe-bottom));
+  }
 }

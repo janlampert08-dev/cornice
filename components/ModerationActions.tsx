@@ -11,7 +11,7 @@ export default function ModerationActions({ routeId }: { routeId: string }) {
       <button
         onClick={() => startTransition(() => approveRoute(routeId))}
         disabled={pending}
-        className="border border-[#131316] bg-[#131316] px-3 py-1.5 text-sm font-medium text-[#FAFAFA] hover:opacity-90 disabled:opacity-50"
+        className="rounded-full border border-[#131316] bg-[#131316] shadow-sm transition-transform active:scale-95 px-3 py-1.5 text-sm font-medium text-[#FAFAFA] hover:opacity-90 disabled:opacity-50"
       >
         Freischalten
       </button>
@@ -22,7 +22,7 @@ export default function ModerationActions({ routeId }: { routeId: string }) {
           }
         }}
         disabled={pending}
-        className="border border-[#131316]/30 px-3 py-1.5 text-sm text-[#8A8F98] hover:border-[#131316] disabled:opacity-50"
+        className="rounded-xl border border-[#131316]/20 px-3 py-1.5 text-sm text-[#8A8F98] hover:border-[#131316] disabled:opacity-50"
       >
         Ablehnen
       </button>

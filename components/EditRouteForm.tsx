@@ -45,7 +45,7 @@ export default function EditRouteForm({
           name="name"
           required
           defaultValue={route.name}
-          className="border border-[#131316]/30 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE]"
+          className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
         />
       </label>
 
@@ -55,7 +55,7 @@ export default function EditRouteForm({
           name="region"
           required
           defaultValue={route.region}
-          className="border border-[#131316]/30 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE]"
+          className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
         />
       </label>
 
@@ -67,7 +67,7 @@ export default function EditRouteForm({
             required
             value={startOrt}
             onChange={(e) => setStartOrt(e.target.value)}
-            className="border border-[#131316]/30 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE]"
+            className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
           />
         </label>
         {route.ist_rundfahrt ? (
@@ -79,7 +79,7 @@ export default function EditRouteForm({
               name="ziel_ort"
               required
               defaultValue={route.ziel_ort}
-              className="border border-[#131316]/30 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE]"
+              className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
             />
           </label>
         )}
@@ -106,7 +106,7 @@ export default function EditRouteForm({
           name="charakter_text"
           rows={3}
           defaultValue={route.charakter_text ?? ""}
-          className="border border-[#131316]/30 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE]"
+          className="rounded-xl border border-[#131316]/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow"
         />
       </label>
 
@@ -115,7 +115,7 @@ export default function EditRouteForm({
       <button
         type="submit"
         disabled={pending}
-        className="self-start border border-[#131316] bg-[#131316] px-4 py-2 text-sm font-medium text-[#FAFAFA] hover:opacity-90 disabled:opacity-50"
+        className="self-start rounded-full border border-[#131316] bg-[#131316] shadow-sm transition-transform active:scale-95 px-4 py-2 text-sm font-medium text-[#FAFAFA] hover:opacity-90 disabled:opacity-50"
       >
         {pending ? "Speichern…" : "Speichern"}
       </button>

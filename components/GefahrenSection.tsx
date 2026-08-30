@@ -26,7 +26,7 @@ export default function GefahrenSection({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="border border-[#131316] bg-[#131316] px-10 py-3.5 text-base font-medium text-[#FAFAFA] hover:opacity-90"
+          className="rounded-full border border-[#131316] bg-[#131316] shadow-sm transition-transform active:scale-95 px-10 py-3.5 text-base font-medium text-[#FAFAFA] hover:opacity-90"
         >
           Strecke starten
         </button>

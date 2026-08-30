@@ -57,7 +57,7 @@ export default function TrackLeaderboardChooser({
               setRouteId(e.target.value);
               setExpanded(false);
             }}
-            className="w-full border border-[#131316]/30 bg-transparent px-2 py-1 text-sm outline-none focus:border-[#3D5AFE] sm:w-auto sm:max-w-[60%]"
+            className="w-full rounded-xl border border-[#131316]/20 bg-transparent px-2 py-1 text-sm outline-none focus:border-[#3D5AFE] focus:ring-2 focus:ring-[#3D5AFE]/15 transition-shadow sm:w-auto sm:max-w-[60%]"
           >
             {routes.map((r) => (
               <option key={r.id} value={r.id}>

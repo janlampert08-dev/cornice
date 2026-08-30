@@ -52,7 +52,7 @@ export default function PhotoInput({ name, id }: { name: string; id: string }) {
         className="sr-only"
       />
       {preview ? (
-        <div className="flex items-center gap-3 border border-[#131316]/30 px-3 py-2">
+        <div className="flex items-center gap-3 rounded-xl border border-[#131316]/20 px-3 py-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={preview} alt="" className="h-10 w-10 shrink-0 object-cover" />
           <span className="flex-1 truncate text-[#131316]">{fileName}</span>

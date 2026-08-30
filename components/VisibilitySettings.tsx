@@ -58,7 +58,7 @@ export default function VisibilitySettings({
       <button
         type="submit"
         disabled={pending}
-        className="self-start border border-[#131316] bg-[#131316] px-4 py-2 text-sm font-medium text-[#FAFAFA] hover:opacity-90 disabled:opacity-50"
+        className="self-start rounded-full border border-[#131316] bg-[#131316] shadow-sm transition-transform active:scale-95 px-4 py-2 text-sm font-medium text-[#FAFAFA] hover:opacity-90 disabled:opacity-50"
       >
         {pending ? "Speichern…" : "Einstellungen speichern"}
       </button>
