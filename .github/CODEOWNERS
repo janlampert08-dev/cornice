@@ -1,0 +1,14 @@
+# See https://docs.github.com/articles/about-code-owners for CODEOWNERS syntax.
+#
+# These paths are security- or infrastructure-sensitive (see "Protected
+# Areas" in AGENTS.md) and require review from the repository owner.
+
+/proxy.ts                @janlampert08-dev
+/lib/supabase/            @janlampert08-dev
+/supabase/migrations/     @janlampert08-dev
+/app/api/stripe/          @janlampert08-dev
+/lib/stripe*              @janlampert08-dev
+/lib/actions/billing.ts   @janlampert08-dev
+/.github/                 @janlampert08-dev
+/AGENTS.md                @janlampert08-dev
+/SECURITY.md              @janlampert08-dev
