@@ -67,13 +67,13 @@ export default async function StreckeDetailPage({
   const record = leaderboard[0] ?? null;
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex h-dvh flex-col">
       <Header back="/" />
       <main className="flex flex-1 flex-col overflow-hidden md:flex-row">
         <div className="h-72 shrink-0 md:order-2 md:h-auto md:flex-1">
           <RouteDetailMap route={route} key={route.id} />
         </div>
-        <div className="flex w-full flex-col gap-5 overflow-y-auto border-[#131316]/10 px-5 py-6 sm:px-6 sm:py-8 md:max-w-md md:border-r">
+        <div className="flex w-full flex-col gap-5 overflow-y-auto overscroll-y-contain border-[#131316]/10 px-5 py-6 sm:px-6 sm:py-8 md:max-w-md md:border-r">
           <div>
             <p className="text-sm text-[#8A8F98]">
               {route.region}

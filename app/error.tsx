@@ -9,7 +9,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   return (
-    <div className="flex h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+    <div className="flex h-dvh flex-col items-center justify-center gap-4 px-6 text-center">
       <p className="text-lg font-semibold">Etwas ist schiefgelaufen.</p>
       <p className="max-w-sm text-sm text-[#8A8F98]">
         Die Daten konnten nicht geladen werden. Bitte versuche es erneut.

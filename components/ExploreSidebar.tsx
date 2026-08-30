@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useMemo, type CSSProperties } from "react";
+import { KATEGORIEN } from "@/lib/constants";
 import { routeShapePath } from "@/lib/routeShape";
 import { withAlpha, type RouteSignature } from "@/lib/signature";
-import type { RouteGeoJSON } from "@/types/database";
+import type { Kategorie, RouteGeoJSON } from "@/types/database";
 
 export default function ExploreSidebar({
   routes,
@@ -17,6 +18,8 @@ export default function ExploreSidebar({
   locationError,
   onRequestLocation,
   onHoverRoute,
+  selectedKategorien,
+  onToggleKategorie,
 }: {
   routes: RouteGeoJSON[];
   loadError?: boolean;
@@ -28,6 +31,8 @@ export default function ExploreSidebar({
   locationError: string | null;
   onRequestLocation: () => void;
   onHoverRoute: (id: string | null) => void;
+  selectedKategorien: Kategorie[];
+  onToggleKategorie: (kategorie: Kategorie) => void;
 }) {
   // Nur bei Änderung des Streckenbestands neu berechnet — sonst würde jeder
   // Hover (der über onHoverRoute den State im Elternteil ändert) hier eine
@@ -44,7 +49,7 @@ export default function ExploreSidebar({
   );
 
   return (
-    <div className="flex w-full flex-col gap-5 overflow-y-auto border-[#131316]/10 px-5 py-5 sm:px-6 sm:py-6 md:max-w-sm md:border-r">
+    <div className="flex w-full flex-col gap-5 overflow-y-auto overscroll-y-contain border-[#131316]/10 px-5 py-5 sm:px-6 sm:py-6 md:max-w-sm md:border-r">
       <input
         type="search"
         value={searchQuery}
@@ -66,6 +71,30 @@ export default function ExploreSidebar({
               : "Strecken in meiner Nähe"}
         </button>
         {locationError && <p className="text-xs text-[#8A8F98]">{locationError}</p>}
+      </div>
+
+      {/* Horizontal scrollbare Chip-Reihe statt Checkboxen/Dropdown — mehrere
+          Tags lassen sich per Antippen kombinieren (ODER-Verknüpfung, siehe
+          ExploreView), ohne dass die Auswahl auf Mobile viel Platz braucht. */}
+      <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:-mx-6 sm:px-6">
+        {KATEGORIEN.map((k) => {
+          const active = selectedKategorien.includes(k.value);
+          return (
+            <button
+              key={k.value}
+              type="button"
+              onClick={() => onToggleKategorie(k.value)}
+              aria-pressed={active}
+              className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-medium transition-colors duration-150 active:scale-95 ${
+                active
+                  ? "border-[#3D5AFE] bg-[#3D5AFE] text-[#FAFAFA]"
+                  : "border-[#131316]/20 bg-transparent text-[#131316] hover:border-[#131316]"
+              }`}
+            >
+              {k.label}
+            </button>
+          );
+        })}
       </div>
 
       <ul className="flex flex-col gap-1">
@@ -101,7 +130,7 @@ export default function ExploreSidebar({
                     borderLeftColor: withAlpha(trackColor, 0.55),
                   } as CSSProperties
                 }
-                className="group flex h-20 items-center gap-3 border-b border-[#131316]/10 border-l-[3px] py-3 pl-3 pr-2 transition-colors duration-150 hover:bg-[var(--track-hover-bg)]"
+                className="group flex h-20 items-center gap-3 border-b border-[#131316]/10 border-l-[3px] py-3 pl-3 pr-2 transition-colors duration-150 hover:bg-[var(--track-hover-bg)] active:bg-[var(--track-hover-bg)]"
               >
                 <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
                   <span className="truncate text-base font-medium transition-colors duration-150 group-hover:text-[var(--track-color)]">

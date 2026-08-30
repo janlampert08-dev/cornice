@@ -6,7 +6,7 @@ export default async function Home() {
   const { routes, error } = await getRoutes();
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex h-dvh flex-col">
       <Header />
       <ExploreView routes={routes} loadError={error} />
     </div>

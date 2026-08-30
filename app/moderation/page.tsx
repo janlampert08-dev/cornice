@@ -17,7 +17,7 @@ export default async function ModerationPage() {
   const routes = await getPendingRoutes();
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex h-dvh flex-col">
       <Header />
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 overflow-y-auto px-6 py-10">
         <div>
