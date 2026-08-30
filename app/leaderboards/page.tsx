@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import TrackLeaderboardChooser from "@/components/TrackLeaderboardChooser";
 import { getGlobalLeaderboards, type LeaderboardEntry } from "@/lib/leaderboard";
 import { getRoutes } from "@/lib/routes";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Bestenlisten – Cornice" };
 
@@ -12,11 +13,13 @@ function LeaderboardSection({
   entries,
   unit,
   format = (v) => v.toLocaleString("de-CH"),
+  currentUserId,
 }: {
   title: string;
   entries: LeaderboardEntry[];
   unit: string;
   format?: (value: number) => string;
+  currentUserId: string | null;
 }) {
   return (
     <section className="flex flex-col gap-3">
@@ -25,25 +28,40 @@ function LeaderboardSection({
         <p className="text-sm text-muted">Noch keine Einträge.</p>
       ) : (
         <ol className="flex flex-col">
-          {entries.map((entry, i) => (
-            <li
-              key={entry.userId}
-              className="flex items-baseline justify-between border-b border-foreground/10 py-2 text-sm"
-            >
-              <span>
-                <span className="mr-2 font-mono text-muted tabular-nums">{i + 1}.</span>
-                <Link
-                  href={`/fahrer/${entry.userId}`}
-                  className="transition-colors duration-150 hover:text-accent"
+          {entries.map((entry, i) => {
+            const isOwn = entry.userId === currentUserId;
+            return (
+              <li
+                key={entry.userId}
+                className={`flex items-baseline justify-between border-b border-foreground/10 py-2 text-sm ${
+                  isOwn ? "-mx-2 rounded-lg bg-accent/5 px-2" : ""
+                }`}
+              >
+                <span>
+                  <span
+                    className={`mr-2 font-mono tabular-nums ${
+                      i === 0 ? "font-semibold text-accent" : "text-muted"
+                    }`}
+                  >
+                    {i + 1}.
+                  </span>
+                  <Link
+                    href={`/fahrer/${entry.userId}`}
+                    className={`transition-colors duration-150 hover:text-accent ${
+                      isOwn ? "font-medium text-accent" : ""
+                    }`}
+                  >
+                    {entry.name}
+                  </Link>
+                </span>
+                <span
+                  className={`font-mono tabular-nums ${isOwn ? "text-accent" : "text-muted"}`}
                 >
-                  {entry.name}
-                </Link>
-              </span>
-              <span className="font-mono tabular-nums text-muted">
-                {format(entry.value)} {unit}
-              </span>
-            </li>
-          ))}
+                  {format(entry.value)} {unit}
+                </span>
+              </li>
+            );
+          })}
         </ol>
       )}
     </section>
@@ -51,10 +69,15 @@ function LeaderboardSection({
 }
 
 export default async function LeaderboardsPage() {
-  const [{ meisteFahrten, meisteHoehenmeter, meisteKm }, { routes }] = await Promise.all([
-    getGlobalLeaderboards(),
-    getRoutes(),
-  ]);
+  const supabase = await createClient();
+  const [
+    { meisteFahrten, meisteHoehenmeter, meisteKm },
+    { routes },
+    {
+      data: { user },
+    },
+  ] = await Promise.all([getGlobalLeaderboards(), getRoutes(), supabase.auth.getUser()]);
+  const currentUserId = user?.id ?? null;
 
   return (
     <div className="flex h-dvh flex-col">
@@ -68,18 +91,25 @@ export default async function LeaderboardsPage() {
           </p>
         </div>
 
-        <LeaderboardSection title="Meiste Fahrten" entries={meisteFahrten} unit="Fahrten" />
+        <LeaderboardSection
+          title="Meiste Fahrten"
+          entries={meisteFahrten}
+          unit="Fahrten"
+          currentUserId={currentUserId}
+        />
         <LeaderboardSection
           title="Meiste Höhenmeter"
           entries={meisteHoehenmeter}
           unit="m"
           format={(v) => Math.round(v).toLocaleString("de-CH")}
+          currentUserId={currentUserId}
         />
         <LeaderboardSection
           title="Meiste km gefahren"
           entries={meisteKm}
           unit="km"
           format={(v) => v.toFixed(0)}
+          currentUserId={currentUserId}
         />
 
         <TrackLeaderboardChooser
