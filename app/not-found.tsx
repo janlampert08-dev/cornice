@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function NotFound() {
   return (
-    <div className="flex h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+    <div className="flex h-dvh flex-col items-center justify-center gap-4 px-6 text-center">
       <p className="text-lg font-semibold">Seite nicht gefunden.</p>
       <p className="max-w-sm text-sm text-[#8A8F98]">
         Diese Strecke oder Seite existiert nicht (mehr).

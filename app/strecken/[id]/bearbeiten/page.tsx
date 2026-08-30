@@ -28,7 +28,7 @@ export default async function EditRoutePage({
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-y-auto">
+    <div className="flex h-dvh flex-col overflow-y-auto">
       <Header back={`/strecken/${id}`} />
       <EditRouteForm
         route={route}

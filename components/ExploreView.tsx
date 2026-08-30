@@ -6,7 +6,7 @@ import ExploreSidebar from "@/components/ExploreSidebar";
 import { haversineKm } from "@/lib/geo";
 import { matchesSearch } from "@/lib/search";
 import { computeSignatures } from "@/lib/signature";
-import type { RouteGeoJSON } from "@/types/database";
+import type { Kategorie, RouteGeoJSON } from "@/types/database";
 
 // mapbox-gl ist eine schwere Abhängigkeit (WebGL, eigenes CSS) — dynamisch
 // geladen, damit Suchfeld/Streckenliste interaktiv werden, ohne auf den
@@ -29,8 +29,17 @@ export default function ExploreView({
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [hoveredRouteId, setHoveredRouteId] = useState<string | null>(null);
+  const [selectedKategorien, setSelectedKategorien] = useState<Kategorie[]>([]);
 
   const onHoverRoute = useCallback((id: string | null) => setHoveredRouteId(id), []);
+
+  const onToggleKategorie = useCallback((kategorie: Kategorie) => {
+    setSelectedKategorien((current) =>
+      current.includes(kategorie)
+        ? current.filter((k) => k !== kategorie)
+        : [...current, kategorie],
+    );
+  }, []);
 
   function requestLocation() {
     if (!navigator.geolocation) {
@@ -70,9 +79,19 @@ export default function ExploreView({
   }, [signatures]);
 
   const visibleRoutes = useMemo(() => {
-    const filtered = searchQuery.trim()
+    let filtered = searchQuery.trim()
       ? routes.filter((r) => matchesSearch(r, searchQuery))
       : routes;
+
+    // Eine Strecke passt, sobald sie mindestens eines der ausgewählten Tags
+    // trägt (ODER-Verknüpfung) — Strecken haben meist nur 1-2 Kategorien, eine
+    // UND-Verknüpfung würde die Auswahl bei mehreren aktiven Tags zu stark
+    // einschränken.
+    if (selectedKategorien.length > 0) {
+      filtered = filtered.filter((r) =>
+        r.kategorien.some((k) => selectedKategorien.includes(k)),
+      );
+    }
 
     if (!userLocation) return filtered;
 
@@ -81,7 +100,7 @@ export default function ExploreView({
         haversineKm(userLocation, a.start_geojson.coordinates) -
         haversineKm(userLocation, b.start_geojson.coordinates),
     );
-  }, [routes, searchQuery, userLocation]);
+  }, [routes, searchQuery, selectedKategorien, userLocation]);
 
   return (
     <main className="flex flex-1 flex-col overflow-hidden md:flex-row">
@@ -104,6 +123,8 @@ export default function ExploreView({
         locationError={locationError}
         onRequestLocation={requestLocation}
         onHoverRoute={onHoverRoute}
+        selectedKategorien={selectedKategorien}
+        onToggleKategorie={onToggleKategorie}
       />
     </main>
   );

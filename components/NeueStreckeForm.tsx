@@ -57,7 +57,7 @@ export default function NeueStreckeForm({ istPremium }: { istPremium: boolean })
   }
 
   return (
-    <div className="flex h-screen flex-col md:flex-row">
+    <div className="flex h-dvh flex-col md:flex-row">
       <form
         action={formAction}
         className="flex w-full flex-1 flex-col gap-4 overflow-y-auto border-[#131316]/10 px-6 py-8 md:max-w-sm md:border-r"
