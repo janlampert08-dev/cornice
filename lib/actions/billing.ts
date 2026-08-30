@@ -7,18 +7,25 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe";
 import type Stripe from "stripe";
 
 // Legt bei Bedarf einen Stripe-Customer an (einmalig pro Nutzer) und
 // speichert die ID am Profil — sowohl der Webhook als auch confirmSubscription
-// (unten) brauchen diese Zuordnung.
+// (unten) brauchen diese Zuordnung. Liest/schreibt stripe_customer_id über
+// den Service-Role-Client statt der eingeloggten Nutzer-Session: die Spalte
+// ist seit der RLS-Härtung (siehe Migration 0027) für anon/authenticated
+// weder lesbar noch beschreibbar, da sie sonst über einen direkten PostgREST-
+// Aufruf beliebig überschreibbar wäre. userId kommt hier ausschliesslich aus
+// der bereits über supabase.auth.getUser() verifizierten Session der Aufrufer
+// unten — nie aus Nutzereingaben — daher ist der RLS-Bypass hier sicher.
 async function getOrCreateStripeCustomerId(
-  supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
   email: string | undefined,
 ): Promise<string> {
-  const { data: profile } = await supabase
+  const admin = createAdminClient();
+  const { data: profile } = await admin
     .from("profiles")
     .select("stripe_customer_id")
     .eq("id", userId)
@@ -31,7 +38,7 @@ async function getOrCreateStripeCustomerId(
     metadata: { supabase_user_id: userId },
   });
 
-  await supabase
+  await admin
     .from("profiles")
     .update({ stripe_customer_id: customer.id })
     .eq("id", userId);
@@ -55,7 +62,7 @@ export async function createSubscriptionIntent(): Promise<SubscriptionIntentResu
 
   if (!user) return { ok: false, error: "Bitte melde dich zuerst an." };
 
-  const customerId = await getOrCreateStripeCustomerId(supabase, user.id, user.email);
+  const customerId = await getOrCreateStripeCustomerId(user.id, user.email);
 
   const subscription = await stripe.subscriptions.create({
     customer: customerId,
@@ -92,7 +99,13 @@ export async function confirmSubscription(subscriptionId: string): Promise<boole
 
   if (!user) return false;
 
-  const { data: profile } = await supabase
+  // Wie oben: stripe_customer_id/ist_premium sind für anon/authenticated
+  // weder lesbar noch beschreibbar (Migration 0027) — der Service-Role-Client
+  // ist hier sicher, weil user.id aus der bereits verifizierten Session
+  // stammt und der Premium-Status erst nach der Stripe-Verifikation unten
+  // gesetzt wird, nicht anhand von Client-Eingaben.
+  const admin = createAdminClient();
+  const { data: profile } = await admin
     .from("profiles")
     .select("stripe_customer_id, ist_premium")
     .eq("id", user.id)
@@ -122,7 +135,7 @@ export async function confirmSubscription(subscriptionId: string): Promise<boole
   const invoicePaid = invoice && typeof invoice === "object" && invoice.status === "paid";
   if (!invoicePaid) return false;
 
-  const { error } = await supabase.from("profiles").update({ ist_premium: true }).eq("id", user.id);
+  const { error } = await admin.from("profiles").update({ ist_premium: true }).eq("id", user.id);
   if (error) return false;
 
   revalidatePath("/profil");
@@ -145,7 +158,9 @@ export async function createPortalSession() {
 
   if (!user) redirect("/anmelden");
 
-  const { data: profile } = await supabase
+  // Wie oben: stripe_customer_id ist für anon/authenticated nicht mehr lesbar
+  // (Migration 0027).
+  const { data: profile } = await createAdminClient()
     .from("profiles")
     .select("stripe_customer_id")
     .eq("id", user.id)
