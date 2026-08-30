@@ -1,8 +1,20 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Avatar from "@/components/Avatar";
 import { getPublicProfile } from "@/lib/profile";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const profile = await getPublicProfile(id);
+  if (!profile) return { title: "Fahrer – Cornice" };
+  return { title: `${profile.displayName ?? "Fahrer"} – Cornice` };
+}
 
 export default async function FahrerPage({
   params,

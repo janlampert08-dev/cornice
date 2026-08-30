@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import Link from "next/link";
 import Header from "@/components/Header";
 import RouteDetailMap from "@/components/RouteDetailMap";
@@ -28,6 +29,26 @@ const KATEGORIE_LABEL = Object.fromEntries(
 ) as Record<string, string>;
 
 const SAISON_LABEL = { saisonal: "Saisonal (Winterschliessung)" };
+
+// getRoute() ist mit React cache() memoisiert (lib/routes.ts) — derselbe
+// Aufruf hier und in der Page unten kostet innerhalb desselben Requests
+// nur eine DB-Abfrage.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const route = await getRoute(id);
+  if (!route) return { title: "Strecke – Cornice" };
+
+  return {
+    title: `${route.name} – Cornice`,
+    description:
+      route.charakter_text ??
+      `${route.region}: ${route.start_ort} → ${route.ziel_ort}, ${route.laenge_km.toFixed(0)} km`,
+  };
+}
 
 export default async function StreckeDetailPage({
   params,

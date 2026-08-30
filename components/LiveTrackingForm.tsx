@@ -5,6 +5,13 @@ import dynamic from "next/dynamic";
 import { logTrackedCompletion, type CompletionFormState } from "@/lib/actions/completions";
 import { addVehicleInline } from "@/lib/actions/vehicles";
 import { haversineKm, type TrailPoint } from "@/lib/geo";
+import { evaluateProximity } from "@/lib/tracking";
+import {
+  saveTrackingSnapshot,
+  loadTrackingSnapshot,
+  clearTrackingSnapshot,
+  type TrackingSnapshot,
+} from "@/lib/trackingStorage";
 import { interpolateElevation } from "@/lib/elevation";
 import { computeRouteCoverage, COVERAGE_THRESHOLD_PERCENT } from "@/lib/routeCoverage";
 import { formatDuration } from "@/lib/format";
@@ -22,13 +29,6 @@ const initialState: CompletionFormState = { error: null };
 const MIN_ACCURACY_M = 50;
 const MIN_SEGMENT_KM = 0.005;
 const MAX_NOTIZ_LENGTH = 280;
-// Grosszügig genug für GPS-Ungenauigkeit und Parkplätze/Zufahrten am
-// Streckenanfang, aber eng genug, um zu verhindern, dass die Zeitmessung
-// schon Kilometer vor dem eigentlichen Start beginnt.
-const START_PROXIMITY_KM = 0.15;
-// Gleicher Toleranzwert für den Zielpunkt — die Aufzeichnung stoppt
-// automatisch, sobald der Nutzer ihn erreicht.
-const END_PROXIMITY_KM = 0.15;
 
 type Phase = "idle" | "tracking" | "finished";
 
@@ -66,6 +66,10 @@ export default function LiveTrackingForm({
   const [isPublic, setIsPublic] = useState(false);
   const [notiz, setNotiz] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [isOnline, setIsOnline] = useState(() =>
+    typeof navigator === "undefined" ? true : navigator.onLine,
+  );
+  const lastSubmitFormDataRef = useRef<FormData | null>(null);
 
   // Fahrzeug-Liste lokal gehalten und ohne Navigation ergänzbar (siehe
   // handleAddVehicle) — ein <a target="_blank"> zu /profil/fahrzeuge/neu
@@ -116,8 +120,40 @@ export default function LiveTrackingForm({
   // Streckenansicht — sonst wäre der neue Vollbild-Fazit-Screen eine
   // Sackgasse ohne Ausweg.
   useEffect(() => {
-    if (submitted && !pending && !state.error) onExit();
-  }, [submitted, pending, state.error, onExit]);
+    if (submitted && !pending && !state.error) {
+      clearTrackingSnapshot(route.id);
+      onExit();
+    }
+  }, [submitted, pending, state.error, onExit, route.id]);
+
+  // Online-Status verfolgen, um beim Speichern der Fahrt (Fazit-Screen)
+  // ohne Verbindung Bescheid zu geben, statt einen kryptischen Fehler zu
+  // zeigen — die Fahrt selbst ist zu diesem Zeitpunkt bereits per
+  // saveTrackingSnapshot lokal gesichert (siehe handleStop).
+  useEffect(() => {
+    function handleOnline() {
+      setIsOnline(true);
+    }
+    function handleOffline() {
+      setIsOnline(false);
+    }
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  // Sobald die Verbindung zurückkommt, einen zuvor fehlgeschlagenen
+  // Speicherversuch automatisch wiederholen, statt den Nutzer manuell
+  // erneut auf "Fahrt speichern" tippen zu lassen.
+  useEffect(() => {
+    if (isOnline && submitted && state.error && lastSubmitFormDataRef.current) {
+      formAction(lastSubmitFormDataRef.current);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline]);
 
   const watchIdRef = useRef<number | null>(null);
   const lastPointRef = useRef<[number, number] | null>(null);
@@ -191,30 +227,72 @@ export default function LiveTrackingForm({
     intervalRef.current = setInterval(() => {
       setElapsedSeconds(Math.round((Date.now() - (startTimeRef.current ?? Date.now())) / 1000));
     }, 1000);
+    saveTrackingSnapshot(route.id, {
+      phase: "tracking",
+      trail: trailRef.current,
+      distanceKm: distanceKmRef.current,
+      hasStarted: true,
+      hasLeftStart: hasLeftStartRef.current,
+      startTimeMs: startTimeRef.current,
+      savedAt: Date.now(),
+      seconds: null,
+    });
   }
 
-  function handleStart() {
+  // `resume` kommt aus einem Snapshot einer unterbrochenen Aufzeichnung
+  // (siehe useEffect weiter unten, lib/trackingStorage.ts) — anstatt bei
+  // Null neu zu starten, übernimmt handleStart() dann Trail/Distanz/Startzeit
+  // und fragt nur eine neue GPS-Watch an, damit ein Tab-/App-Kill während
+  // der Fahrt nicht die ganze Aufzeichnung kostet.
+  function handleStart(resume?: TrackingSnapshot) {
     if (!navigator.geolocation) {
       setLocationError("Geolocation wird von diesem Browser nicht unterstützt.");
       return;
     }
 
     setLocationError(null);
-    setDistanceKm(0);
-    setElapsedSeconds(0);
-    setCurrentSpeedKmh(null);
-    setCurrentPosition(null);
-    setCoveragePercent(null);
-    setTrailJson("[]");
-    setHasStarted(false);
-    setDistanceToStartKm(null);
-    hasStartedRef.current = false;
-    lastPointRef.current = null;
-    lastPointTimeRef.current = null;
-    trailRef.current = [];
-    startTimeRef.current = null;
-    distanceKmRef.current = 0;
-    hasLeftStartRef.current = false;
+
+    if (resume) {
+      const lastPoint = resume.trail[resume.trail.length - 1];
+      setDistanceKm(resume.distanceKm);
+      setElapsedSeconds(
+        resume.startTimeMs ? Math.round((Date.now() - resume.startTimeMs) / 1000) : 0,
+      );
+      setCurrentSpeedKmh(null);
+      setCurrentPosition(null);
+      setCoveragePercent(null);
+      setTrailJson(JSON.stringify(resume.trail));
+      setHasStarted(resume.hasStarted);
+      setDistanceToStartKm(null);
+      hasStartedRef.current = resume.hasStarted;
+      lastPointRef.current = lastPoint ? [lastPoint.lng, lastPoint.lat] : null;
+      lastPointTimeRef.current = lastPoint ? lastPoint.t : null;
+      trailRef.current = resume.trail;
+      startTimeRef.current = resume.startTimeMs;
+      distanceKmRef.current = resume.distanceKm;
+      hasLeftStartRef.current = resume.hasLeftStart;
+      if (resume.hasStarted && resume.startTimeMs) {
+        intervalRef.current = setInterval(() => {
+          setElapsedSeconds(Math.round((Date.now() - (startTimeRef.current ?? Date.now())) / 1000));
+        }, 1000);
+      }
+    } else {
+      setDistanceKm(0);
+      setElapsedSeconds(0);
+      setCurrentSpeedKmh(null);
+      setCurrentPosition(null);
+      setCoveragePercent(null);
+      setTrailJson("[]");
+      setHasStarted(false);
+      setDistanceToStartKm(null);
+      hasStartedRef.current = false;
+      lastPointRef.current = null;
+      lastPointTimeRef.current = null;
+      trailRef.current = [];
+      startTimeRef.current = null;
+      distanceKmRef.current = 0;
+      hasLeftStartRef.current = false;
+    }
 
     const startPoint = route.start_geojson.coordinates as [number, number];
     const endPoint = route.ziel_geojson.coordinates as [number, number];
@@ -232,9 +310,12 @@ export default function LiveTrackingForm({
         // die Karte mit, damit der Nutzer die Anfahrt verfolgen kann, ohne
         // dass sich das schon in der Fahrzeit niederschlägt.
         if (!hasStartedRef.current) {
-          const distToStart = haversineKm(point, startPoint);
-          setDistanceToStartKm(distToStart);
-          if (distToStart <= START_PROXIMITY_KM) beginActualTracking();
+          const proximity = evaluateProximity(point, startPoint, endPoint, {
+            hasStarted: false,
+            hasLeftStart: hasLeftStartRef.current,
+          });
+          setDistanceToStartKm(proximity.distanceToStartKm);
+          if (proximity.shouldBeginTracking) beginActualTracking();
           return;
         }
 
@@ -271,15 +352,28 @@ export default function LiveTrackingForm({
           lastPointTimeRef.current = now;
         }
 
+        saveTrackingSnapshot(route.id, {
+          phase: "tracking",
+          trail: trailRef.current,
+          distanceKm: distanceKmRef.current,
+          hasStarted: true,
+          hasLeftStart: hasLeftStartRef.current,
+          startTimeMs: startTimeRef.current,
+          savedAt: now,
+          seconds: null,
+        });
+
         // Ankunft am Ziel erkennen und die Aufzeichnung automatisch beenden
         // — analog zum automatischen Start am Startpunkt. Bei Rundfahrten
         // (Start = Ziel) erst scharf schalten, nachdem die Startnähe wirklich
         // verlassen wurde, sonst würde direkt nach dem Start sofort gestoppt.
-        if (!hasLeftStartRef.current) {
-          if (haversineKm(point, startPoint) > END_PROXIMITY_KM) hasLeftStartRef.current = true;
-        } else if (haversineKm(point, endPoint) <= END_PROXIMITY_KM) {
-          handleStop();
-        }
+        // Siehe lib/tracking.ts für die (getestete) Entscheidungslogik.
+        const proximity = evaluateProximity(point, startPoint, endPoint, {
+          hasStarted: true,
+          hasLeftStart: hasLeftStartRef.current,
+        });
+        hasLeftStartRef.current = proximity.hasLeftStart;
+        if (proximity.shouldAutoStop) handleStop();
       },
       () => setLocationError("Standort konnte nicht ermittelt werden."),
       { enableHighAccuracy: true, maximumAge: 2000, timeout: 15_000 },
@@ -294,8 +388,33 @@ export default function LiveTrackingForm({
   // sofort, ohne einen zweiten Bestätigungsschritt. setTimeout verschiebt
   // den Start in einen Callback (statt synchron im Effekt-Body), damit die
   // darin ausgelösten setState-Aufrufe nicht als Render-Kaskade zählen.
+  //
+  // Zuerst wird geprüft, ob für diese Strecke noch eine unterbrochene
+  // Aufzeichnung lokal gespeichert ist (Tab-/App-Kill, Verbindungsabbruch
+  // vor dem Speichern) — siehe lib/trackingStorage.ts. War sie bereits
+  // fertig ("finished"), springt die Ansicht direkt zum Fazit-Screen, ohne
+  // GPS neu anzufragen; war sie noch "tracking", wird handleStart() mit
+  // dem Snapshot fortgesetzt statt bei Null neu zu beginnen.
   useEffect(() => {
-    const t = setTimeout(() => handleStart(), 0);
+    const snapshot = loadTrackingSnapshot(route.id);
+
+    const t = setTimeout(() => {
+      if (snapshot?.phase === "finished") {
+        trailRef.current = snapshot.trail;
+        distanceKmRef.current = snapshot.distanceKm;
+        setResult({ distanceKm: snapshot.distanceKm, seconds: snapshot.seconds ?? 0 });
+        setCoveragePercent(
+          computeRouteCoverage(
+            route.geometry_geojson.coordinates as [number, number][],
+            snapshot.trail.map((p) => [p.lng, p.lat] as [number, number]),
+          ),
+        );
+        setTrailJson(JSON.stringify(snapshot.trail));
+        setPhase("finished");
+        return;
+      }
+      handleStart(snapshot?.phase === "tracking" ? snapshot : undefined);
+    }, 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -308,6 +427,15 @@ export default function LiveTrackingForm({
     watchIdRef.current = null;
     wakeLockRef.current?.release();
     wakeLockRef.current = null;
+    clearTrackingSnapshot(route.id);
+    onExit();
+  }
+
+  // Verwirft eine im Fazit-Screen angezeigte Aufzeichnung, inklusive des
+  // lokal gesicherten Snapshots — sonst würde die nächste Sitzung diese
+  // verworfene Fahrt beim Mount wieder aufleben lassen.
+  function handleDiscard() {
+    clearTrackingSnapshot(route.id);
     onExit();
   }
 
@@ -337,6 +465,21 @@ export default function LiveTrackingForm({
     );
     setTrailJson(JSON.stringify(trailRef.current));
     setPhase("finished");
+
+    // Bis zum erfolgreichen Speichern (siehe Submit-Erfolgs-Effect oben)
+    // bleibt der Snapshot bestehen — geht die Verbindung oder der Tab
+    // zwischen "Strecke beenden" und "Fahrt speichern" verloren, findet der
+    // Mount-Effect beim nächsten Öffnen diesen Stand wieder.
+    saveTrackingSnapshot(route.id, {
+      phase: "finished",
+      trail: trailRef.current,
+      distanceKm: finalDistanceKm,
+      hasStarted: true,
+      hasLeftStart: hasLeftStartRef.current,
+      startTimeMs: startTimeRef.current,
+      savedAt: Date.now(),
+      seconds: finalSeconds,
+    });
   }
 
   if (phase === "idle") {
@@ -500,7 +643,12 @@ export default function LiveTrackingForm({
 
         <form
           action={formAction}
-          onSubmit={() => setSubmitted(true)}
+          onSubmit={(e) => {
+            // Für den automatischen Resend, falls dieser Versuch mangels
+            // Verbindung fehlschlägt (siehe useEffect oben, [isOnline]).
+            lastSubmitFormDataRef.current = new FormData(e.currentTarget);
+            setSubmitted(true);
+          }}
           className="flex flex-col gap-4"
         >
           <input type="hidden" name="ist_oeffentlich" value={isPublic ? "true" : "false"} />
@@ -682,6 +830,13 @@ export default function LiveTrackingForm({
             <PhotoInput name="foto" id="tracking-foto" />
           </div>
 
+          {!isOnline && (
+            <p className="text-sm text-muted">
+              Du bist offline — die Fahrt ist lokal gespeichert und wird automatisch übertragen,
+              sobald wieder Verbindung besteht.
+            </p>
+          )}
+
           {state.error && (
             <p role="alert" className="text-sm text-red-600">
               {state.error}
@@ -698,7 +853,7 @@ export default function LiveTrackingForm({
             </button>
             <button
               type="button"
-              onClick={onExit}
+              onClick={handleDiscard}
               className="px-2 py-2 text-sm text-muted hover:text-foreground"
             >
               Verwerfen

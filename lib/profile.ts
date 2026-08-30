@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import type { PublicFahrt, Vehicle } from "@/types/database";
 
@@ -27,7 +28,12 @@ export interface PublicProfile {
 // diesen Fahrten berechnet, aber nur je nach eigenem Opt-in ausgegeben —
 // so kann jemand einzelne Fahrten teilen, ohne automatisch seine
 // Lebenszeit-Summen preiszugeben.
-export async function getPublicProfile(userId: string): Promise<PublicProfile | null> {
+// Mit React cache() umschlossen: generateMetadata und die Page selbst
+// (app/fahrer/[id]/page.tsx) rufen dasselbe Profil sonst zweimal pro
+// Request ab.
+export const getPublicProfile = cache(async function getPublicProfile(
+  userId: string,
+): Promise<PublicProfile | null> {
   const supabase = await createClient();
 
   const { data: profile } = await supabase
@@ -79,4 +85,4 @@ export async function getPublicProfile(userId: string): Promise<PublicProfile | 
     hoehenmeter,
     distanzKm,
   };
-}
+});
