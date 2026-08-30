@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+!.env.local.example
 
 # vercel
 .vercel
@@ -43,4 +45,16 @@ supabase/.temp
 *.tsbuildinfo
 next-env.d.ts
 
-.vercel
+# private keys / certificates
+*.key
+*.crt
+*.p12
+*.pfx
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# OS
+Thumbs.db

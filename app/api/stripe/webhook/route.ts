@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { wasAlreadyProcessed } from "@/lib/stripeWebhook";
 
 // Kein eingeloggter Supabase-Nutzer hier (Server-zu-Server-Aufruf von
 // Stripe) — die Stripe-Signaturprüfung unten (constructEvent) ist die
@@ -10,8 +11,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // serverseitig und nur erreichbar über diesen bereits verifizierten
 // Request) statt über die frühere set_premium_status-RPC, deren Secret im
 // Klartext in einer Migration lag und per anon/authenticated aufrufbar war.
-async function setPremium(customerId: string, istPremium: boolean) {
-  const supabase = createAdminClient();
+async function setPremium(
+  supabase: ReturnType<typeof createAdminClient>,
+  customerId: string,
+  istPremium: boolean,
+) {
   const { error } = await supabase
     .from("profiles")
     .update({ ist_premium: istPremium })
@@ -34,11 +38,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
+  const supabase = createAdminClient();
+
+  // Stripe delivers events at-least-once, so this exact event can arrive
+  // again (retries, reconnects, duplicate endpoints). Skip re-running the
+  // side effects below on redelivery — see lib/stripeWebhook.ts and
+  // supabase/migrations/0026_stripe_webhook_idempotency.sql.
+  if (await wasAlreadyProcessed(supabase, event.id, event.type)) {
+    return NextResponse.json({ received: true, duplicate: true });
+  }
+
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
       if (session.mode === "subscription" && typeof session.customer === "string") {
-        await setPremium(session.customer, true);
+        await setPremium(supabase, session.customer, true);
       }
       break;
     }
@@ -46,14 +60,14 @@ export async function POST(req: Request) {
       const subscription = event.data.object as Stripe.Subscription;
       if (typeof subscription.customer === "string") {
         const active = subscription.status === "active" || subscription.status === "trialing";
-        await setPremium(subscription.customer, active);
+        await setPremium(supabase, subscription.customer, active);
       }
       break;
     }
     case "customer.subscription.deleted": {
       const subscription = event.data.object as Stripe.Subscription;
       if (typeof subscription.customer === "string") {
-        await setPremium(subscription.customer, false);
+        await setPremium(supabase, subscription.customer, false);
       }
       break;
     }
