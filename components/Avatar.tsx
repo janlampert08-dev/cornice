@@ -16,6 +16,14 @@ export default function Avatar({
         alt={name ? `Profilbild von ${name}` : "Profilbild"}
         width={size}
         height={size}
+        // Tailwinds Preflight setzt `img { height: auto }` — ohne einen
+        // expliziten Inline-Style (höchste Spezifität, schlägt jede
+        // Stylesheet-Regel) rendert next/image ein nicht-quadratisches Bild
+        // bei jedem Profilbild, dessen Seitenverhältnis nicht zufällig
+        // bereits 1:1 ist: die Höhe ergibt sich dann aus der Bildbreite
+        // skaliert auf das Original-Seitenverhältnis statt auf size — aus
+        // "rund" wird ein Oval ("Sphäre statt rund"-Bug).
+        style={{ width: size, height: size }}
         className="shrink-0 rounded-full border border-foreground/10 object-cover"
       />
     );
