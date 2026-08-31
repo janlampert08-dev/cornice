@@ -37,34 +37,38 @@ export default function PhotoGallery({ photos }: { photos: RoutePhoto[] }) {
     };
   }, [openIndex, close, showPrev, showNext]);
 
-  if (photos.length === 0) return null;
-
   const openPhoto = openIndex !== null ? photos[openIndex] : null;
 
   return (
-    <section className="flex flex-col gap-3 border-t border-foreground/10 pt-6">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-        Fotos ({photos.length})
+    <section className="flex flex-col gap-3 border-t border-border pt-6">
+      <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
+        Fotos {photos.length > 0 && `(${photos.length})`}
       </h2>
-      <div className="grid grid-cols-3 gap-1">
-        {photos.map((photo, i) => (
-          <button
-            key={photo.id}
-            type="button"
-            onClick={() => setOpenIndex(i)}
-            className="relative aspect-square overflow-hidden bg-foreground/5"
-            title={photo.display_name ?? undefined}
-          >
-            <Image
-              src={photo.foto_url}
-              alt={`Foto von ${photo.display_name ?? "Nutzer"}`}
-              fill
-              sizes="33vw"
-              className="object-cover"
-            />
-          </button>
-        ))}
-      </div>
+      {photos.length === 0 ? (
+        <p className="text-sm text-muted">
+          Noch keine Fotos — beim Abschluss einer Fahrt kannst du welche hinzufügen.
+        </p>
+      ) : (
+        <div className="grid grid-cols-3 gap-1">
+          {photos.map((photo, i) => (
+            <button
+              key={photo.id}
+              type="button"
+              onClick={() => setOpenIndex(i)}
+              className="relative aspect-square overflow-hidden rounded-md bg-foreground/5"
+              title={photo.display_name ?? undefined}
+            >
+              <Image
+                src={photo.foto_url}
+                alt={`Foto von ${photo.display_name ?? "Nutzer"}`}
+                fill
+                sizes="33vw"
+                className="object-cover"
+              />
+            </button>
+          ))}
+        </div>
+      )}
 
       {openPhoto && (
         <div

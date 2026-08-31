@@ -7,15 +7,15 @@
 //
 // export default function PremiumCard({ istPremium }: { istPremium: boolean }) {
 //   return (
-//     <section className="flex flex-col gap-3 rounded-xl border border-foreground/15 shadow-sm bg-foreground/[0.03] px-4 py-4">
-//       <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Premium</h2>
+//     <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface px-4 py-4">
+//       <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">Premium</h2>
 //       {istPremium ? (
 //         <>
 //           <p className="text-sm text-foreground">Du bist Premium-Mitglied.</p>
 //           <form action={createPortalSession}>
 //             <button
 //               type="submit"
-//               className="self-start rounded-xl border border-foreground/20 px-4 py-2 text-sm text-foreground hover:border-foreground"
+//               className="self-start rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:border-border-strong"
 //             >
 //               Abo verwalten
 //             </button>
@@ -29,7 +29,7 @@
 //           </p>
 //           <Link
 //             href="/profil/premium"
-//             className="self-start rounded-full border border-foreground bg-foreground shadow-sm transition-transform active:scale-95 px-4 py-2 text-sm font-medium text-background hover:opacity-90"
+//             className="self-start rounded-full border border-foreground bg-foreground px-4 py-2 text-sm font-medium text-background transition-transform duration-fast active:scale-95 hover:opacity-90"
 //           >
 //             Premium werden
 //           </Link>

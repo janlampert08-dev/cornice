@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { updateVisibilitySettings, type ProfileActionState } from "@/lib/actions/profile";
+import Button from "@/components/ui/Button";
 
 const initialState: ProfileActionState = { error: null };
 
@@ -33,6 +34,7 @@ export default function VisibilitySettings(flags: VisibilityFlags) {
             name={field.formKey}
             value="true"
             defaultChecked={flags[field.name]}
+            className="h-4 w-4 accent-accent"
           />
           {field.label}
         </label>
@@ -42,17 +44,13 @@ export default function VisibilitySettings(flags: VisibilityFlags) {
           components/PremiumCard.tsx. */}
 
       {state.error && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-danger">
           {state.error}
         </p>
       )}
-      <button
-        type="submit"
-        disabled={pending}
-        className="self-start rounded-full border border-foreground bg-foreground shadow-sm transition-transform active:scale-95 px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
-      >
+      <Button type="submit" disabled={pending} className="self-start">
         {pending ? "Speichern…" : "Einstellungen speichern"}
-      </button>
+      </Button>
     </form>
   );
 }

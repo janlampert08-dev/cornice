@@ -2,6 +2,8 @@
 
 import { useActionState } from "react";
 import { addVehicle, type VehicleFormState } from "@/lib/actions/vehicles";
+import { Input, fieldClassName } from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
 
 const initialState: VehicleFormState = { error: null };
 
@@ -10,72 +12,42 @@ export default function NeuesFahrzeugForm() {
 
   return (
     <>
-      <h1 className="text-xl font-semibold">Fahrzeug hinzufügen</h1>
+      <h1 className="text-display font-semibold">Fahrzeug hinzufügen</h1>
       <form action={formAction} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1.5 text-sm font-medium">
           Typ
-          <select
-            name="typ"
-            required
-            defaultValue="auto"
-            className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
-          >
+          <select name="typ" required defaultValue="auto" className={fieldClassName()}>
             <option value="auto">Auto</option>
             <option value="motorrad">Motorrad</option>
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1.5 text-sm font-medium">
           Marke
-          <input
-            type="text"
-            name="marke"
-            required
-            className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
-          />
+          <Input type="text" name="marke" required />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1.5 text-sm font-medium">
           Modell
-          <input
-            type="text"
-            name="modell"
-            required
-            className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
-          />
+          <Input type="text" name="modell" required />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1.5 text-sm font-medium">
           Getriebe
-          <select
-            name="getriebe"
-            required
-            defaultValue="manuell"
-            className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
-          >
+          <select name="getriebe" required defaultValue="manuell" className={fieldClassName()}>
             <option value="manuell">Manuell</option>
             <option value="automatik">Automatik</option>
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1.5 text-sm font-medium">
           Baujahr (optional)
-          <input
-            type="number"
-            name="baujahr"
-            min={1900}
-            max={2100}
-            className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm font-mono outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
-          />
+          <Input type="number" name="baujahr" min={1900} max={2100} className="font-mono" />
         </label>
         {state.error && (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-danger">
             {state.error}
           </p>
         )}
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-full border border-foreground bg-foreground shadow-sm transition-transform active:scale-95 px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
-        >
+        <Button type="submit" disabled={pending}>
           {pending ? "Speichern…" : "Speichern"}
-        </button>
+        </Button>
       </form>
     </>
   );

@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatDuration } from "@/lib/format";
 import type { RouteTimeEntry } from "@/lib/leaderboard";
+import { fieldClassName } from "@/components/ui/Input";
+import Card from "@/components/ui/Card";
+import { cn } from "@/lib/utils/cn";
 
 const COLLAPSED_SIZE = 5;
 const EXPANDED_SIZE = 10;
@@ -47,7 +50,7 @@ export default function TrackLeaderboardChooser({
   return (
     <section className="flex flex-col gap-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+        <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
           Streckenbestzeiten
         </h2>
         {routes.length > 0 && (
@@ -57,7 +60,7 @@ export default function TrackLeaderboardChooser({
               setRouteId(e.target.value);
               setExpanded(false);
             }}
-            className="w-full rounded-xl border border-foreground/20 bg-transparent px-2 py-1 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow sm:w-auto sm:max-w-[60%]"
+            className={fieldClassName("w-full sm:w-auto sm:max-w-[60%]")}
           >
             {routes.map((r) => (
               <option key={r.id} value={r.id}>
@@ -78,17 +81,17 @@ export default function TrackLeaderboardChooser({
         <>
           {/* Bleibt beim Streckenwechsel sichtbar (nur abgedunkelt), statt
               beim Laden kurz auf Platzhalter zu blitzen. */}
-          <ol className={`flex flex-col transition-opacity ${loading ? "opacity-40" : ""}`}>
+          <Card as="ol" className={cn("divide-y divide-border transition-opacity", loading && "opacity-40")}>
             {visible.map((entry, i) => (
               <li
                 key={entry.completionId}
-                className="flex items-baseline justify-between border-b border-foreground/10 py-2 text-sm"
+                className="flex items-baseline justify-between px-4 py-3 text-sm"
               >
                 <span>
                   <span className="mr-2 font-mono text-muted tabular-nums">{i + 1}.</span>
                   <Link
                     href={`/fahrer/${entry.userId}`}
-                    className="transition-colors duration-150 hover:text-accent"
+                    className="transition-colors duration-fast hover:text-accent"
                   >
                     {entry.name}
                   </Link>
@@ -98,7 +101,7 @@ export default function TrackLeaderboardChooser({
                 </span>
               </li>
             ))}
-          </ol>
+          </Card>
           {entries.length > COLLAPSED_SIZE && (
             <button
               type="button"

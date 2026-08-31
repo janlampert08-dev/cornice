@@ -20,7 +20,7 @@ export default function BottomNav({
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-foreground/10 bg-background/85 pb-[var(--safe-bottom)] backdrop-blur-xl md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/85 pb-[var(--safe-bottom)] backdrop-blur-xl md:hidden"
       style={{ paddingBottom: "max(var(--safe-bottom), 0px)" }}
     >
       <div className="mx-auto flex max-w-lg items-stretch justify-around">
@@ -35,9 +35,11 @@ export default function BottomNav({
               className="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium"
             >
               <Icon
-                className={`h-6 w-6 transition-colors ${active ? "text-accent" : "text-muted"}`}
+                className={`h-6 w-6 transition-colors duration-fast ${active ? "text-accent" : "text-muted"}`}
               />
-              <span className={active ? "text-accent" : "text-muted"}>{tab.label}</span>
+              <span className={`transition-colors duration-fast ${active ? "text-accent" : "text-muted"}`}>
+                {tab.label}
+              </span>
             </Link>
           );
         })}

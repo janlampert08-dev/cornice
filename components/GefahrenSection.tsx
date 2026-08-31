@@ -22,11 +22,11 @@ export default function GefahrenSection({
 
   if (!open) {
     return (
-      <div className="flex justify-center border-t border-foreground/10 pt-6">
+      <div className="flex justify-center border-t border-border pt-6">
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="rounded-full border border-accent bg-accent shadow-sm transition-transform active:scale-95 px-10 py-3.5 text-base font-medium text-background hover:opacity-90"
+          className="rounded-full border border-accent bg-accent px-10 py-3.5 text-base font-medium text-background transition-transform duration-fast active:scale-95 hover:opacity-90"
         >
           Strecke starten
         </button>

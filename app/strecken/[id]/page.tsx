@@ -23,6 +23,8 @@ import { KATEGORIEN } from "@/lib/constants";
 import { formatDuration } from "@/lib/format";
 import { averageTempolimit, estimateRouteDurationMinutes, formatMinutes } from "@/lib/geo";
 import type { Vehicle } from "@/types/database";
+import Card from "@/components/ui/Card";
+import { buttonVariants } from "@/components/ui/Button";
 
 const KATEGORIE_LABEL = Object.fromEntries(
   KATEGORIEN.map((k) => [k.value, k.label]),
@@ -94,23 +96,23 @@ export default async function StreckeDetailPage({
         <div className="h-72 shrink-0 md:order-2 md:h-auto md:flex-1">
           <RouteDetailMap route={route} key={route.id} />
         </div>
-        <div className="flex w-full flex-col gap-5 overflow-y-auto overscroll-y-contain border-foreground/10 px-5 py-6 sm:px-6 sm:py-8 md:max-w-md md:border-r">
+        <div className="flex w-full flex-col gap-5 overflow-y-auto overscroll-y-contain border-border px-5 py-6 sm:px-6 sm:py-8 md:max-w-md md:border-r lg:max-w-lg xl:max-w-xl">
           <div>
             <p className="text-sm text-muted">
               {route.region}
               {route.ist_rundfahrt && " · Rundfahrt"}
             </p>
-            <h1 className="text-2xl font-semibold tracking-tight">{route.name}</h1>
+            <h1 className="text-display font-semibold tracking-tight">{route.name}</h1>
             <p className="mt-1 text-sm text-muted">
               {route.ist_rundfahrt ? `Start/Ziel: ${route.start_ort}` : `${route.start_ort} → ${route.ziel_ort}`}
             </p>
           </div>
 
           {route.ist_privat && user?.id === route.erstellt_von && (
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-foreground/15 shadow-sm bg-foreground/[0.03] px-3 py-2 text-sm">
+            <Card surface className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
               <span className="text-muted">Privat — nur du siehst diese Strecke.</span>
               <PublishRouteButton routeId={id} />
-            </div>
+            </Card>
           )}
 
           <div className="flex flex-wrap items-start gap-2">
@@ -123,7 +125,7 @@ export default async function StreckeDetailPage({
             {!moderator && user?.id === route.erstellt_von && !route.status_ok && (
               <Link
                 href={`/strecken/${id}/bearbeiten`}
-                className="self-start rounded-xl border border-foreground/20 px-3 py-1.5 text-sm text-foreground hover:border-foreground"
+                className={buttonVariants({ variant: "secondary", size: "sm", className: "self-start" })}
               >
                 Bearbeiten
               </Link>
@@ -137,7 +139,7 @@ export default async function StreckeDetailPage({
               personalBestSeconds={personalBestSeconds}
             />
           ) : (
-            <p className="border-t border-foreground/10 pt-6 text-sm text-muted">
+            <p className="border-t border-border pt-6 text-sm text-muted">
               Melde dich an, um diese Strecke als gefahren einzutragen und zu bewerten.
             </p>
           )}
@@ -146,7 +148,7 @@ export default async function StreckeDetailPage({
             <ElevationProfile punkte={route.hoehenprofil} />
           )}
 
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-y border-foreground/10 py-4 text-sm">
+          <Card as="dl" className="grid grid-cols-2 gap-x-4 gap-y-4 p-4 text-sm">
             <div>
               <dt className="text-muted">Länge</dt>
               <dd className="font-mono tabular-nums">{route.laenge_km} km</dd>
@@ -221,14 +223,14 @@ export default async function StreckeDetailPage({
                 )}
               </dd>
             </div>
-          </dl>
+          </Card>
 
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">
               {route.kategorien.map((k) => (
                 <span
                   key={k}
-                  className="rounded-xl border border-foreground/15 shadow-sm px-2 py-1 text-xs text-foreground"
+                  className="rounded-full border border-border px-2.5 py-1 text-xs text-foreground"
                 >
                   {KATEGORIE_LABEL[k] ?? k}
                 </span>

@@ -126,9 +126,10 @@ function toTrafficFeatureCollection(
 // Kleiner, dezenter Punkt statt des Standard-Mapbox-Pins (der wie ein
 // Pfeil/Tropfen aussieht) — orientiert sich an der üblichen Navi-App-
 // Konvention (z.B. Google/Apple Maps: ein einfacher blauer Punkt statt
-// eines auffälligen Markers). Bewusst eckig statt rund: globals.css erzwingt
-// border-radius:0 !important app-weit, quadratisch bleibt damit konsistent
-// zu jedem anderen Indikator (Avatar, Legenden-Swatches, …).
+// eines auffälligen Markers). Bewusst eckig statt rund: im ansonsten
+// durchgängig abgerundeten Design (siehe globals.css --radius-*) ist das
+// der eine gewollte flache/technische Akzent — ein Fadenkreuz-Motiv, das
+// sich absichtlich von der weichen Chrome drumherum absetzt.
 function createLocationDotElement(): HTMLDivElement {
   const el = document.createElement("div");
   el.style.width = "12px";

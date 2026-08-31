@@ -26,8 +26,16 @@ Kuratierte Auto-/Motorrad-Fahrstrecken — primär Raum Zürich/Schweiz.
 
 ## Design-Sprache
 
-Hintergrund `#FAFAFA`, Text `#131316`, Akzent `#3D5AFE`, Sekundärtext
-`#8A8F98`, Inter, kein `border-radius`, Haarlinien statt Schatten.
+"Precision Rounded": Hintergrund `#FAFAFA`, Text `#131316`, Akzent `#3D5AFE`,
+Sekundärtext `#8A8F98`, dazu Oberflächen-/Rahmen-/Statustokens
+(`--color-surface`, `--color-border[-strong]`, `--color-danger/-success/-warning`)
+und eine Radius-Skala (`--radius-sm/md/lg`) — siehe `app/globals.css`. Inter
+für Fliesstext, IBM Plex Mono für tabellarische Zahlen (Ränge, km,
+Höhenmeter). Schatten sind bewusst selten und nur für tatsächlich schwebende
+Flächen reserviert (`--shadow-elevated`: Dropdowns, Dialoge, Live-Tracking-
+Overlay) — ruhende Flächen bekommen weiterhin nur eine Haarlinie
+(`--color-border`). Geteilte UI-Bausteine (Button, Card, Input, Dialog,
+Skeleton, StatusPage) liegen in `components/ui/`.
 
 ## Bewusste Einschränkungen
 

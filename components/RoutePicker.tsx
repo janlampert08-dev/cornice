@@ -92,7 +92,7 @@ export default function RoutePicker({
 
   if (!MAPBOX_TOKEN) {
     return (
-      <div className="flex h-full w-full items-center justify-center rounded-xl border border-muted/25 text-sm text-muted">
+      <div className="flex h-full w-full items-center justify-center rounded-lg border border-border text-sm text-muted">
         NEXT_PUBLIC_MAPBOX_TOKEN fehlt in .env.local
       </div>
     );

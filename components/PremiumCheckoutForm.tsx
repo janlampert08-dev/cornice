@@ -22,7 +22,7 @@
 //     colorDanger: "#DC2626",
 //     fontFamily: "'Inter', sans-serif",
 //     fontSizeBase: "14px",
-//     borderRadius: "0px",
+//     borderRadius: "12px",
 //     spacingUnit: "4px",
 //   },
 //   rules: {
@@ -40,7 +40,7 @@
 //     },
 //     ".Tab": {
 //       border: "1px solid rgba(19,19,22,0.3)",
-//       borderRadius: "0px",
+//       borderRadius: "12px",
 //     },
 //     ".Tab--selected": {
 //       border: "1px solid #3D5AFE",
@@ -102,11 +102,11 @@
 //   return (
 //     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
 //       <PaymentElement />
-//       {error && <p className="text-sm text-red-600">{error}</p>}
+//       {error && <p className="text-sm text-danger">{error}</p>}
 //       <button
 //         type="submit"
 //         disabled={!stripe || submitting}
-//         className="self-start rounded-full border border-foreground bg-foreground shadow-sm transition-transform active:scale-95 px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
+//         className="self-start rounded-full border border-foreground bg-foreground px-4 py-2 text-sm font-medium text-background transition-transform duration-fast active:scale-95 hover:opacity-90 disabled:opacity-50"
 //       >
 //         {submitting ? "Wird verarbeitet…" : "CHF 4.90/Monat abonnieren"}
 //       </button>
@@ -139,7 +139,7 @@
 //   }
 //
 //   if ("error" in state) {
-//     return <p className="text-sm text-red-600">{state.error}</p>;
+//     return <p className="text-sm text-danger">{state.error}</p>;
 //   }
 //
 //   return (

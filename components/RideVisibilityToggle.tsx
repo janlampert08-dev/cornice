@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toggleCompletionVisibility } from "@/lib/actions/completions";
 import { GlobeIcon, LockIcon } from "@/components/VisibilityIcons";
 import { COVERAGE_THRESHOLD_PERCENT } from "@/lib/routeCoverage";
+import Card from "@/components/ui/Card";
 
 export default function RideVisibilityToggle({
   completionId,
@@ -37,14 +38,17 @@ export default function RideVisibilityToggle({
             setError(result.error);
           })
         }
-        className="text-muted transition-colors duration-150 hover:text-accent disabled:opacity-30"
+        className="text-muted transition-colors duration-fast hover:text-accent disabled:opacity-30"
       >
         {isPublic ? <GlobeIcon className="h-4 w-4" /> : <LockIcon className="h-4 w-4" />}
       </button>
       {error && (
-        <p className="absolute right-0 top-full z-10 mt-1 w-48 rounded-xl border border-foreground/15 shadow-sm bg-background p-2 text-right text-xs text-red-600">
+        <Card
+          elevated
+          className="absolute top-full right-0 z-10 mt-1 w-48 p-2 text-right text-xs text-danger"
+        >
           {error}
-        </p>
+        </Card>
       )}
     </div>
   );
