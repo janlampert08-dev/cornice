@@ -11,6 +11,7 @@ import PublishRouteButton from "@/components/PublishRouteButton";
 import ElevationProfile from "@/components/ElevationProfile";
 import PhotoGallery from "@/components/PhotoGallery";
 import RouteLeaderboardPreview from "@/components/RouteLeaderboardPreview";
+import OfflineRouteButton from "@/components/OfflineRouteButton";
 import { getRoute } from "@/lib/routes";
 import { getRatings, getOwnRating } from "@/lib/ratings";
 import { getPersonalBestSeconds } from "@/lib/completions";
@@ -116,6 +117,23 @@ export default async function StreckeDetailPage({
 
           <div className="flex flex-wrap items-start gap-2">
             {user && <FavoriteButton routeId={id} initialFavorite={favorite} />}
+            <OfflineRouteButton
+              route={{
+                id: route.id,
+                name: route.name,
+                region: route.region,
+                startOrt: route.start_ort,
+                zielOrt: route.ziel_ort,
+                laengeKm: route.laenge_km,
+                hoeheM: route.hoehe_m,
+                maxSteigungProzent: route.max_steigung_prozent,
+                kehren: route.kehren,
+                charakterText: route.charakter_text,
+                hoehenprofil: route.hoehenprofil,
+                geometryCoordinates: route.geometry_geojson.coordinates as [number, number][],
+                gespeichertAm: new Date().toISOString(),
+              }}
+            />
             <RouteActionsMenu
               route={route}
               moderator={moderator}
