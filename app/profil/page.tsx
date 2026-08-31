@@ -6,6 +6,8 @@ import DeleteProposalButton from "@/components/DeleteProposalButton";
 import AvatarUpload from "@/components/AvatarUpload";
 import RideVisibilityToggle from "@/components/RideVisibilityToggle";
 import ShareRideButton from "@/components/ShareRideButton";
+import AchievementBadges from "@/components/AchievementBadges";
+import ActivityHeatmap from "@/components/ActivityHeatmap";
 // Premium-Feature vorerst deaktiviert, siehe components/PremiumCard.tsx.
 import { createClient } from "@/lib/supabase/server";
 import { formatDuration } from "@/lib/format";
@@ -164,28 +166,47 @@ export default async function ProfilPage() {
           </div>
         </div>
 
-        <Card as="dl" className="grid grid-cols-2 gap-x-4 gap-y-4 p-4 text-sm sm:grid-cols-4">
-          <div>
-            <dt className="text-muted">Pässe befahren</dt>
-            <dd className="font-mono text-lg tabular-nums">{passCount}</dd>
-          </div>
-          <div>
-            <dt className="text-muted">Höhenmeter gesammelt</dt>
-            <dd className="font-mono text-lg tabular-nums">
+        {/* Bento-Layout: Pässe/Höhenmeter als grössere Kacheln (die zwei
+            Zahlen, die die eigene Fahrleidenschaft am besten zusammenfassen),
+            Km/Fahrten kleinteiliger daneben — dl bleibt als semantischer
+            Rahmen um alle dt/dd-Paare erhalten (siehe app/strecken/[id]/page.tsx
+            für dasselbe Muster). */}
+        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Card surface className="flex flex-col justify-between gap-1 p-4">
+            <dt className="text-sm text-muted">Pässe befahren</dt>
+            <dd className="text-title font-mono font-semibold tabular-nums">{passCount}</dd>
+          </Card>
+          <Card surface className="flex flex-col justify-between gap-1 p-4">
+            <dt className="text-sm text-muted">Höhenmeter gesammelt</dt>
+            <dd className="text-title font-mono font-semibold tabular-nums">
               {hoehenmeter.toLocaleString("de-CH")} m
             </dd>
-          </div>
-          <div>
-            <dt className="text-muted">Km gefahren</dt>
-            <dd className="font-mono text-lg tabular-nums">
-              {getrackteDistanzGesamt.toFixed(0)} km
-            </dd>
-          </div>
-          <div>
-            <dt className="text-muted">Anzahl Fahrten</dt>
+          </Card>
+          <Card surface className="flex flex-col justify-between gap-1 p-4">
+            <dt className="text-sm text-muted">Km gefahren</dt>
+            <dd className="font-mono text-lg tabular-nums">{getrackteDistanzGesamt.toFixed(0)} km</dd>
+          </Card>
+          <Card surface className="flex flex-col justify-between gap-1 p-4">
+            <dt className="text-sm text-muted">Anzahl Fahrten</dt>
             <dd className="font-mono text-lg tabular-nums">{trackedRides?.length ?? 0}</dd>
-          </div>
-        </Card>
+          </Card>
+        </dl>
+
+        <section className="flex flex-col gap-3">
+          <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
+            Auszeichnungen
+          </h2>
+          <AchievementBadges
+            passCount={passCount}
+            hoehenmeter={hoehenmeter}
+            fahrtenCount={trackedRides?.length ?? 0}
+          />
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">Aktivität</h2>
+          <ActivityHeatmap dates={(trackedRides ?? []).map((r) => r.datum)} />
+        </section>
 
         <div className="flex flex-col gap-8 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
           <div className="flex flex-col gap-8">
