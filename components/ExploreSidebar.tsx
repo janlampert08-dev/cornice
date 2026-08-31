@@ -122,6 +122,12 @@ export default function ExploreSidebar({
           // lautet dann z.B. "24 km lang"), nicht zusätzlich eine separate
           // km-Zahl daneben zeigen — sonst steht dieselbe Länge zweimal da.
           const showPlainKm = signature?.key !== "laenge";
+          // Fallback als Literal-Hex statt CSS-Variable: withAlpha() (siehe
+          // lib/signature.ts) parst den Wert als #RRGGBB, ein var(...) würde
+          // das brechen. Entspricht --color-muted im Light Mode; im Dark Mode
+          // (#8F95A3) ein kaum wahrnehmbarer Unterschied — echte Auflösung
+          // bräuchte eine JS-seitige Farbaufl. der CSS-Variable, außerhalb
+          // des Scopes dieser Phase (lib/signature.ts bleibt unangetastet).
           const trackColor = signature?.color ?? "#8A8F98";
 
           return (
