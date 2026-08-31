@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { safeInternalPath } from "@/lib/utils/url";
 import type { FahrzeugTyp, Getriebe, Vehicle } from "@/types/database";
 
 export interface VehicleFormState {
@@ -55,7 +56,11 @@ export async function addVehicle(
 ): Promise<VehicleFormState> {
   const { error } = await insertVehicleFromFormData(formData);
   if (error) return { error };
-  redirect("/profil");
+  // Optionales verstecktes Feld "next" (siehe NeuesFahrzeugForm.tsx) bringt
+  // z. B. vom Onboarding (app/willkommen/page.tsx) hierher navigierte
+  // Nutzer nach dem Speichern wieder dorthin zurück, statt immer fest zu
+  // /profil zu springen.
+  redirect(safeInternalPath(formData.get("next") as string | null) ?? "/profil");
 }
 
 // Wie addVehicle, aber ohne redirect — fürs Inline-Formular im

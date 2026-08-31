@@ -7,13 +7,14 @@ import Button from "@/components/ui/Button";
 
 const initialState: VehicleFormState = { error: null };
 
-export default function NeuesFahrzeugForm() {
+export default function NeuesFahrzeugForm({ nextHref }: { nextHref?: string } = {}) {
   const [state, formAction, pending] = useActionState(addVehicle, initialState);
 
   return (
     <>
       <h1 className="text-display font-semibold">Fahrzeug hinzufügen</h1>
       <form action={formAction} className="flex flex-col gap-4">
+        {nextHref && <input type="hidden" name="next" value={nextHref} />}
         <label className="flex flex-col gap-1.5 text-sm font-medium">
           Typ
           <select name="typ" required defaultValue="auto" className={fieldClassName()}>
