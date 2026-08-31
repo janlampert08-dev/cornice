@@ -11,6 +11,7 @@ import {
 import dynamic from "next/dynamic";
 import { GripHorizontal } from "lucide-react";
 import ExploreSidebar from "@/components/ExploreSidebar";
+import Skeleton from "@/components/ui/Skeleton";
 import { haversineKm } from "@/lib/geo";
 import { matchesSearch } from "@/lib/search";
 import { computeSignatures } from "@/lib/signature";
@@ -22,7 +23,7 @@ import type { Kategorie, RouteGeoJSON } from "@/types/database";
 // da mapbox-gl direkten DOM-/WebGL-Zugriff braucht.
 const RouteMap = dynamic(() => import("@/components/RouteMap"), {
   ssr: false,
-  loading: () => <div className="h-full w-full bg-background" />,
+  loading: () => <Skeleton className="h-full w-full" />,
 });
 
 // Bottom-Sheet-Massse (Mobile). PEEK entspricht ungefähr der bisherigen
@@ -219,7 +220,7 @@ export default function ExploreView({
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") setSheetExpanded((current) => !current);
           }}
-          className="flex shrink-0 cursor-grab touch-none items-center justify-center py-2 active:cursor-grabbing md:hidden"
+          className="flex shrink-0 cursor-grab touch-none items-center justify-center rounded-t-lg py-2 active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-inset md:hidden"
         >
           <GripHorizontal className="h-5 w-5 text-muted" aria-hidden="true" />
         </div>

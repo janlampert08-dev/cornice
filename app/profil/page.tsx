@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { Heart, Route as RouteIcon } from "lucide-react";
 import Header from "@/components/Header";
 import VehicleList from "@/components/VehicleList";
 import DeleteProposalButton from "@/components/DeleteProposalButton";
@@ -8,11 +9,13 @@ import RideVisibilityToggle from "@/components/RideVisibilityToggle";
 import ShareRideButton from "@/components/ShareRideButton";
 import AchievementBadges from "@/components/AchievementBadges";
 import ActivityHeatmap from "@/components/ActivityHeatmap";
+import CountUp from "@/components/CountUp";
 // Premium-Feature vorerst deaktiviert, siehe components/PremiumCard.tsx.
 import { createClient } from "@/lib/supabase/server";
 import { formatDuration } from "@/lib/format";
 import type { Vehicle } from "@/types/database";
 import Card from "@/components/ui/Card";
+import EmptyState from "@/components/ui/EmptyState";
 import { buttonVariants } from "@/components/ui/Button";
 
 export default async function ProfilPage() {
@@ -174,21 +177,27 @@ export default async function ProfilPage() {
         <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Card surface className="flex flex-col justify-between gap-1 p-4">
             <dt className="text-sm text-muted">Pässe befahren</dt>
-            <dd className="text-title font-mono font-semibold tabular-nums">{passCount}</dd>
+            <dd className="text-title font-mono font-semibold tabular-nums">
+              <CountUp value={passCount} />
+            </dd>
           </Card>
           <Card surface className="flex flex-col justify-between gap-1 p-4">
             <dt className="text-sm text-muted">Höhenmeter gesammelt</dt>
             <dd className="text-title font-mono font-semibold tabular-nums">
-              {hoehenmeter.toLocaleString("de-CH")} m
+              <CountUp value={hoehenmeter} unit="m" />
             </dd>
           </Card>
           <Card surface className="flex flex-col justify-between gap-1 p-4">
             <dt className="text-sm text-muted">Km gefahren</dt>
-            <dd className="font-mono text-lg tabular-nums">{getrackteDistanzGesamt.toFixed(0)} km</dd>
+            <dd className="font-mono text-lg tabular-nums">
+              <CountUp value={getrackteDistanzGesamt} unit="km" />
+            </dd>
           </Card>
           <Card surface className="flex flex-col justify-between gap-1 p-4">
             <dt className="text-sm text-muted">Anzahl Fahrten</dt>
-            <dd className="font-mono text-lg tabular-nums">{trackedRides?.length ?? 0}</dd>
+            <dd className="font-mono text-lg tabular-nums">
+              <CountUp value={trackedRides?.length ?? 0} />
+            </dd>
           </Card>
         </dl>
 
@@ -259,7 +268,15 @@ export default async function ProfilPage() {
                   })}
                 </Card>
               ) : (
-                <p className="text-sm text-muted">Noch keine Fahrten aufgezeichnet.</p>
+                <EmptyState
+                  icon={RouteIcon}
+                  title="Noch keine Fahrten aufgezeichnet."
+                  action={
+                    <Link href="/" className={buttonVariants({ variant: "secondary", size: "sm" })}>
+                      Strecken entdecken
+                    </Link>
+                  }
+                />
               )}
             </section>
 
@@ -288,7 +305,15 @@ export default async function ProfilPage() {
                   )}
                 </Card>
               ) : (
-                <p className="text-sm text-muted">Noch keine Favoriten gemerkt.</p>
+                <EmptyState
+                  icon={Heart}
+                  title="Noch keine Favoriten gemerkt."
+                  action={
+                    <Link href="/" className={buttonVariants({ variant: "secondary", size: "sm" })}>
+                      Strecken entdecken
+                    </Link>
+                  }
+                />
               )}
             </section>
           </div>
