@@ -3,4 +3,4 @@
 // gleiche Importnamen, damit lib/nav.ts und alle Konsumenten unverändert
 // bleiben. lucide-react ist tree-shakeable (Einzel-Imports), daher kein
 // Bundle-Size-Nachteil ggü. den bisherigen 5 Icons.
-export { MapPin as MapPinIcon, Trophy as RankingIcon, User as PersonIcon, Plus as PlusIcon, ShieldCheck as ShieldIcon } from "lucide-react";
+export { MapPin as MapPinIcon, Trophy as RankingIcon, User as PersonIcon, Plus as PlusIcon, ShieldCheck as ShieldIcon, Users as FeedIcon } from "lucide-react";

@@ -166,9 +166,9 @@ export interface Profile {
   created_at: string;
 }
 
-// Zeilenform von public.public_fahrten (siehe 0015/0018) — stark
+// Zeilenform von public.public_fahrten (siehe 0015/0018/0030) — stark
 // eingeschränkte, öffentliche Sicht auf gefahrene Strecken fürs öffentliche
-// Profil.
+// Profil und den Community-Feed (app/feed/page.tsx).
 export interface PublicFahrt {
   user_id: string;
   route_id: string;
@@ -178,6 +178,10 @@ export interface PublicFahrt {
   distanz_km: number | null;
   datum: string;
   completion_id: string;
+  // Ab 0030_follows_and_feed.sql. avatar_url ist bereits serverseitig auf
+  // null gesetzt, wenn der Fahrer zeigt_avatar nicht aktiviert hat.
+  display_name: string | null;
+  avatar_url: string | null;
 }
 
 // Zeilenform von public.route_photos — nur die für eine öffentliche

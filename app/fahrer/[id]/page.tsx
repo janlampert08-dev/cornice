@@ -4,8 +4,10 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Avatar from "@/components/Avatar";
 import KudosButton from "@/components/KudosButton";
+import FollowButton from "@/components/FollowButton";
 import { getPublicProfile } from "@/lib/profile";
 import { getKudosForCompletions } from "@/lib/kudos";
+import { isFollowing } from "@/lib/follows";
 import { createClient } from "@/lib/supabase/server";
 import Card from "@/components/ui/Card";
 
@@ -41,6 +43,12 @@ export default async function FahrerPage({
     viewer?.id ?? null,
   );
 
+  // Kein Folgen-Button auf dem eigenen Profil, und nur für eingeloggte
+  // Betrachter — dieselbe Bedingung wie beim Kudos-Button oben.
+  const showFollow = !!viewer && viewer.id !== id;
+  const alreadyFollowing =
+    viewer && viewer.id !== id ? await isFollowing(viewer.id, id) : false;
+
   const zeigtStatistiken = profile.zeigtPaesse || profile.zeigtHoehenmeter || profile.zeigtDistanz;
   const istPrivat =
     !profile.zeigtFahrzeuge && !zeigtStatistiken && profile.fahrten.length === 0;
@@ -49,13 +57,16 @@ export default async function FahrerPage({
     <div className="flex h-dvh flex-col">
       <Header back="/" />
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 overflow-y-auto px-5 py-8 sm:px-6 sm:py-10 lg:max-w-4xl">
-        <div className="flex items-center gap-4">
-          <Avatar
-            url={profile.zeigtAvatar ? profile.avatarUrl : null}
-            name={profile.displayName}
-            size={64}
-          />
-          <h1 className="text-display font-semibold">{profile.displayName ?? "Fahrer"}</h1>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Avatar
+              url={profile.zeigtAvatar ? profile.avatarUrl : null}
+              name={profile.displayName}
+              size={64}
+            />
+            <h1 className="text-display font-semibold">{profile.displayName ?? "Fahrer"}</h1>
+          </div>
+          {showFollow && <FollowButton targetUserId={id} initialFollowing={alreadyFollowing} />}
         </div>
 
         {zeigtStatistiken && (

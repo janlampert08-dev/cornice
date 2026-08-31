@@ -1,0 +1,147 @@
+import Link from "next/link";
+import Image from "next/image";
+import { Rss } from "lucide-react";
+import Header from "@/components/Header";
+import Avatar from "@/components/Avatar";
+import KudosButton from "@/components/KudosButton";
+import { getFeed, type FeedScope } from "@/lib/feed";
+import { createClient } from "@/lib/supabase/server";
+import Card from "@/components/ui/Card";
+import EmptyState from "@/components/ui/EmptyState";
+import { buttonVariants } from "@/components/ui/Button";
+import { cn } from "@/lib/utils/cn";
+
+export const metadata = {
+  title: "Feed – Cornice",
+};
+
+// Öffentlich lesbar wie /strecken/[id] (public_fahrten ist an anon
+// freigegeben) — nur der "Folge ich"-Filter und der Kudos-Button brauchen
+// eine Session. Kein Redirect zu /anmelden, damit ein geteilter Feed-Link
+// auch für ausgeloggte Besucher funktioniert.
+export default async function FeedPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ scope?: string }>;
+}) {
+  const { scope: scopeParam } = await searchParams;
+  const scope: FeedScope = scopeParam === "following" ? "following" : "global";
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const feed = await getFeed(scope, user?.id ?? null);
+
+  return (
+    <div className="flex h-dvh flex-col">
+      <Header back="/" />
+      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 overflow-y-auto px-5 py-8 sm:px-6 sm:py-10">
+        <div>
+          <h1 className="text-display font-semibold">Feed</h1>
+          <p className="mt-1 text-sm text-muted">Geteilte Fahrten aus der Community.</p>
+        </div>
+
+        {user && (
+          <div className="flex gap-2 border-b border-border pb-3">
+            <Link
+              href="/feed"
+              className={cn(
+                "rounded-full px-3 py-1.5 text-sm font-medium transition-colors duration-fast",
+                scope === "global" ? "bg-foreground text-background" : "text-muted hover:text-foreground",
+              )}
+            >
+              Alle
+            </Link>
+            <Link
+              href="/feed?scope=following"
+              className={cn(
+                "rounded-full px-3 py-1.5 text-sm font-medium transition-colors duration-fast",
+                scope === "following" ? "bg-foreground text-background" : "text-muted hover:text-foreground",
+              )}
+            >
+              Folge ich
+            </Link>
+          </div>
+        )}
+
+        {feed.length === 0 ? (
+          <EmptyState
+            icon={Rss}
+            title={
+              scope === "following"
+                ? "Noch keine Fahrten von Nutzern, denen du folgst."
+                : "Noch keine geteilten Fahrten."
+            }
+            action={
+              scope === "following" ? (
+                <Link href="/feed" className={buttonVariants({ variant: "secondary", size: "sm" })}>
+                  Alle Fahrten ansehen
+                </Link>
+              ) : undefined
+            }
+          />
+        ) : (
+          <ul className="flex flex-col gap-4">
+            {feed.map((item) => (
+              <Card as="li" key={item.completion_id} className="overflow-hidden">
+                {item.coverPhotoUrl && (
+                  <Link
+                    href={`/strecken/${item.route_id}`}
+                    className="relative block h-40 w-full bg-surface"
+                  >
+                    <Image
+                      src={item.coverPhotoUrl}
+                      alt=""
+                      fill
+                      sizes="(min-width: 640px) 42rem, 100vw"
+                      className="object-cover"
+                    />
+                  </Link>
+                )}
+                <div className="flex flex-col gap-3 p-4">
+                  <div className="flex items-center gap-3">
+                    <Link href={`/fahrer/${item.user_id}`} className="shrink-0">
+                      <Avatar url={item.avatar_url} name={item.display_name} size={40} />
+                    </Link>
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={`/fahrer/${item.user_id}`}
+                        className="block truncate text-sm font-medium transition-colors duration-fast hover:text-accent"
+                      >
+                        {item.display_name ?? "Fahrer"}
+                      </Link>
+                      <p className="text-xs text-muted">{new Date(item.datum).toLocaleDateString("de-CH")}</p>
+                    </div>
+                  </div>
+
+                  <Link
+                    href={`/strecken/${item.route_id}`}
+                    className="flex items-baseline justify-between gap-2 transition-colors duration-fast hover:text-accent"
+                  >
+                    <span className="min-w-0 truncate font-medium">{item.route_name}</span>
+                    <span className="shrink-0 font-mono text-sm tabular-nums text-muted">
+                      {(item.distanz_km ?? item.laenge_km).toFixed(1)} km
+                    </span>
+                  </Link>
+                  <p className="text-xs text-muted">{item.region}</p>
+
+                  {user && (
+                    <div className="flex justify-end">
+                      <KudosButton
+                        completionId={item.completion_id}
+                        initialCount={item.kudos.count}
+                        initialGiven={item.kudos.givenByMe}
+                      />
+                    </div>
+                  )}
+                </div>
+              </Card>
+            ))}
+          </ul>
+        )}
+      </main>
+    </div>
+  );
+}
