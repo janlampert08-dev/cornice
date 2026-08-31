@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 import dynamic from "next/dynamic";
+import { Clock, Mountain, Ruler } from "lucide-react";
 import TrafficIndicator, { type TrafficChipState } from "@/components/TrafficIndicator";
 import { SPEED_LEGEND } from "@/lib/speed";
 import {
@@ -11,9 +12,24 @@ import {
   worstCongestion,
   type CongestionLevel,
 } from "@/lib/traffic";
+import { estimateRouteDurationMinutes, formatMinutes } from "@/lib/geo";
 import type { RouteGeoJSON } from "@/types/database";
 import { buttonVariants } from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+
+// Schwebende Kennzahlen-Chips über der Karte (Glassmorphism-Muster wie
+// Header.tsx/BottomNav.tsx: bg-background/85 + backdrop-blur-xl). Oben
+// mittig platziert, damit sie weder mit den Tempolimit-/Verkehrs-Buttons
+// (oben links) noch mit der Mapbox-NavigationControl (oben rechts) oder
+// Logo/Attribution (unten, Mapbox-Standardposition) kollidieren.
+function StatChip({ icon: Icon, label }: { icon: ComponentType<{ className?: string }>; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5 rounded-full border border-border bg-background/85 px-3 py-1.5 text-xs font-medium tabular-nums shadow-elevated backdrop-blur-xl">
+      <Icon className="h-3.5 w-3.5 text-muted" aria-hidden="true" />
+      {label}
+    </span>
+  );
+}
 
 // Siehe ExploreView.tsx für die Begründung des dynamischen Imports.
 const RouteMap = dynamic(() => import("@/components/RouteMap"), {
@@ -87,6 +103,14 @@ export default function RouteDetailMap({ route }: { route: RouteGeoJSON }) {
           showSpeedLimits={showSpeedLimits}
           showTraffic={showTraffic}
           trafficSegments={trafficSegments}
+        />
+      </div>
+      <div className="pointer-events-none absolute inset-x-16 top-4 flex flex-wrap justify-center gap-2 sm:inset-x-24">
+        <StatChip icon={Ruler} label={`${route.laenge_km} km`} />
+        {route.hoehe_m !== null && <StatChip icon={Mountain} label={`${route.hoehe_m} m`} />}
+        <StatChip
+          icon={Clock}
+          label={`~${formatMinutes(estimateRouteDurationMinutes(route.laenge_km, route.kategorien, route.tempolimits))}`}
         />
       </div>
       <div className="absolute top-4 left-4 flex flex-col items-start gap-2">
