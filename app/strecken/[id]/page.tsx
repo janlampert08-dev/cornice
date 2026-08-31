@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import Header from "@/components/Header";
+import RouteDetailLayout from "@/components/RouteDetailLayout";
 import RouteDetailMap from "@/components/RouteDetailMap";
 import FavoriteButton from "@/components/FavoriteButton";
 import RatingSection from "@/components/RatingSection";
@@ -92,176 +93,171 @@ export default async function StreckeDetailPage({
   return (
     <div className="flex h-dvh flex-col">
       <Header back="/" />
-      <main className="flex flex-1 flex-col overflow-hidden md:flex-row">
-        <div className="h-72 shrink-0 md:order-2 md:h-auto md:flex-1">
-          <RouteDetailMap route={route} key={route.id} />
+      <RouteDetailLayout map={<RouteDetailMap route={route} key={route.id} />}>
+        <div>
+          <p className="text-sm text-muted">
+            {route.region}
+            {route.ist_rundfahrt && " · Rundfahrt"}
+          </p>
+          <h1 className="text-display font-semibold tracking-tight">{route.name}</h1>
+          <p className="mt-1 text-sm text-muted">
+            {route.ist_rundfahrt ? `Start/Ziel: ${route.start_ort}` : `${route.start_ort} → ${route.ziel_ort}`}
+          </p>
         </div>
-        <div className="flex w-full flex-col gap-5 overflow-y-auto overscroll-y-contain border-border px-5 py-6 sm:px-6 sm:py-8 md:max-w-md md:border-r lg:max-w-lg xl:max-w-xl">
-          <div>
-            <p className="text-sm text-muted">
-              {route.region}
-              {route.ist_rundfahrt && " · Rundfahrt"}
-            </p>
-            <h1 className="text-display font-semibold tracking-tight">{route.name}</h1>
-            <p className="mt-1 text-sm text-muted">
-              {route.ist_rundfahrt ? `Start/Ziel: ${route.start_ort}` : `${route.start_ort} → ${route.ziel_ort}`}
-            </p>
-          </div>
 
-          {route.ist_privat && user?.id === route.erstellt_von && (
-            <Card surface className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-              <span className="text-muted">Privat — nur du siehst diese Strecke.</span>
-              <PublishRouteButton routeId={id} />
-            </Card>
-          )}
+        {route.ist_privat && user?.id === route.erstellt_von && (
+          <Card surface className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+            <span className="text-muted">Privat — nur du siehst diese Strecke.</span>
+            <PublishRouteButton routeId={id} />
+          </Card>
+        )}
 
-          <div className="flex flex-wrap items-start gap-2">
-            {user && <FavoriteButton routeId={id} initialFavorite={favorite} />}
-            <OfflineRouteButton
-              route={{
-                id: route.id,
-                name: route.name,
-                region: route.region,
-                startOrt: route.start_ort,
-                zielOrt: route.ziel_ort,
-                laengeKm: route.laenge_km,
-                hoeheM: route.hoehe_m,
-                maxSteigungProzent: route.max_steigung_prozent,
-                kehren: route.kehren,
-                charakterText: route.charakter_text,
-                hoehenprofil: route.hoehenprofil,
-                geometryCoordinates: route.geometry_geojson.coordinates as [number, number][],
-                gespeichertAm: new Date().toISOString(),
-              }}
-            />
-            <RouteActionsMenu
-              route={route}
-              moderator={moderator}
-              isOwner={!moderator && user?.id === route.erstellt_von && !route.status_ok}
-            />
-            {!moderator && user?.id === route.erstellt_von && !route.status_ok && (
-              <Link
-                href={`/strecken/${id}/bearbeiten`}
-                className={buttonVariants({ variant: "secondary", size: "sm", className: "self-start" })}
-              >
-                Bearbeiten
-              </Link>
-            )}
-          </div>
-
-          {user ? (
-            <GefahrenSection
-              route={route}
-              vehicles={vehicles}
-              personalBestSeconds={personalBestSeconds}
-            />
-          ) : (
-            <p className="border-t border-border pt-6 text-sm text-muted">
-              Melde dich an, um diese Strecke als gefahren einzutragen und zu bewerten.
-            </p>
-          )}
-
-          {route.hoehenprofil && route.hoehenprofil.length > 1 && (
-            <ElevationProfile punkte={route.hoehenprofil} />
-          )}
-
-          {/* Bento-Layout statt einer gleichförmigen dl-Tabelle: Länge/Höhe als
-              grössere, betonte Kacheln (die zwei Zahlen, die beim ersten Blick
-              auf eine Strecke am meisten zählen), Rest kleinteiliger darunter.
-              dl bleibt als semantischer Rahmen um alle dt/dd-Paare erhalten —
-              HTML5 erlaubt dt/dd-Gruppen, die einzeln in div (hier: Card)
-              gewrappt sind. */}
-          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Card surface className="col-span-1 flex flex-col justify-between gap-1 p-4">
-              <dt className="text-sm text-muted">Länge</dt>
-              <dd className="text-title font-mono font-semibold tabular-nums">{route.laenge_km} km</dd>
-            </Card>
-            <Card surface className="col-span-1 flex flex-col justify-between gap-1 p-4">
-              <dt className="text-sm text-muted">Höhe</dt>
-              <dd className="text-title font-mono font-semibold tabular-nums">
-                {route.hoehe_m !== null ? `${route.hoehe_m} m` : "—"}
-              </dd>
-            </Card>
-            <Card surface className="flex flex-col justify-between gap-1 p-4">
-              <dt className="text-sm text-muted">Max. Steigung</dt>
-              <dd className="font-mono tabular-nums">
-                {route.max_steigung_prozent !== null ? `${route.max_steigung_prozent}%` : "—"}
-              </dd>
-            </Card>
-            <Card surface className="flex flex-col justify-between gap-1 p-4">
-              <dt className="text-sm text-muted">Kehren</dt>
-              <dd className="font-mono tabular-nums">{route.kehren ?? "—"}</dd>
-            </Card>
-            <Card surface className="flex flex-col justify-between gap-1 p-4">
-              <dt className="text-sm text-muted">Ø Tempolimit</dt>
-              <dd className="font-mono tabular-nums">
-                {averageTempolimit(route.tempolimits) !== null
-                  ? `${averageTempolimit(route.tempolimits)} km/h`
-                  : "—"}
-              </dd>
-            </Card>
-            <Card surface className="flex flex-col justify-between gap-1 p-4">
-              <dt className="text-sm text-muted">Fahrzeit</dt>
-              <dd className="font-mono tabular-nums">
-                ~
-                {formatMinutes(
-                  estimateRouteDurationMinutes(
-                    route.laenge_km,
-                    route.kategorien,
-                    route.tempolimits,
-                  ),
-                )}
-              </dd>
-            </Card>
-            <Card surface className="col-span-2 flex flex-col justify-between gap-1 p-4 sm:col-span-2">
-              <dt className="text-sm text-muted">Wetter</dt>
-              <dd className="font-mono tabular-nums">
-                {weather ? (
-                  <>
-                    {weather.tempC}°C
-                    <span className="ml-1.5 font-sans text-xs normal-case text-muted">
-                      {weather.label}
-                    </span>
-                  </>
-                ) : (
-                  "—"
-                )}
-              </dd>
-            </Card>
-          </dl>
-
-          <RouteLeaderboardPreview entries={leaderboard.slice(0, 5)} />
-
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              {route.kategorien.map((k) => (
-                <span
-                  key={k}
-                  className="rounded-full border border-border px-2.5 py-1 text-xs text-foreground"
-                >
-                  {KATEGORIE_LABEL[k] ?? k}
-                </span>
-              ))}
-              {route.saison_status === "saisonal" && (
-                <span className="text-sm text-muted">{SAISON_LABEL.saisonal}</span>
-              )}
-            </div>
-
-            {route.charakter_text && (
-              <p className="text-sm leading-relaxed text-foreground">{route.charakter_text}</p>
-            )}
-          </div>
-
-          <PhotoGallery photos={photos} />
-
-          <RatingSection
-            routeId={id}
-            ratings={ratings}
-            ownRating={ownRating}
-            canRate={!!user}
+        <div className="flex flex-wrap items-start gap-2">
+          {user && <FavoriteButton routeId={id} initialFavorite={favorite} />}
+          <OfflineRouteButton
+            route={{
+              id: route.id,
+              name: route.name,
+              region: route.region,
+              startOrt: route.start_ort,
+              zielOrt: route.ziel_ort,
+              laengeKm: route.laenge_km,
+              hoeheM: route.hoehe_m,
+              maxSteigungProzent: route.max_steigung_prozent,
+              kehren: route.kehren,
+              charakterText: route.charakter_text,
+              hoehenprofil: route.hoehenprofil,
+              geometryCoordinates: route.geometry_geojson.coordinates as [number, number][],
+              gespeichertAm: new Date().toISOString(),
+            }}
           />
+          <RouteActionsMenu
+            route={route}
+            moderator={moderator}
+            isOwner={!moderator && user?.id === route.erstellt_von && !route.status_ok}
+          />
+          {!moderator && user?.id === route.erstellt_von && !route.status_ok && (
+            <Link
+              href={`/strecken/${id}/bearbeiten`}
+              className={buttonVariants({ variant: "secondary", size: "sm", className: "self-start" })}
+            >
+              Bearbeiten
+            </Link>
+          )}
         </div>
-      </main>
+
+        {user ? (
+          <GefahrenSection
+            route={route}
+            vehicles={vehicles}
+            personalBestSeconds={personalBestSeconds}
+          />
+        ) : (
+          <p className="border-t border-border pt-6 text-sm text-muted">
+            Melde dich an, um diese Strecke als gefahren einzutragen und zu bewerten.
+          </p>
+        )}
+
+        {route.hoehenprofil && route.hoehenprofil.length > 1 && (
+          <ElevationProfile punkte={route.hoehenprofil} />
+        )}
+
+        {/* Bento-Layout statt einer gleichförmigen dl-Tabelle: Länge/Höhe als
+            grössere, betonte Kacheln (die zwei Zahlen, die beim ersten Blick
+            auf eine Strecke am meisten zählen), Rest kleinteiliger darunter.
+            dl bleibt als semantischer Rahmen um alle dt/dd-Paare erhalten —
+            HTML5 erlaubt dt/dd-Gruppen, die einzeln in div (hier: Card)
+            gewrappt sind. */}
+        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Card surface className="col-span-1 flex flex-col justify-between gap-1 p-4">
+            <dt className="text-sm text-muted">Länge</dt>
+            <dd className="text-title font-mono font-semibold tabular-nums">{route.laenge_km} km</dd>
+          </Card>
+          <Card surface className="col-span-1 flex flex-col justify-between gap-1 p-4">
+            <dt className="text-sm text-muted">Höhe</dt>
+            <dd className="text-title font-mono font-semibold tabular-nums">
+              {route.hoehe_m !== null ? `${route.hoehe_m} m` : "—"}
+            </dd>
+          </Card>
+          <Card surface className="flex flex-col justify-between gap-1 p-4">
+            <dt className="text-sm text-muted">Max. Steigung</dt>
+            <dd className="font-mono tabular-nums">
+              {route.max_steigung_prozent !== null ? `${route.max_steigung_prozent}%` : "—"}
+            </dd>
+          </Card>
+          <Card surface className="flex flex-col justify-between gap-1 p-4">
+            <dt className="text-sm text-muted">Kehren</dt>
+            <dd className="font-mono tabular-nums">{route.kehren ?? "—"}</dd>
+          </Card>
+          <Card surface className="flex flex-col justify-between gap-1 p-4">
+            <dt className="text-sm text-muted">Ø Tempolimit</dt>
+            <dd className="font-mono tabular-nums">
+              {averageTempolimit(route.tempolimits) !== null
+                ? `${averageTempolimit(route.tempolimits)} km/h`
+                : "—"}
+            </dd>
+          </Card>
+          <Card surface className="flex flex-col justify-between gap-1 p-4">
+            <dt className="text-sm text-muted">Fahrzeit</dt>
+            <dd className="font-mono tabular-nums">
+              ~
+              {formatMinutes(
+                estimateRouteDurationMinutes(
+                  route.laenge_km,
+                  route.kategorien,
+                  route.tempolimits,
+                ),
+              )}
+            </dd>
+          </Card>
+          <Card surface className="col-span-2 flex flex-col justify-between gap-1 p-4 sm:col-span-2">
+            <dt className="text-sm text-muted">Wetter</dt>
+            <dd className="font-mono tabular-nums">
+              {weather ? (
+                <>
+                  {weather.tempC}°C
+                  <span className="ml-1.5 font-sans text-xs normal-case text-muted">
+                    {weather.label}
+                  </span>
+                </>
+              ) : (
+                "—"
+              )}
+            </dd>
+          </Card>
+        </dl>
+
+        <RouteLeaderboardPreview entries={leaderboard.slice(0, 5)} />
+
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {route.kategorien.map((k) => (
+              <span
+                key={k}
+                className="rounded-full border border-border px-2.5 py-1 text-xs text-foreground"
+              >
+                {KATEGORIE_LABEL[k] ?? k}
+              </span>
+            ))}
+            {route.saison_status === "saisonal" && (
+              <span className="text-sm text-muted">{SAISON_LABEL.saisonal}</span>
+            )}
+          </div>
+
+          {route.charakter_text && (
+            <p className="text-sm leading-relaxed text-foreground">{route.charakter_text}</p>
+          )}
+        </div>
+
+        <PhotoGallery photos={photos} />
+
+        <RatingSection
+          routeId={id}
+          ratings={ratings}
+          ownRating={ownRating}
+          canRate={!!user}
+        />
+      </RouteDetailLayout>
     </div>
   );
 }
