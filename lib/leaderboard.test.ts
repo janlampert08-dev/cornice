@@ -5,6 +5,7 @@ function row(overrides: Partial<LeaderboardRow>): LeaderboardRow {
   return {
     user_id: "u1",
     display_name: "Alice",
+    avatar_url: null,
     route_id: "r1",
     hoehe_m: 1000,
     effektive_distanz_km: 20,
@@ -23,8 +24,16 @@ describe("aggregateLeaderboards", () => {
     ];
     const { meisteFahrten } = aggregateLeaderboards(rows);
     expect(meisteFahrten).toEqual([
-      { userId: "u1", name: "Alice", value: 3, isPremiumBadge: false },
+      { userId: "u1", name: "Alice", avatarUrl: null, value: 3, isPremiumBadge: false },
     ]);
+  });
+
+  it("passes the already-gated avatar_url through unchanged", () => {
+    const rows = [row({ user_id: "u1", avatar_url: "https://example.com/a.jpg" }), row({ user_id: "u2", avatar_url: null })];
+    const { meisteFahrten } = aggregateLeaderboards(rows);
+    const avatarByUser = new Map(meisteFahrten.map((e) => [e.userId, e.avatarUrl]));
+    expect(avatarByUser.get("u1")).toBe("https://example.com/a.jpg");
+    expect(avatarByUser.get("u2")).toBeNull();
   });
 
   it("never shows the premium badge while the Premium feature is disabled", () => {

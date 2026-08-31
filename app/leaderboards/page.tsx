@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import Header from "@/components/Header";
 import TrackLeaderboardChooser from "@/components/TrackLeaderboardChooser";
+import Avatar from "@/components/Avatar";
 import { getGlobalLeaderboards, type LeaderboardEntry } from "@/lib/leaderboard";
 import { getRoutes } from "@/lib/routes";
 import { createClient } from "@/lib/supabase/server";
@@ -34,29 +35,28 @@ function LeaderboardSection({
             return (
               <li
                 key={entry.userId}
-                className={`flex items-baseline justify-between px-4 py-3 text-sm ${
+                className={`flex items-center gap-2 px-4 py-3 text-sm ${
                   isOwn ? "bg-accent/5" : ""
                 }`}
               >
-                <span>
-                  <span
-                    className={`mr-2 font-mono tabular-nums ${
-                      i === 0 ? "font-semibold text-accent" : "text-muted"
-                    }`}
-                  >
-                    {i + 1}.
-                  </span>
-                  <Link
-                    href={`/fahrer/${entry.userId}`}
-                    className={`transition-colors duration-fast hover:text-accent ${
-                      isOwn ? "font-medium text-accent" : ""
-                    }`}
-                  >
-                    {entry.name}
-                  </Link>
-                </span>
                 <span
-                  className={`font-mono tabular-nums ${isOwn ? "text-accent" : "text-muted"}`}
+                  className={`w-4 shrink-0 font-mono tabular-nums ${
+                    i === 0 ? "font-semibold text-accent" : "text-muted"
+                  }`}
+                >
+                  {i + 1}.
+                </span>
+                <Avatar url={entry.avatarUrl} name={entry.name} size={24} />
+                <Link
+                  href={`/fahrer/${entry.userId}`}
+                  className={`min-w-0 flex-1 truncate transition-colors duration-fast hover:text-accent ${
+                    isOwn ? "font-medium text-accent" : ""
+                  }`}
+                >
+                  {entry.name}
+                </Link>
+                <span
+                  className={`shrink-0 font-mono tabular-nums ${isOwn ? "text-accent" : "text-muted"}`}
                 >
                   {format(entry.value)} {unit}
                 </span>
