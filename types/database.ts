@@ -177,6 +177,7 @@ export interface PublicFahrt {
   laenge_km: number;
   distanz_km: number | null;
   datum: string;
+  completion_id: string;
 }
 
 // Zeilenform von public.route_photos — nur die für eine öffentliche
