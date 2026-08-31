@@ -11,6 +11,7 @@ import type { RouteGeoJSON, TempolimitSegment } from "@/types/database";
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 const ROUTES_SOURCE = "routes";
 const ROUTES_LINE_LAYER = "routes-line";
+const ROUTES_HIT_LAYER = "routes-line-hit";
 const SPEED_SOURCE = "speed-segments";
 const SPEED_LINE_LAYER = "speed-segments-line";
 const ENDPOINTS_SOURCE = "route-endpoints";
@@ -242,6 +243,26 @@ export default function RouteMap({
         firstSymbolId,
       );
 
+      // Unsichtbarer, deutlich breiterer Layer über derselben Quelle — dient
+      // ausschliesslich als grössere Trefferfläche für Klick/Tap (siehe
+      // map.on("click", ROUTES_HIT_LAYER, ...) unten). Die sichtbare Linie
+      // bleibt schmal (Kartenoptik), aber gerade auf Touch-Geräten ist eine
+      // 2-4px breite Linie kaum präzise zu treffen.
+      map.addLayer(
+        {
+          id: ROUTES_HIT_LAYER,
+          type: "line",
+          source: ROUTES_SOURCE,
+          layout: { "line-join": "round", "line-cap": "round" },
+          paint: {
+            "line-color": "#000000",
+            "line-opacity": 0,
+            "line-width": ["interpolate", ["linear"], ["zoom"], 8, 20, 14, 28],
+          },
+        },
+        firstSymbolId,
+      );
+
       const single = routesRef.current.length === 1 ? routesRef.current[0] : null;
       map.addSource(SPEED_SOURCE, {
         type: "geojson",
@@ -372,13 +393,13 @@ export default function RouteMap({
 
       fitToRoutes(map, routesRef.current, false);
 
-      map.on("mouseenter", ROUTES_LINE_LAYER, () => {
+      map.on("mouseenter", ROUTES_HIT_LAYER, () => {
         map.getCanvas().style.cursor = "pointer";
       });
-      map.on("mouseleave", ROUTES_LINE_LAYER, () => {
+      map.on("mouseleave", ROUTES_HIT_LAYER, () => {
         map.getCanvas().style.cursor = "";
       });
-      map.on("click", ROUTES_LINE_LAYER, (e) => {
+      map.on("click", ROUTES_HIT_LAYER, (e) => {
         const id = e.features?.[0]?.properties?.id;
         if (id) router.push(`/strecken/${id}`);
       });
