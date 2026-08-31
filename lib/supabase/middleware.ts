@@ -22,10 +22,7 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value),
-          );
-          supabaseResponse = NextResponse.next({ request });
+          // Nur die Response-Cookies setzen. Das Request-Objekt darf nicht gemutet werden.
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options),
           );
@@ -34,8 +31,15 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  // Wichtig: getUser() aktualisiert den Session-Token bei Bedarf.
-  await supabase.auth.getUser();
+  try {
+    // Wichtig: getUser() aktualisiert den Session-Token bei Bedarf.
+    await supabase.auth.getUser();
+  } catch (err) {
+    // Auf Stabilität achten: Fehler beim Kontakt zu Supabase dürfen die Request-Pipeline
+    // nicht komplett brechen. Loggen und weitermachen.
+    // eslint-disable-next-line no-console
+    console.error("supabase auth.getUser failed:", err);
+  }
 
   return supabaseResponse;
 }
