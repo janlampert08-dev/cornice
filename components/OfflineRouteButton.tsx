@@ -64,7 +64,7 @@ export default function OfflineRouteButton({ route }: { route: OfflineRoute }) {
       ) : (
         <Download className="h-3.5 w-3.5" aria-hidden="true" />
       )}
-      {saved ? "Offline entfernen" : "Für offline verfügbar machen"}
+      {saved ? "Offline entfernen" : "Offline download"}
     </button>
   );
 }

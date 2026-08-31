@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { Box, Clock, Mountain, Ruler } from "lucide-react";
+import { Box } from "lucide-react";
 import TrafficIndicator, { type TrafficChipState } from "@/components/TrafficIndicator";
 import { SPEED_LEGEND } from "@/lib/speed";
 import {
@@ -12,25 +12,10 @@ import {
   worstCongestion,
   type CongestionLevel,
 } from "@/lib/traffic";
-import { estimateRouteDurationMinutes, formatMinutes } from "@/lib/geo";
 import type { RouteGeoJSON } from "@/types/database";
 import { buttonVariants } from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Skeleton from "@/components/ui/Skeleton";
-
-// Schwebende Kennzahlen-Chips über der Karte (Glassmorphism-Muster wie
-// Header.tsx/BottomNav.tsx: bg-background/85 + backdrop-blur-xl). Oben
-// mittig platziert, damit sie weder mit den Tempolimit-/Verkehrs-Buttons
-// (oben links) noch mit der Mapbox-NavigationControl (oben rechts) oder
-// Logo/Attribution (unten, Mapbox-Standardposition) kollidieren.
-function StatChip({ icon: Icon, label }: { icon: ComponentType<{ className?: string }>; label: string }) {
-  return (
-    <span className="flex items-center gap-1.5 rounded-full border border-border bg-background/85 px-3 py-1.5 text-xs font-medium tabular-nums shadow-elevated backdrop-blur-xl">
-      <Icon className="h-3.5 w-3.5 text-muted" aria-hidden="true" />
-      {label}
-    </span>
-  );
-}
 
 // Siehe ExploreView.tsx für die Begründung des dynamischen Imports.
 const RouteMap = dynamic(() => import("@/components/RouteMap"), {
@@ -57,10 +42,10 @@ export default function RouteDetailMap({ route }: { route: RouteGeoJSON }) {
   const unavailable = !MAPBOX_TOKEN || coordinates.length < 2;
 
   // Einzige Verkehrsabfrage der Seite (siehe lib/traffic.ts) — speist sowohl
-  // den Chip (worstCongestion) als auch die eingefärbten Kartenabschnitte
-  // (sliceRouteByTraffic), statt wie zuvor zwei unabhängige Mechanismen zu
-  // pflegen. Kein manueller Reset beim Streckenwechsel nötig: die Seite
-  // rendert diese Komponente mit key={route.id} (siehe
+  // den Verkehrs-Indikator (worstCongestion) als auch die eingefärbten
+  // Kartenabschnitte (sliceRouteByTraffic), statt wie zuvor zwei unabhängige
+  // Mechanismen zu pflegen. Kein manueller Reset beim Streckenwechsel nötig:
+  // die Seite rendert diese Komponente mit key={route.id} (siehe
   // app/strecken/[id]/page.tsx), ein Streckenwechsel montiert sie also neu.
   const [levels, setLevels] = useState<(CongestionLevel | null)[] | null>(null);
 
@@ -106,14 +91,6 @@ export default function RouteDetailMap({ route }: { route: RouteGeoJSON }) {
           showTraffic={showTraffic}
           show3D={show3D}
           trafficSegments={trafficSegments}
-        />
-      </div>
-      <div className="pointer-events-none absolute inset-x-16 top-4 flex flex-wrap justify-center gap-2 sm:inset-x-24">
-        <StatChip icon={Ruler} label={`${route.laenge_km} km`} />
-        {route.hoehe_m !== null && <StatChip icon={Mountain} label={`${route.hoehe_m} m`} />}
-        <StatChip
-          icon={Clock}
-          label={`~${formatMinutes(estimateRouteDurationMinutes(route.laenge_km, route.kategorien, route.tempolimits))}`}
         />
       </div>
       <div className="absolute top-4 left-4 flex flex-col items-start gap-2">
