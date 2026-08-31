@@ -7,10 +7,14 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: {
-      // Next's default (1 MB) is below the 4 MB limit uploadAvatar() itself
-      // enforces (lib/actions/profile.ts), so any real photo over ~1 MB was
-      // rejected with a raw 413 before that friendlier check ever ran.
-      bodySizeLimit: "5mb",
+      // Next's default (1 MB) is below both the 4 MB limit uploadAvatar()
+      // enforces (lib/actions/profile.ts) and the 8 MB limit
+      // logTrackedCompletion() enforces for route photos
+      // (lib/actions/completions.ts) — a real photo above the platform
+      // limit was rejected with a raw 413 before either friendlier check
+      // ever ran. Set above the larger of the two (8 MB) with headroom for
+      // the rest of the multipart body (GPS trail JSON, form fields).
+      bodySizeLimit: "9mb",
     },
   },
   images: {

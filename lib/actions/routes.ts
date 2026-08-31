@@ -73,6 +73,10 @@ export async function proposeRoute(
     hoehenprofil = buildHoehenprofil(profile);
   }
 
+  // p_laenge_km is only a fast client-side plausibility check above
+  // (laengeKm > 0) — propose_route_full (0033) recomputes and stores the
+  // authoritative length itself from p_geometry_geojson via ST_Length,
+  // so a mismatched or fabricated value here can't end up in the DB.
   const { data, error } = await supabase.rpc("propose_route_full", {
     p_name: name,
     p_region: region,
