@@ -47,15 +47,35 @@ export const viewport: Viewport = {
   // laufen — erst dadurch greifen die env(safe-area-inset-*)-Werte, die
   // globals.css und die Bottom-Nav für Abstände dort nutzen.
   viewportFit: "cover",
-  themeColor: "#FAFAFA",
+  // Folgt der Systemeinstellung für die Browser-Chrome-Farbe (Statusleiste/
+  // Adresszeile). Deckt nicht den seltenen Fall ab, dass jemand über
+  // ThemeToggle.tsx manuell gegen sein Systemschema übersteuert — die
+  // Chrome-Farbe würde dann kurz nicht zum Seiteninhalt passen, rein
+  // kosmetisch und nicht funktional relevant.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#FAFAFA" },
+    { media: "(prefers-color-scheme: dark)", color: "#0B0B0D" },
+  ],
 };
+
+// Blockierendes Inline-Script statt eines useEffect in ThemeToggle.tsx:
+// muss vor dem ersten Paint laufen, sonst blitzt bei einer gespeicherten
+// "Dunkel"-Wahl kurz das helle Schema auf (FOUC), bis React hydratisiert.
+const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem("cornice-theme");if(t==="light"||t==="dark"){document.documentElement.dataset.theme=t;}}catch(e){}})();`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="de"
+      // Das Inline-Script unten setzt data-theme ausserhalb von Reacts
+      // Kontrolle — ohne dies würde React beim Hydratisieren fälschlich vor
+      // einem Mismatch warnen.
+      suppressHydrationWarning
       className={`${inter.variable} ${ibmPlexMono.variable} h-full antialiased`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col font-sans">
         {children}
         <ServiceWorkerRegister />

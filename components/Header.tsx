@@ -4,6 +4,7 @@ import { isModerator } from "@/lib/moderation";
 import { getNavItems } from "@/lib/nav";
 import BackButton from "@/components/BackButton";
 import BottomNav from "@/components/BottomNav";
+import ThemeToggle from "@/components/ThemeToggle";
 import { buttonVariants } from "@/components/ui/Button";
 
 export default async function Header({ back }: { back?: string } = {}) {
@@ -29,29 +30,35 @@ export default async function Header({ back }: { back?: string } = {}) {
             Cornice
           </Link>
         </div>
-        {/* Auf Mobile übernimmt BottomNav die Navigation — hier nur noch auf
-            Desktop sichtbar, um die Tab-Leiste nicht zu duplizieren. */}
-        <nav className="hidden items-center gap-3 overflow-x-auto text-sm sm:gap-6 md:flex">
-          {items.map((item) =>
-            item.href === "/anmelden" ? (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={buttonVariants({ variant: "primary", size: "sm", className: "whitespace-nowrap" })}
-              >
-                {item.label}
-              </Link>
-            ) : (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="whitespace-nowrap text-foreground transition-colors duration-fast hover:text-accent"
-              >
-                {item.label}
-              </Link>
-            ),
-          )}
-        </nav>
+        <div className="flex shrink-0 items-center gap-3 sm:gap-4">
+          {/* Auf Mobile übernimmt BottomNav die Navigation — hier nur noch
+              auf Desktop sichtbar, um die Tab-Leiste nicht zu duplizieren. */}
+          <nav className="hidden items-center gap-3 overflow-x-auto text-sm sm:gap-6 md:flex">
+            {items.map((item) =>
+              item.href === "/anmelden" ? (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={buttonVariants({ variant: "primary", size: "sm", className: "whitespace-nowrap" })}
+                >
+                  {item.label}
+                </Link>
+              ) : (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="whitespace-nowrap text-foreground transition-colors duration-fast hover:text-accent"
+                >
+                  {item.label}
+                </Link>
+              ),
+            )}
+          </nav>
+          {/* Anders als die Nav auf allen Breakpoints sichtbar — sonst hätten
+              Mobile-Nutzer (BottomNav übernimmt dort die Navigation) keinen
+              Zugriff auf die manuelle Hell/Dunkel-Wahl. */}
+          <ThemeToggle />
+        </div>
       </header>
       <BottomNav loggedIn={!!user} moderator={moderator} />
     </>

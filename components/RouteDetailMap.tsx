@@ -16,6 +16,7 @@ import { estimateRouteDurationMinutes, formatMinutes } from "@/lib/geo";
 import type { RouteGeoJSON } from "@/types/database";
 import { buttonVariants } from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import Skeleton from "@/components/ui/Skeleton";
 
 // Schwebende Kennzahlen-Chips über der Karte (Glassmorphism-Muster wie
 // Header.tsx/BottomNav.tsx: bg-background/85 + backdrop-blur-xl). Oben
@@ -34,7 +35,7 @@ function StatChip({ icon: Icon, label }: { icon: ComponentType<{ className?: str
 // Siehe ExploreView.tsx für die Begründung des dynamischen Imports.
 const RouteMap = dynamic(() => import("@/components/RouteMap"), {
   ssr: false,
-  loading: () => <div className="h-full w-full bg-background" />,
+  loading: () => <Skeleton className="h-full w-full" />,
 });
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;

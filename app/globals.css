@@ -50,9 +50,11 @@
 /* Reiner Token-Tausch, keine dark:-Klassen im Komponentencode nötig — jede
    Komponente liest Farben ausschliesslich über diese Custom Properties
    (via @theme inline unten), ein Redefinieren hier genügt für die ganze
-   App. Folgt der System-Einstellung, kein manueller Umschalter. */
+   App. Folgt standardmässig der System-Einstellung; :not([data-theme="light"])
+   lässt eine manuelle "Hell"-Wahl (siehe ThemeToggle.tsx) das System
+   übersteuern, ohne dass Systemwechsel danach die Wahl zurücksetzen. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --color-background: #0b0b0d;
     --color-foreground: #f2f2f4;
     --color-accent: #6b83ff;
@@ -73,6 +75,33 @@
 
     color-scheme: dark;
   }
+}
+
+/* Manuelle "Dunkel"-Wahl (ThemeToggle.tsx) — gewinnt unabhängig von der
+   Systemeinstellung, da diese Regel unbedingt (nicht in einer @media-Abfrage)
+   greift und in der Kaskade nach dem Block oben steht. Werte identisch zum
+   @media-Block oben dupliziert statt per CSS-Verschachtelung geteilt, um auf
+   verlässliche Selektor-Spezifität statt Browser-Nesting-Unterstützung zu setzen. */
+:root[data-theme="dark"] {
+  --color-background: #0b0b0d;
+  --color-foreground: #f2f2f4;
+  --color-accent: #6b83ff;
+  --color-muted: #8f95a3;
+
+  --color-border: color-mix(in oklch, var(--color-foreground) 14%, transparent);
+  --color-border-strong: color-mix(in oklch, var(--color-foreground) 32%, transparent);
+  --color-surface: color-mix(in oklch, var(--color-foreground) 6%, var(--color-background));
+
+  --color-accent-subtle: color-mix(in oklch, var(--color-accent) 14%, var(--color-background));
+  --color-accent-strong: color-mix(in oklch, var(--color-accent) 80%, white);
+
+  --shadow-sm: 0 1px 3px color-mix(in oklch, black 40%, transparent);
+  --shadow-elevated: 0 2px 8px -2px color-mix(in oklch, black 50%, transparent),
+    0 1px 2px color-mix(in oklch, black 30%, transparent);
+  --shadow-overlay: 0 8px 24px -4px color-mix(in oklch, black 60%, transparent),
+    0 2px 6px color-mix(in oklch, black 35%, transparent);
+
+  color-scheme: dark;
 }
 
 @theme inline {

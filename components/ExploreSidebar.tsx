@@ -3,13 +3,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, type CSSProperties } from "react";
-import { Mountain } from "lucide-react";
+import { Mountain, SearchX } from "lucide-react";
 import { KATEGORIEN } from "@/lib/constants";
 import { routeShapePath } from "@/lib/routeShape";
 import { withAlpha, type RouteSignature } from "@/lib/signature";
 import type { Kategorie, RouteGeoJSON } from "@/types/database";
 import { fieldClassName } from "@/components/ui/Input";
 import { buttonVariants } from "@/components/ui/Button";
+import EmptyState from "@/components/ui/EmptyState";
 
 export default function ExploreSidebar({
   routes,
@@ -93,7 +94,7 @@ export default function ExploreSidebar({
               type="button"
               onClick={() => onToggleKategorie(k.value)}
               aria-pressed={active}
-              className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-medium transition-colors duration-fast active:scale-95 ${
+              className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-medium transition-colors duration-fast active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                 active
                   ? "border-accent bg-accent text-background"
                   : "border-border text-foreground hover:border-border-strong"
@@ -112,7 +113,9 @@ export default function ExploreSidebar({
           </li>
         )}
         {routes.length === 0 && !loadError && (
-          <li className="text-sm text-muted">Keine Strecken für diese Suche.</li>
+          <li>
+            <EmptyState icon={SearchX} title="Keine Strecken für diese Suche." />
+          </li>
         )}
         {routes.map((route) => {
           const signature = signatures.get(route.id);
