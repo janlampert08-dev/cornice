@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ComponentType } from "react";
 import dynamic from "next/dynamic";
-import { Clock, Mountain, Ruler } from "lucide-react";
+import { Box, Clock, Mountain, Ruler } from "lucide-react";
 import TrafficIndicator, { type TrafficChipState } from "@/components/TrafficIndicator";
 import { SPEED_LEGEND } from "@/lib/speed";
 import {
@@ -16,6 +16,7 @@ import { estimateRouteDurationMinutes, formatMinutes } from "@/lib/geo";
 import type { RouteGeoJSON } from "@/types/database";
 import { buttonVariants } from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import Skeleton from "@/components/ui/Skeleton";
 
 // Schwebende Kennzahlen-Chips über der Karte (Glassmorphism-Muster wie
 // Header.tsx/BottomNav.tsx: bg-background/85 + backdrop-blur-xl). Oben
@@ -34,7 +35,7 @@ function StatChip({ icon: Icon, label }: { icon: ComponentType<{ className?: str
 // Siehe ExploreView.tsx für die Begründung des dynamischen Imports.
 const RouteMap = dynamic(() => import("@/components/RouteMap"), {
   ssr: false,
-  loading: () => <div className="h-full w-full bg-background" />,
+  loading: () => <Skeleton className="h-full w-full" />,
 });
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -49,6 +50,7 @@ const SAMPLES_PER_KM = 1.2;
 export default function RouteDetailMap({ route }: { route: RouteGeoJSON }) {
   const [showSpeedLimits, setShowSpeedLimits] = useState(false);
   const [showTraffic, setShowTraffic] = useState(false);
+  const [show3D, setShow3D] = useState(false);
   const hasTempolimits = !!route.tempolimits?.length;
 
   const coordinates = route.geometry_geojson.coordinates as [number, number][];
@@ -102,6 +104,7 @@ export default function RouteDetailMap({ route }: { route: RouteGeoJSON }) {
           routes={[route]}
           showSpeedLimits={showSpeedLimits}
           showTraffic={showTraffic}
+          show3D={show3D}
           trafficSegments={trafficSegments}
         />
       </div>
@@ -128,6 +131,14 @@ export default function RouteDetailMap({ route }: { route: RouteGeoJSON }) {
             active={showTraffic}
             onToggle={() => setShowTraffic((v) => !v)}
           />
+          <button
+            onClick={() => setShow3D((v) => !v)}
+            aria-pressed={show3D}
+            className={buttonVariants({ variant: "secondary", size: "sm", className: "bg-background" })}
+          >
+            <Box className="h-3.5 w-3.5" aria-hidden="true" />
+            {show3D ? "2D-Ansicht" : "3D-Ansicht"}
+          </button>
         </div>
         {showSpeedLimits && (
           <Card elevated className="flex flex-col gap-1 px-3 py-2 text-xs text-foreground">

@@ -20,6 +20,11 @@ const TRAFFIC_LINE_LAYER = "traffic-segments-line";
 const HIGHLIGHT_SOURCE = "route-highlight";
 const HIGHLIGHT_HALO_LAYER = "route-highlight-halo";
 const HIGHLIGHT_LINE_LAYER = "route-highlight-line";
+const TERRAIN_SOURCE = "mapbox-dem";
+const SKY_LAYER = "sky";
+const TERRAIN_EXAGGERATION = 1.4;
+const TILTED_PITCH = 60;
+const TILTED_BEARING = -17;
 
 // Verwandte Blautöne, damit einzelne Strecken auf der Übersichtskarte
 // unterscheidbar sind, ohne aus dem Farbschema auszubrechen.
@@ -156,6 +161,7 @@ export default function RouteMap({
   userLocation,
   showSpeedLimits = false,
   showTraffic = false,
+  show3D = false,
   colors,
   hoveredRouteId = null,
   trafficSegments = [],
@@ -164,6 +170,7 @@ export default function RouteMap({
   userLocation?: [number, number] | null;
   showSpeedLimits?: boolean;
   showTraffic?: boolean;
+  show3D?: boolean;
   colors?: Map<string, string>;
   hoveredRouteId?: string | null;
   trafficSegments?: { coords: [number, number][]; color: string }[];
@@ -343,6 +350,26 @@ export default function RouteMap({
         firstSymbolId,
       );
 
+      // Höhendaten-Quelle immer hinzugefügt (auch wenn 3D initial aus ist) —
+      // setTerrain()/setTerrain(null) beim Umschalten (siehe eigener Effekt
+      // unten) braucht sie so oder so, und ein separates addSource beim
+      // ersten Aktivieren würde nur unnötig verzögern.
+      map.addSource(TERRAIN_SOURCE, {
+        type: "raster-dem",
+        url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+        tileSize: 512,
+        maxzoom: 14,
+      });
+      map.addLayer({
+        id: SKY_LAYER,
+        type: "sky",
+        paint: { "sky-type": "atmosphere", "sky-atmosphere-sun-intensity": 8 },
+      });
+      if (show3D) {
+        map.setTerrain({ source: TERRAIN_SOURCE, exaggeration: TERRAIN_EXAGGERATION });
+        map.easeTo({ pitch: TILTED_PITCH, bearing: TILTED_BEARING, duration: 0 });
+      }
+
       fitToRoutes(map, routesRef.current, false);
 
       map.on("mouseenter", ROUTES_LINE_LAYER, () => {
@@ -447,6 +474,21 @@ export default function RouteMap({
     if (!map.getLayer(TRAFFIC_LINE_LAYER)) return;
     map.setLayoutProperty(TRAFFIC_LINE_LAYER, "visibility", showTraffic ? "visible" : "none");
   }, [showTraffic]);
+
+  // 3D-Umschalter: Terrain-Exaggeration + Kamerawinkel zusammen setzen, statt
+  // nur die Höhendaten zu aktivieren — ohne pitch bliebe die Ansicht
+  // senkrecht von oben und der Relief-Effekt wäre kaum sichtbar.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !styleLoadedRef.current) return;
+    if (show3D) {
+      map.setTerrain({ source: TERRAIN_SOURCE, exaggeration: TERRAIN_EXAGGERATION });
+      map.easeTo({ pitch: TILTED_PITCH, bearing: TILTED_BEARING, duration: 800 });
+    } else {
+      map.setTerrain(null);
+      map.easeTo({ pitch: 0, bearing: 0, duration: 800 });
+    }
+  }, [show3D]);
 
   // Standort-Marker anzeigen/aktualisieren, sobald die Sidebar den Standort ermittelt hat.
   useEffect(() => {

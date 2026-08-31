@@ -89,9 +89,11 @@ export async function signUp(
 
   // Ist "Confirm email" im Supabase-Projekt deaktiviert, liefert signUp
   // bereits eine aktive Session — dann direkt einloggen statt auf eine
-  // (nie versendete) Bestätigungsmail zu verweisen.
+  // (nie versendete) Bestätigungsmail zu verweisen. Führt wie der
+  // E-Mail-Bestätigungslink (app/auth/callback/route.ts) zu /willkommen,
+  // da dies ebenfalls eine Neuregistrierung ist.
   if (data.session) {
-    redirect("/profil");
+    redirect("/willkommen");
   }
 
   redirect("/registrieren/bestaetigen");

@@ -1,6 +1,8 @@
+import { Car } from "lucide-react";
 import type { Vehicle } from "@/types/database";
 import DeleteVehicleButton from "@/components/DeleteVehicleButton";
 import Card from "@/components/ui/Card";
+import EmptyState from "@/components/ui/EmptyState";
 
 const TYP_LABEL: Record<Vehicle["typ"], string> = {
   auto: "Auto",
@@ -14,7 +16,7 @@ const GETRIEBE_LABEL: Record<Vehicle["getriebe"], string> = {
 
 export default function VehicleList({ vehicles }: { vehicles: Vehicle[] }) {
   if (vehicles.length === 0) {
-    return <p className="text-sm text-muted">Noch keine Fahrzeuge hinterlegt.</p>;
+    return <EmptyState icon={Car} title="Noch keine Fahrzeuge hinterlegt." />;
   }
 
   return (

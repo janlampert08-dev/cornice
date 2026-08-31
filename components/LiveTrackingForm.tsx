@@ -20,11 +20,12 @@ import { GlobeIcon, LockIcon } from "@/components/VisibilityIcons";
 import type { RouteGeoJSON, Vehicle } from "@/types/database";
 import { fieldClassName } from "@/components/ui/Input";
 import { buttonVariants } from "@/components/ui/Button";
+import Skeleton from "@/components/ui/Skeleton";
 
 // Siehe ExploreView.tsx für die Begründung des dynamischen Imports.
 const RouteMap = dynamic(() => import("@/components/RouteMap"), {
   ssr: false,
-  loading: () => <div className="h-full w-full bg-background" />,
+  loading: () => <Skeleton className="h-full w-full" />,
 });
 
 const initialState: CompletionFormState = { error: null };
