@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Trophy } from "lucide-react";
 import Header from "@/components/Header";
 import TrackLeaderboardChooser from "@/components/TrackLeaderboardChooser";
+import Avatar from "@/components/Avatar";
 import { getGlobalLeaderboards, type LeaderboardEntry } from "@/lib/leaderboard";
 import { getRoutes } from "@/lib/routes";
 import { createClient } from "@/lib/supabase/server";
@@ -48,6 +49,7 @@ function LeaderboardSection({
                 ) : (
                   <span className="w-4 shrink-0 text-center font-mono text-xs text-muted">{i + 1}.</span>
                 )}
+                <Avatar url={entry.avatarUrl} name={entry.name} size={24} />
                 <Link
                   href={`/fahrer/${entry.userId}`}
                   className={`min-w-0 flex-1 truncate transition-colors duration-fast hover:text-accent ${

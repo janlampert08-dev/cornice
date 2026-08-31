@@ -3,6 +3,7 @@ import { Trophy } from "lucide-react";
 import { formatDuration } from "@/lib/format";
 import type { RouteTimeEntry } from "@/lib/leaderboard";
 import { MEDAL_COLORS } from "@/lib/constants";
+import Avatar from "@/components/Avatar";
 import Card from "@/components/ui/Card";
 
 export default function RouteLeaderboardPreview({ entries }: { entries: RouteTimeEntry[] }) {
@@ -25,6 +26,7 @@ export default function RouteLeaderboardPreview({ entries }: { entries: RouteTim
               ) : (
                 <span className="w-4 shrink-0 text-center font-mono text-xs text-muted">{i + 1}.</span>
               )}
+              <Avatar url={entry.avatarUrl} name={entry.name} size={24} />
               <Link
                 href={`/fahrer/${entry.userId}`}
                 className="min-w-0 flex-1 truncate transition-colors duration-fast hover:text-accent"
