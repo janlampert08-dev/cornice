@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Heart, Route as RouteIcon } from "lucide-react";
+import type { ComponentType } from "react";
+import { Award, Car, CalendarDays, ChevronDown, Heart, MapPin, Route as RouteIcon } from "lucide-react";
 import Header from "@/components/Header";
 import VehicleList from "@/components/VehicleList";
 import DeleteProposalButton from "@/components/DeleteProposalButton";
@@ -17,6 +18,37 @@ import type { Vehicle } from "@/types/database";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
 import { buttonVariants } from "@/components/ui/Button";
+
+// Gemeinsamer Stil für die aufklappbaren Unterabschnitte innerhalb einer
+// Gruppen-Card (siehe AdvancedFiltersPanel.tsx für dasselbe native
+// <details>-Muster) — Icon + Label + optionale Anzahl links, Chevron rechts.
+function SectionSummary({
+  icon: Icon,
+  label,
+  count,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  count?: number;
+}) {
+  return (
+    <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium marker:content-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+      <span className="flex items-center gap-1.5">
+        <Icon className="h-4 w-4 text-muted" aria-hidden="true" />
+        {label}
+        {count !== undefined && (
+          <span className="rounded-full border border-border px-1.5 py-0.5 text-xs font-normal text-muted">
+            {count}
+          </span>
+        )}
+      </span>
+      <ChevronDown
+        className="h-4 w-4 text-muted transition-transform duration-fast group-open:rotate-180"
+        aria-hidden="true"
+      />
+    </summary>
+  );
+}
 
 export default async function ProfilPage() {
   const supabase = await createClient();
@@ -169,220 +201,253 @@ export default async function ProfilPage() {
           </div>
         </div>
 
-        {/* Bento-Layout: Pässe/Höhenmeter als grössere Kacheln (die zwei
-            Zahlen, die die eigene Fahrleidenschaft am besten zusammenfassen),
-            Km/Fahrten kleinteiliger daneben — dl bleibt als semantischer
-            Rahmen um alle dt/dd-Paare erhalten (siehe app/strecken/[id]/page.tsx
-            für dasselbe Muster). */}
-        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Card surface className="flex flex-col justify-between gap-1 p-4">
-            <dt className="text-sm text-muted">Pässe befahren</dt>
-            <dd className="text-title font-mono font-semibold tabular-nums">
-              <CountUp value={passCount} />
-            </dd>
-          </Card>
-          <Card surface className="flex flex-col justify-between gap-1 p-4">
-            <dt className="text-sm text-muted">Höhenmeter gesammelt</dt>
-            <dd className="text-title font-mono font-semibold tabular-nums">
-              <CountUp value={hoehenmeter} unit="m" />
-            </dd>
-          </Card>
-          <Card surface className="flex flex-col justify-between gap-1 p-4">
-            <dt className="text-sm text-muted">Km gefahren</dt>
-            <dd className="font-mono text-lg tabular-nums">
-              <CountUp value={getrackteDistanzGesamt} unit="km" />
-            </dd>
-          </Card>
-          <Card surface className="flex flex-col justify-between gap-1 p-4">
-            <dt className="text-sm text-muted">Anzahl Fahrten</dt>
-            <dd className="font-mono text-lg tabular-nums">
-              <CountUp value={trackedRides?.length ?? 0} />
-            </dd>
-          </Card>
-        </dl>
-
+        {/* Statistiken: Kennzahlen-Grid, Auszeichnungen und Aktivitätskalender
+            gehören inhaltlich zusammen ("meine Zahlen") und stecken deshalb in
+            einer gemeinsamen Gruppen-Card statt als drei gleichrangige,
+            eigenständige Sections — Auszeichnungen/Aktivität als native
+            <details> darin (siehe SectionSummary oben), auf/zu ohne eigenes
+            State-Management. Beide standardmässig offen: dieselben Infos wie
+            vorher sind weiterhin ohne Klick sichtbar, nur jetzt gruppiert und
+            bei Bedarf einklappbar. */}
         <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
-            Auszeichnungen
-          </h2>
-          <AchievementBadges
-            passCount={passCount}
-            hoehenmeter={hoehenmeter}
-            fahrtenCount={trackedRides?.length ?? 0}
-          />
-        </section>
+          <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">Statistiken</h2>
+          <Card className="flex flex-col divide-y divide-border">
+            <dl className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
+              <Card surface className="flex flex-col justify-between gap-1 p-4">
+                <dt className="text-sm text-muted">Pässe befahren</dt>
+                <dd className="text-title font-mono font-semibold tabular-nums">
+                  <CountUp value={passCount} />
+                </dd>
+              </Card>
+              <Card surface className="flex flex-col justify-between gap-1 p-4">
+                <dt className="text-sm text-muted">Höhenmeter gesammelt</dt>
+                <dd className="text-title font-mono font-semibold tabular-nums">
+                  <CountUp value={hoehenmeter} unit="m" />
+                </dd>
+              </Card>
+              <Card surface className="flex flex-col justify-between gap-1 p-4">
+                <dt className="text-sm text-muted">Km gefahren</dt>
+                <dd className="font-mono text-lg tabular-nums">
+                  <CountUp value={getrackteDistanzGesamt} unit="km" />
+                </dd>
+              </Card>
+              <Card surface className="flex flex-col justify-between gap-1 p-4">
+                <dt className="text-sm text-muted">Anzahl Fahrten</dt>
+                <dd className="font-mono text-lg tabular-nums">
+                  <CountUp value={trackedRides?.length ?? 0} />
+                </dd>
+              </Card>
+            </dl>
 
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">Aktivität</h2>
-          <ActivityHeatmap dates={(trackedRides ?? []).map((r) => r.datum)} />
+            <details open className="group p-4">
+              <SectionSummary icon={Award} label="Auszeichnungen" />
+              <div className="mt-4">
+                <AchievementBadges
+                  passCount={passCount}
+                  hoehenmeter={hoehenmeter}
+                  fahrtenCount={trackedRides?.length ?? 0}
+                />
+              </div>
+            </details>
+
+            <details open className="group p-4">
+              <SectionSummary icon={CalendarDays} label="Aktivität" />
+              <div className="mt-4">
+                <ActivityHeatmap dates={(trackedRides ?? []).map((r) => r.datum)} />
+              </div>
+            </details>
+          </Card>
         </section>
 
         <div className="flex flex-col gap-8 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
-          <div className="flex flex-col gap-8">
-            <section className="flex flex-col gap-4">
-              <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
-                Getrackte Fahrten
-              </h2>
-              {trackedRides && trackedRides.length > 0 ? (
-                <Card as="ul" className="divide-y divide-border">
-                  {trackedRides.map((ride) => {
-                    const avgKmh =
-                      ride.dauer_sekunden > 0
-                        ? ride.distanz_km / (ride.dauer_sekunden / 3600)
-                        : 0;
-                    return (
-                      <li key={ride.id} className="px-4 py-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <Link
-                            href={`/strecken/${ride.route_id}`}
-                            className="flex min-w-0 flex-1 items-baseline justify-between text-sm transition-colors duration-fast hover:text-accent"
-                          >
-                            <span className="truncate">
-                              {ride.routes?.name ?? "Strecke"}
-                              <span className="ml-2 text-xs text-muted">
-                                {new Date(ride.datum).toLocaleDateString("de-CH")}
-                              </span>
-                            </span>
-                            <span className="ml-2 shrink-0 font-mono tabular-nums text-muted">
-                              {ride.distanz_km.toFixed(1)} km · {formatDuration(ride.dauer_sekunden)}{" "}
-                              · {avgKmh.toFixed(0)} km/h
-                            </span>
-                          </Link>
-                          <div className="flex shrink-0 items-center gap-3">
-                            <ShareRideButton
-                              routeId={ride.route_id}
-                              distanceKm={ride.distanz_km}
-                              durationSeconds={ride.dauer_sekunden}
-                              date={ride.datum}
-                            />
-                            <RideVisibilityToggle
-                              completionId={ride.id}
-                              isPublic={ride.ist_oeffentlich}
-                              coveragePercent={ride.abdeckung_prozent}
-                            />
-                          </div>
-                        </div>
-                        {ride.notiz && <p className="mt-1 text-sm text-muted">{ride.notiz}</p>}
-                      </li>
-                    );
-                  })}
-                </Card>
-              ) : (
-                <EmptyState
+          {/* Meine Fahrten: getrackte Fahrten und gemerkte Strecken drehen sich
+              beide um "Strecken, mit denen ich zu tun habe" — eine
+              Gruppen-Card statt zwei unabhängiger Sections nebeneinander. */}
+          <section className="flex flex-col gap-3">
+            <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
+              Meine Fahrten
+            </h2>
+            <Card className="flex flex-col divide-y divide-border">
+              <details open className="group p-4">
+                <SectionSummary
                   icon={RouteIcon}
-                  title="Noch keine Fahrten aufgezeichnet."
-                  action={
-                    <Link href="/" className={buttonVariants({ variant: "secondary", size: "sm" })}>
-                      Strecken entdecken
-                    </Link>
-                  }
+                  label="Getrackte Fahrten"
+                  count={trackedRides?.length ?? 0}
                 />
-              )}
-            </section>
-
-            <section className="flex flex-col gap-4">
-              <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
-                Favoriten
-              </h2>
-              {favorites && favorites.length > 0 ? (
-                <Card as="ul" className="divide-y divide-border">
-                  {favorites.map((f) =>
-                    f.routes ? (
-                      <li key={f.route_id}>
-                        <Link
-                          href={`/strecken/${f.route_id}`}
-                          className="group flex items-baseline justify-between px-4 py-3 transition-colors duration-fast hover:bg-surface"
-                        >
-                          <span className="transition-colors duration-fast group-hover:text-accent">
-                            {f.routes.name}
-                          </span>
-                          <span className="font-mono text-sm tabular-nums text-muted">
-                            {f.routes.laenge_km} km
-                          </span>
+                <div className="mt-4">
+                  {trackedRides && trackedRides.length > 0 ? (
+                    <Card as="ul" className="divide-y divide-border">
+                      {trackedRides.map((ride) => {
+                        const avgKmh =
+                          ride.dauer_sekunden > 0
+                            ? ride.distanz_km / (ride.dauer_sekunden / 3600)
+                            : 0;
+                        return (
+                          <li key={ride.id} className="px-4 py-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <Link
+                                href={`/strecken/${ride.route_id}`}
+                                className="flex min-w-0 flex-1 items-baseline justify-between text-sm transition-colors duration-fast hover:text-accent"
+                              >
+                                <span className="truncate">
+                                  {ride.routes?.name ?? "Strecke"}
+                                  <span className="ml-2 text-xs text-muted">
+                                    {new Date(ride.datum).toLocaleDateString("de-CH")}
+                                  </span>
+                                </span>
+                                <span className="ml-2 shrink-0 font-mono tabular-nums text-muted">
+                                  {ride.distanz_km.toFixed(1)} km · {formatDuration(ride.dauer_sekunden)}{" "}
+                                  · {avgKmh.toFixed(0)} km/h
+                                </span>
+                              </Link>
+                              <div className="flex shrink-0 items-center gap-3">
+                                <ShareRideButton
+                                  routeId={ride.route_id}
+                                  distanceKm={ride.distanz_km}
+                                  durationSeconds={ride.dauer_sekunden}
+                                  date={ride.datum}
+                                />
+                                <RideVisibilityToggle
+                                  completionId={ride.id}
+                                  isPublic={ride.ist_oeffentlich}
+                                  coveragePercent={ride.abdeckung_prozent}
+                                />
+                              </div>
+                            </div>
+                            {ride.notiz && <p className="mt-1 text-sm text-muted">{ride.notiz}</p>}
+                          </li>
+                        );
+                      })}
+                    </Card>
+                  ) : (
+                    <EmptyState
+                      icon={RouteIcon}
+                      title="Noch keine Fahrten aufgezeichnet."
+                      action={
+                        <Link href="/" className={buttonVariants({ variant: "secondary", size: "sm" })}>
+                          Strecken entdecken
                         </Link>
-                      </li>
-                    ) : null,
+                      }
+                    />
                   )}
-                </Card>
-              ) : (
-                <EmptyState
-                  icon={Heart}
-                  title="Noch keine Favoriten gemerkt."
-                  action={
-                    <Link href="/" className={buttonVariants({ variant: "secondary", size: "sm" })}>
-                      Strecken entdecken
-                    </Link>
-                  }
-                />
-              )}
-            </section>
-          </div>
+                </div>
+              </details>
 
-          <div className="flex flex-col gap-8">
-            <section className="flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
-                  Fahrzeuge
-                </h2>
-                <Link
-                  href="/profil/fahrzeuge/neu"
-                  className="text-sm font-medium text-accent hover:underline"
-                >
-                  + Fahrzeug hinzufügen
-                </Link>
-              </div>
-              <VehicleList vehicles={(vehicles as Vehicle[]) ?? []} />
-            </section>
-
-            {ownRoutes && ownRoutes.length > 0 && (
-              <section className="flex flex-col gap-4">
-                <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
-                  Meine Streckenvorschläge
-                </h2>
-                <Card as="ul" className="divide-y divide-border">
-                  {ownRoutes.map((route) => {
-                    const label = route.status_ok
-                      ? "Bewilligt"
-                      : route.ist_privat
-                        ? "Privat"
-                        : route.abgelehnt_am
-                          ? "Abgelehnt"
-                          : "Ausstehend";
-                    const color = route.status_ok
-                      ? "text-accent"
-                      : route.abgelehnt_am
-                        ? "text-danger"
-                        : "text-muted";
-                    return (
-                      <li
-                        key={route.id}
-                        className="flex items-center justify-between gap-3 px-4 py-3"
-                      >
-                        <Link
-                          href={`/strecken/${route.id}`}
-                          className="truncate transition-colors duration-fast hover:text-accent"
-                        >
-                          {route.name}
-                        </Link>
-                        <div className="flex shrink-0 items-center gap-3">
-                          <span className={`text-sm font-medium ${color}`}>{label}</span>
-                          {!route.status_ok && (
+              {/* Einzige standardmässig zugeklappte Sektion auf der Seite:
+                  Favoriten sind ein Lesezeichen für später, nicht "was ich
+                  gerade gefahren bin" — im Unterschied zu allen anderen
+                  Abschnitten hier verliert niemand etwas Wichtiges, wenn das
+                  erst auf Wunsch aufklappt. */}
+              <details className="group p-4">
+                <SectionSummary icon={Heart} label="Favoriten" count={favorites?.length ?? 0} />
+                <div className="mt-4">
+                  {favorites && favorites.length > 0 ? (
+                    <Card as="ul" className="divide-y divide-border">
+                      {favorites.map((f) =>
+                        f.routes ? (
+                          <li key={f.route_id}>
                             <Link
-                              href={`/strecken/${route.id}/bearbeiten`}
-                              className="text-xs text-muted hover:text-foreground"
+                              href={`/strecken/${f.route_id}`}
+                              className="group flex items-baseline justify-between px-4 py-3 transition-colors duration-fast hover:bg-surface"
                             >
-                              Bearbeiten
+                              <span className="transition-colors duration-fast group-hover:text-accent">
+                                {f.routes.name}
+                              </span>
+                              <span className="font-mono text-sm tabular-nums text-muted">
+                                {f.routes.laenge_km} km
+                              </span>
                             </Link>
-                          )}
-                          {route.abgelehnt_am && <DeleteProposalButton routeId={route.id} />}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </Card>
-              </section>
-            )}
-          </div>
+                          </li>
+                        ) : null,
+                      )}
+                    </Card>
+                  ) : (
+                    <EmptyState
+                      icon={Heart}
+                      title="Noch keine Favoriten gemerkt."
+                      action={
+                        <Link href="/" className={buttonVariants({ variant: "secondary", size: "sm" })}>
+                          Strecken entdecken
+                        </Link>
+                      }
+                    />
+                  )}
+                </div>
+              </details>
+            </Card>
+          </section>
+
+          {/* Verwaltung: eigene Fahrzeuge und eingereichte Streckenvorschläge
+              sind beides "Dinge, die mir gehören/die ich verwalte" — ebenfalls
+              als Gruppen-Card statt zwei eigenständiger Sections. */}
+          <section className="flex flex-col gap-3">
+            <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
+              Verwaltung
+            </h2>
+            <Card className="flex flex-col divide-y divide-border">
+              <details open className="group p-4">
+                <SectionSummary icon={Car} label="Fahrzeuge" count={vehicles?.length ?? 0} />
+                <div className="mt-4 flex flex-col gap-3">
+                  <Link
+                    href="/profil/fahrzeuge/neu"
+                    className="self-end text-sm font-medium text-accent hover:underline"
+                  >
+                    + Fahrzeug hinzufügen
+                  </Link>
+                  <VehicleList vehicles={(vehicles as Vehicle[]) ?? []} />
+                </div>
+              </details>
+
+              {ownRoutes && ownRoutes.length > 0 && (
+                <details open className="group p-4">
+                  <SectionSummary icon={MapPin} label="Meine Streckenvorschläge" count={ownRoutes.length} />
+                  <div className="mt-4">
+                    <Card as="ul" className="divide-y divide-border">
+                      {ownRoutes.map((route) => {
+                        const label = route.status_ok
+                          ? "Bewilligt"
+                          : route.ist_privat
+                            ? "Privat"
+                            : route.abgelehnt_am
+                              ? "Abgelehnt"
+                              : "Ausstehend";
+                        const color = route.status_ok
+                          ? "text-accent"
+                          : route.abgelehnt_am
+                            ? "text-danger"
+                            : "text-muted";
+                        return (
+                          <li
+                            key={route.id}
+                            className="flex items-center justify-between gap-3 px-4 py-3"
+                          >
+                            <Link
+                              href={`/strecken/${route.id}`}
+                              className="truncate transition-colors duration-fast hover:text-accent"
+                            >
+                              {route.name}
+                            </Link>
+                            <div className="flex shrink-0 items-center gap-3">
+                              <span className={`text-sm font-medium ${color}`}>{label}</span>
+                              {!route.status_ok && (
+                                <Link
+                                  href={`/strecken/${route.id}/bearbeiten`}
+                                  className="text-xs text-muted hover:text-foreground"
+                                >
+                                  Bearbeiten
+                                </Link>
+                              )}
+                              {route.abgelehnt_am && <DeleteProposalButton routeId={route.id} />}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </Card>
+                  </div>
+                </details>
+              )}
+            </Card>
+          </section>
         </div>
       </main>
     </div>
