@@ -37,7 +37,8 @@ export default async function FeedPage({
   return (
     <div className="flex h-dvh flex-col">
       <Header back="/" />
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 overflow-y-auto px-5 py-8 sm:px-6 sm:py-10">
+      <div className="flex-1 overflow-y-auto">
+        <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-5 py-8 sm:px-6 sm:py-10">
         <div>
           <h1 className="text-display font-semibold">Feed</h1>
           <p className="mt-1 text-sm text-muted">Geteilte Fahrten aus der Community.</p>
@@ -88,7 +89,7 @@ export default async function FeedPage({
               <Card as="li" key={item.completion_id} className="overflow-hidden">
                 {item.coverPhotoUrl && (
                   <Link
-                    href={`/strecken/${item.route_id}`}
+                    href={`/fahrten/${item.completion_id}`}
                     className="relative block h-40 w-full bg-surface"
                   >
                     <Image
@@ -117,7 +118,7 @@ export default async function FeedPage({
                   </div>
 
                   <Link
-                    href={`/strecken/${item.route_id}`}
+                    href={`/fahrten/${item.completion_id}`}
                     className="flex items-baseline justify-between gap-2 transition-colors duration-fast hover:text-accent"
                   >
                     <span className="min-w-0 truncate font-medium">{item.route_name}</span>
@@ -141,7 +142,8 @@ export default async function FeedPage({
             ))}
           </ul>
         )}
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

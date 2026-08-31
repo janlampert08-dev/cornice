@@ -56,7 +56,8 @@ export default async function FahrerPage({
   return (
     <div className="flex h-dvh flex-col">
       <Header back="/" />
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 overflow-y-auto px-5 py-8 sm:px-6 sm:py-10 lg:max-w-4xl">
+      <div className="flex-1 overflow-y-auto">
+        <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-5 py-8 sm:px-6 sm:py-10 lg:max-w-4xl">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Avatar
@@ -130,7 +131,7 @@ export default async function FahrerPage({
                   return (
                     <li key={f.completion_id} className="flex items-center gap-2 px-4 py-3">
                       <Link
-                        href={`/strecken/${f.route_id}`}
+                        href={`/fahrten/${f.completion_id}`}
                         className="flex min-w-0 flex-1 items-baseline justify-between text-sm transition-colors duration-fast hover:text-accent"
                       >
                         <span className="truncate">{f.route_name}</span>
@@ -154,7 +155,8 @@ export default async function FahrerPage({
         </div>
 
         {istPrivat && <p className="text-sm text-muted">Dieses Profil ist privat.</p>}
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

@@ -86,7 +86,8 @@ export default async function LeaderboardsPage() {
   return (
     <div className="flex h-dvh flex-col">
       <Header />
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 overflow-y-auto px-5 py-8 sm:px-6 sm:py-10 lg:max-w-5xl">
+      <div className="flex-1 overflow-y-auto">
+        <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-5 py-8 sm:px-6 sm:py-10 lg:max-w-5xl">
         <div>
           <h1 className="text-display font-semibold">Bestenlisten</h1>
           <p className="mt-1 text-sm text-muted">
@@ -128,7 +129,8 @@ export default async function LeaderboardsPage() {
         <TrackLeaderboardChooser
           routes={routes.map((r) => ({ id: r.id, name: r.name }))}
         />
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
