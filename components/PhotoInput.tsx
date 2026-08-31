@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const MAX_FOTO_BYTES = 8 * 1024 * 1024;
 
@@ -9,6 +9,17 @@ export default function PhotoInput({ name, id }: { name: string; id: string }) {
   const [fileName, setFileName] = useState<string | null>(null);
   const [sizeError, setSizeError] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Object-URL statt FileReader.readAsDataURL(): bei Fotos nahe der
+  // 8-MB-Grenze erzeugt readAsDataURL einen ~10-MB-Base64-String auf dem
+  // Hauptthread — spürbares Hängen v.a. auf Mobilgeräten. createObjectURL
+  // ist nur eine leichte Blob-Referenz, keine Kodierung nötig. Muss mit
+  // revokeObjectURL wieder freigegeben werden, sonst Speicherleck.
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview);
+    };
+  }, [preview]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -27,9 +38,7 @@ export default function PhotoInput({ name, id }: { name: string; id: string }) {
     }
     setSizeError(false);
     setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = () => setPreview(reader.result as string);
-    reader.readAsDataURL(file);
+    setPreview(URL.createObjectURL(file));
   }
 
   function clear() {
