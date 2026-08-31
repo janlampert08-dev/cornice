@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 export interface LeaderboardEntry {
   userId: string;
   name: string;
+  avatarUrl: string | null;
   value: number;
   isPremiumBadge: boolean;
 }
@@ -10,6 +11,7 @@ export interface LeaderboardEntry {
 export interface LeaderboardRow {
   user_id: string;
   display_name: string | null;
+  avatar_url: string | null;
   route_id: string;
   hoehe_m: number | null;
   effektive_distanz_km: number | null;
@@ -22,11 +24,16 @@ const TOP_N = 3;
 function toTopEntries(
   values: Map<string, number>,
   names: Map<string, string>,
+  avatarUrls: Map<string, string | null>,
 ): LeaderboardEntry[] {
   return Array.from(values.entries())
     .map(([userId, value]) => ({
       userId,
       name: names.get(userId) ?? "Anonym",
+      // avatar_url kommt bereits serverseitig mit dem zeigt_avatar-Opt-in
+      // verrechnet aus der View (siehe 0028_leaderboard_avatar.sql) — hier
+      // nur noch durchgereicht, keine weitere Prüfung nötig.
+      avatarUrl: avatarUrls.get(userId) ?? null,
       value,
       // Premium-Feature (Gold-Badge) vorerst deaktiviert.
       isPremiumBadge: false,
@@ -44,12 +51,14 @@ export function aggregateLeaderboards(rows: LeaderboardRow[]): {
   meisteKm: LeaderboardEntry[];
 } {
   const names = new Map<string, string>();
+  const avatarUrls = new Map<string, string | null>();
   const fahrtenByUser = new Map<string, number>();
   const hoehenmeterByUser = new Map<string, number>();
   const kmByUser = new Map<string, number>();
 
   for (const row of rows) {
     names.set(row.user_id, row.display_name ?? "Anonym");
+    avatarUrls.set(row.user_id, row.avatar_url);
 
     // Jede Aufzeichnung zählt, auch mehrfach gefahrene Strecken — im
     // Gegensatz zu passCount (lib/profile.ts), das pro Strecke dedupliziert.
@@ -60,9 +69,9 @@ export function aggregateLeaderboards(rows: LeaderboardRow[]): {
   }
 
   return {
-    meisteFahrten: toTopEntries(fahrtenByUser, names),
-    meisteHoehenmeter: toTopEntries(hoehenmeterByUser, names),
-    meisteKm: toTopEntries(kmByUser, names),
+    meisteFahrten: toTopEntries(fahrtenByUser, names, avatarUrls),
+    meisteHoehenmeter: toTopEntries(hoehenmeterByUser, names, avatarUrls),
+    meisteKm: toTopEntries(kmByUser, names, avatarUrls),
   };
 }
 
@@ -83,6 +92,7 @@ export interface RouteTimeEntry {
   completionId: string;
   userId: string;
   name: string;
+  avatarUrl: string | null;
   dauerSekunden: number;
   isPremiumBadge: boolean;
 }
@@ -91,6 +101,7 @@ interface RouteLeaderboardRow {
   completion_id: string;
   user_id: string;
   display_name: string | null;
+  avatar_url: string | null;
   dauer_sekunden: number;
   ist_premium: boolean;
   zeigt_premium_badge: boolean;
@@ -104,7 +115,7 @@ export async function getRouteLeaderboard(routeId: string): Promise<RouteTimeEnt
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("route_leaderboard")
-    .select("completion_id, user_id, display_name, dauer_sekunden, ist_premium, zeigt_premium_badge")
+    .select("completion_id, user_id, display_name, avatar_url, dauer_sekunden, ist_premium, zeigt_premium_badge")
     .eq("route_id", routeId)
     .order("dauer_sekunden", { ascending: true })
     .limit(ROUTE_TOP_N);
@@ -115,6 +126,8 @@ export async function getRouteLeaderboard(routeId: string): Promise<RouteTimeEnt
     completionId: r.completion_id,
     userId: r.user_id,
     name: r.display_name ?? "Anonym",
+    // Bereits serverseitig mit zeigt_avatar verrechnet (0028_leaderboard_avatar.sql).
+    avatarUrl: r.avatar_url,
     dauerSekunden: r.dauer_sekunden,
     // Premium-Feature (Gold-Badge) vorerst deaktiviert.
     isPremiumBadge: false,

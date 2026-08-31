@@ -10,6 +10,7 @@ import RouteActionsMenu from "@/components/RouteActionsMenu";
 import PublishRouteButton from "@/components/PublishRouteButton";
 import ElevationProfile from "@/components/ElevationProfile";
 import PhotoGallery from "@/components/PhotoGallery";
+import Avatar from "@/components/Avatar";
 import { getRoute } from "@/lib/routes";
 import { getRatings, getOwnRating } from "@/lib/ratings";
 import { getPersonalBestSeconds } from "@/lib/completions";
@@ -209,12 +210,13 @@ export default async function StreckeDetailPage({
               <dt className="text-muted">Rekord</dt>
               <dd className="font-mono tabular-nums">
                 {record ? (
-                  <span className="inline-flex flex-wrap items-baseline gap-x-2">
+                  <span className="inline-flex flex-wrap items-center gap-x-2">
                     {formatDuration(record.dauerSekunden)}
                     <Link
                       href={`/fahrer/${record.userId}`}
-                      className="font-sans text-xs font-normal normal-case text-muted hover:text-accent"
+                      className="inline-flex items-center gap-1.5 font-sans text-xs font-normal normal-case text-muted hover:text-accent"
                     >
+                      <Avatar url={record.avatarUrl} name={record.name} size={18} />
                       {record.name}
                     </Link>
                   </span>
