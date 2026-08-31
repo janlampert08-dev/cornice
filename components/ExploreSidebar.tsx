@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo, type CSSProperties } from "react";
+import { Mountain } from "lucide-react";
 import { KATEGORIEN } from "@/lib/constants";
 import { routeShapePath } from "@/lib/routeShape";
 import { withAlpha, type RouteSignature } from "@/lib/signature";
@@ -15,6 +17,7 @@ export default function ExploreSidebar({
   searchQuery,
   onSearchChange,
   signatures,
+  coverPhotos,
   userLocation,
   locating,
   locationError,
@@ -28,6 +31,7 @@ export default function ExploreSidebar({
   searchQuery: string;
   onSearchChange: (value: string) => void;
   signatures: Map<string, RouteSignature>;
+  coverPhotos: Map<string, string>;
   userLocation: [number, number] | null;
   locating: boolean;
   locationError: string | null;
@@ -113,6 +117,7 @@ export default function ExploreSidebar({
         {routes.map((route) => {
           const signature = signatures.get(route.id);
           const shape = shapes.get(route.id);
+          const coverUrl = coverPhotos.get(route.id);
           // Wenn das Signatur-Merkmal selbst die Länge ist (signature.label
           // lautet dann z.B. "24 km lang"), nicht zusätzlich eine separate
           // km-Zahl daneben zeigen — sonst steht dieselbe Länge zweimal da.
@@ -134,7 +139,7 @@ export default function ExploreSidebar({
                     borderLeftColor: withAlpha(trackColor, 0.55),
                   } as CSSProperties
                 }
-                className="group flex h-20 items-center gap-3 border-b border-border border-l-[3px] py-3 pr-2 pl-3 transition-colors duration-fast hover:bg-[var(--track-hover-bg)] active:bg-[var(--track-hover-bg)]"
+                className="group flex h-24 items-center gap-3 border-b border-border border-l-[3px] py-3 pr-2 pl-3 transition-colors duration-fast hover:bg-[var(--track-hover-bg)] active:bg-[var(--track-hover-bg)]"
               >
                 <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
                   <span className="truncate text-base font-medium transition-colors duration-fast group-hover:text-[var(--track-color)]">
@@ -148,9 +153,10 @@ export default function ExploreSidebar({
                     )}
                     {signature && (
                       <span className="flex items-center gap-1.5">
-                        <span
-                          className="h-1.5 w-1.5 shrink-0"
-                          style={{ backgroundColor: signature.color }}
+                        <Mountain
+                          className="h-3 w-3 shrink-0"
+                          style={{ color: signature.color }}
+                          aria-hidden="true"
                         />
                         <span
                           className="truncate text-xs font-medium tracking-wide"
@@ -163,22 +169,41 @@ export default function ExploreSidebar({
                   </div>
                 </div>
 
-                {shape && (
-                  <svg
-                    viewBox="0 0 64 48"
-                    aria-hidden="true"
-                    className="h-10 w-14 shrink-0 opacity-80 transition-opacity duration-fast group-hover:opacity-100"
-                  >
-                    <path
-                      d={shape}
-                      fill="none"
-                      stroke={trackColor}
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                {/* Coverfoto, wenn für diese Strecke eines vorliegt (siehe
+                    getRouteCoverPhotos in lib/photos.ts); sonst Fallback auf
+                    die bisherige SVG-Routenform auf getöntem Signaturfarb-
+                    Hintergrund — kein Foto bedeutet nicht "kein Vorschaubild". */}
+                <div
+                  className="relative h-16 w-20 shrink-0 overflow-hidden rounded-md"
+                  style={{ backgroundColor: withAlpha(trackColor, 0.12) }}
+                >
+                  {coverUrl ? (
+                    <Image
+                      src={coverUrl}
+                      alt=""
+                      fill
+                      sizes="80px"
+                      className="object-cover transition-opacity duration-fast group-hover:opacity-90"
                     />
-                  </svg>
-                )}
+                  ) : (
+                    shape && (
+                      <svg
+                        viewBox="0 0 64 48"
+                        aria-hidden="true"
+                        className="absolute inset-0 h-full w-full opacity-80 transition-opacity duration-fast group-hover:opacity-100"
+                      >
+                        <path
+                          d={shape}
+                          fill="none"
+                          stroke={trackColor}
+                          strokeWidth={2}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    )
+                  )}
+                </div>
               </Link>
             </li>
           );

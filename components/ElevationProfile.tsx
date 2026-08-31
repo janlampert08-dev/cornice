@@ -32,14 +32,24 @@ export default function ElevationProfile({ punkte }: { punkte: HoehenprofilPunkt
         aria-label={`Höhenprofil, Scheitelpunkt ${gipfel.m} m bei km ${gipfel.km}`}
       >
         <defs>
+          {/* stopColor über style statt Attribut, damit var(--color-accent) im
+              Dark Mode (siehe app/globals.css) korrekt mitwechselt — ein
+              hartkodierter Hex-Wert hier würde den Token-Tausch umgehen. */}
           <linearGradient id="elevation-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3D5AFE" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#3D5AFE" stopOpacity="0" />
+            <stop offset="0%" style={{ stopColor: "var(--color-accent)" }} stopOpacity="0.25" />
+            <stop offset="100%" style={{ stopColor: "var(--color-accent)" }} stopOpacity="0" />
           </linearGradient>
         </defs>
         <path d={areaPath} fill="url(#elevation-fill)" />
-        <path d={linePath} fill="none" stroke="#3D5AFE" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-        <circle cx={x(gipfel.km)} cy={y(gipfel.m)} r="3" fill="#3D5AFE" />
+        <path
+          d={linePath}
+          fill="none"
+          style={{ stroke: "var(--color-accent)" }}
+          strokeWidth="2"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+        <circle cx={x(gipfel.km)} cy={y(gipfel.m)} r="3" style={{ fill: "var(--color-accent)" }} />
       </svg>
       <div className="flex justify-between font-mono text-xs tabular-nums text-muted">
         <span>{mMin} m</span>
