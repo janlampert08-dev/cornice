@@ -172,7 +172,12 @@ export default async function ProfilPage() {
   return (
     <div className="flex h-dvh flex-col">
       <Header />
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 overflow-y-auto px-5 py-8 sm:px-6 sm:py-10 lg:max-w-4xl">
+      {/* Scroll-Container ist der volle Rest der Seitenbreite, nicht das
+          zentrierte max-w-Element darin — sonst sitzt die native
+          Browser-Scrollbar am Rand der Content-Spalte statt am echten
+          Viewport-Rand, sobald das Fenster breiter als max-w ist. */}
+      <div className="flex-1 overflow-y-auto">
+        <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-5 py-8 sm:px-6 sm:py-10 lg:max-w-4xl">
         <div className="flex flex-col gap-4">
           <div className="flex items-start justify-between gap-4">
             <AvatarUpload avatarUrl={profile?.avatar_url ?? null} name={profile?.display_name ?? null} />
@@ -285,56 +290,69 @@ export default async function ProfilPage() {
                 />
                 <div className="mt-4">
                   {trackedRides && trackedRides.length > 0 ? (
-                    <Card as="ul" className="divide-y divide-border">
+                    // Eine Card pro Fahrt statt einer dichten Einzeilen-Liste
+                    // (Name/Datum/Stats/drei Aktions-Buttons quetschten sich
+                    // vorher alle in eine Zeile) — klare Zonen: Kopf
+                    // (Strecke + Datum), Stat-Zeile, Aktionen getrennt durch
+                    // eine Trennlinie, wie bei einer Aktivitätsliste.
+                    <ul className="flex flex-col gap-3">
                       {trackedRides.map((ride) => {
                         const avgKmh =
                           ride.dauer_sekunden > 0
                             ? ride.distanz_km / (ride.dauer_sekunden / 3600)
                             : 0;
                         return (
-                          <li key={ride.id} className="px-4 py-3">
-                            <div className="flex items-center justify-between gap-3">
-                              <Link
-                                href={`/strecken/${ride.route_id}`}
-                                className="flex min-w-0 flex-1 items-baseline justify-between text-sm transition-colors duration-fast hover:text-accent"
-                              >
-                                <span className="truncate">
-                                  {ride.routes?.name ?? "Strecke"}
-                                  <span className="ml-2 text-xs text-muted">
+                          <li key={ride.id}>
+                            <Card surface className="flex flex-col gap-3 p-4">
+                              <Link href={`/fahrten/${ride.id}`} className="group flex flex-col gap-1.5">
+                                <div className="flex items-baseline justify-between gap-2">
+                                  <span className="min-w-0 truncate font-medium transition-colors duration-fast group-hover:text-accent">
+                                    {ride.routes?.name ?? "Strecke"}
+                                  </span>
+                                  <span className="shrink-0 text-xs text-muted">
                                     {new Date(ride.datum).toLocaleDateString("de-CH")}
                                   </span>
-                                </span>
-                                <span className="ml-2 shrink-0 font-mono tabular-nums text-muted">
-                                  {ride.distanz_km.toFixed(1)} km · {formatDuration(ride.dauer_sekunden)}{" "}
-                                  · {avgKmh.toFixed(0)} km/h
-                                </span>
+                                </div>
+                                <div className="flex items-center gap-2 font-mono text-sm tabular-nums text-muted">
+                                  <span>{ride.distanz_km.toFixed(1)} km</span>
+                                  <span aria-hidden="true">·</span>
+                                  <span>{formatDuration(ride.dauer_sekunden)}</span>
+                                  <span aria-hidden="true">·</span>
+                                  <span>{avgKmh.toFixed(0)} km/h</span>
+                                </div>
                               </Link>
-                              <div className="flex shrink-0 items-center gap-3">
-                                {ride.ist_oeffentlich && (
-                                  <KudosButton
-                                    completionId={ride.id}
-                                    initialCount={kudosByCompletion.get(ride.id)?.count ?? 0}
-                                    initialGiven={kudosByCompletion.get(ride.id)?.givenByMe ?? false}
+                              {ride.notiz && (
+                                <p className="line-clamp-2 text-sm text-muted">{ride.notiz}</p>
+                              )}
+                              <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+                                <div>
+                                  {ride.ist_oeffentlich && (
+                                    <KudosButton
+                                      completionId={ride.id}
+                                      initialCount={kudosByCompletion.get(ride.id)?.count ?? 0}
+                                      initialGiven={kudosByCompletion.get(ride.id)?.givenByMe ?? false}
+                                    />
+                                  )}
+                                </div>
+                                <div className="flex shrink-0 items-center gap-3">
+                                  <ShareRideButton
+                                    routeId={ride.route_id}
+                                    distanceKm={ride.distanz_km}
+                                    durationSeconds={ride.dauer_sekunden}
+                                    date={ride.datum}
                                   />
-                                )}
-                                <ShareRideButton
-                                  routeId={ride.route_id}
-                                  distanceKm={ride.distanz_km}
-                                  durationSeconds={ride.dauer_sekunden}
-                                  date={ride.datum}
-                                />
-                                <RideVisibilityToggle
-                                  completionId={ride.id}
-                                  isPublic={ride.ist_oeffentlich}
-                                  coveragePercent={ride.abdeckung_prozent}
-                                />
+                                  <RideVisibilityToggle
+                                    completionId={ride.id}
+                                    isPublic={ride.ist_oeffentlich}
+                                    coveragePercent={ride.abdeckung_prozent}
+                                  />
+                                </div>
                               </div>
-                            </div>
-                            {ride.notiz && <p className="mt-1 text-sm text-muted">{ride.notiz}</p>}
+                            </Card>
                           </li>
                         );
                       })}
-                    </Card>
+                    </ul>
                   ) : (
                     <EmptyState
                       icon={RouteIcon}
@@ -465,7 +483,8 @@ export default async function ProfilPage() {
             </Card>
           </section>
         </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
