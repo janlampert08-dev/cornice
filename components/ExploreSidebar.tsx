@@ -7,9 +7,11 @@ import { Mountain, SearchX } from "lucide-react";
 import { KATEGORIEN } from "@/lib/constants";
 import { routeShapePath } from "@/lib/routeShape";
 import { withAlpha, type RouteSignature } from "@/lib/signature";
+import type { AdvancedFilters } from "@/lib/exploreFilters";
 import type { Kategorie, RouteGeoJSON } from "@/types/database";
 import { fieldClassName } from "@/components/ui/Input";
 import { buttonVariants } from "@/components/ui/Button";
+import AdvancedFiltersPanel from "@/components/AdvancedFiltersPanel";
 import EmptyState from "@/components/ui/EmptyState";
 
 export default function ExploreSidebar({
@@ -26,6 +28,8 @@ export default function ExploreSidebar({
   onHoverRoute,
   selectedKategorien,
   onToggleKategorie,
+  advancedFilters,
+  onAdvancedFiltersChange,
 }: {
   routes: RouteGeoJSON[];
   loadError?: boolean;
@@ -40,6 +44,8 @@ export default function ExploreSidebar({
   onHoverRoute: (id: string | null) => void;
   selectedKategorien: Kategorie[];
   onToggleKategorie: (kategorie: Kategorie) => void;
+  advancedFilters: AdvancedFilters;
+  onAdvancedFiltersChange: (filters: AdvancedFilters) => void;
 }) {
   // Nur bei Änderung des Streckenbestands neu berechnet — sonst würde jeder
   // Hover (der über onHoverRoute den State im Elternteil ändert) hier eine
@@ -105,6 +111,8 @@ export default function ExploreSidebar({
           );
         })}
       </div>
+
+      <AdvancedFiltersPanel filters={advancedFilters} onChange={onAdvancedFiltersChange} />
 
       <ul className="flex flex-col gap-1">
         {routes.length === 0 && loadError && (
