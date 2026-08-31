@@ -13,7 +13,14 @@ export default function ActivityHeatmap({ dates }: { dates: string[] }) {
   const days = buildHeatmapDays(dates);
 
   return (
-    <div className="flex flex-col gap-2">
+    // w-fit statt voller Breite: die Karte, in der der Graph steckt, ist oft
+    // breiter als das Gitter selbst (52 Wochen ≈ 730px) — mit einer vollen
+    // Flex-Column-Breite würde "self-end" die Legende an den rechten Rand
+    // der ganzen Karte ziehen statt an den rechten Rand des Gitters direkt
+    // darüber. w-fit lässt den Wrapper auf die (durch overflow-x-auto ggf.
+    // gescrollte) Gitterbreite schrumpfen, sodass die Legende korrekt unter
+    // dem sichtbaren Gitter sitzt statt lose weit rechts zu schweben.
+    <div className="flex w-fit flex-col gap-2">
       <div className="overflow-x-auto">
         <div className="grid w-max grid-flow-col gap-1" style={{ gridTemplateRows: "repeat(7, minmax(0, 1fr))" }}>
           {days.map(({ dateKey, count }) => {
