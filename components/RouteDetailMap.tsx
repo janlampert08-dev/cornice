@@ -12,6 +12,8 @@ import {
   type CongestionLevel,
 } from "@/lib/traffic";
 import type { RouteGeoJSON } from "@/types/database";
+import { buttonVariants } from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
 
 // Siehe ExploreView.tsx für die Begründung des dynamischen Imports.
 const RouteMap = dynamic(() => import("@/components/RouteMap"), {
@@ -87,12 +89,12 @@ export default function RouteDetailMap({ route }: { route: RouteGeoJSON }) {
           trafficSegments={trafficSegments}
         />
       </div>
-      <div className="absolute left-4 top-4 flex flex-col items-start gap-2">
+      <div className="absolute top-4 left-4 flex flex-col items-start gap-2">
         <div className="flex flex-wrap gap-2">
           {hasTempolimits && (
             <button
               onClick={() => setShowSpeedLimits((v) => !v)}
-              className="border border-foreground bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-foreground hover:text-background"
+              className={buttonVariants({ variant: "secondary", size: "sm", className: "bg-background" })}
             >
               {showSpeedLimits ? "Tempolimits ausblenden" : "Tempolimits anzeigen"}
             </button>
@@ -104,24 +106,24 @@ export default function RouteDetailMap({ route }: { route: RouteGeoJSON }) {
           />
         </div>
         {showSpeedLimits && (
-          <div className="flex flex-col gap-1 rounded-xl border border-foreground/15 shadow-sm bg-background px-3 py-2 text-xs text-foreground">
+          <Card elevated className="flex flex-col gap-1 px-3 py-2 text-xs text-foreground">
             {SPEED_LEGEND.map((l) => (
               <div key={l.label} className="flex items-center gap-2">
                 <span className="h-0.5 w-4" style={{ backgroundColor: l.color }} />
                 {l.label}
               </div>
             ))}
-          </div>
+          </Card>
         )}
         {showTraffic && trafficSegments.length > 0 && (
-          <div className="flex flex-col gap-1 rounded-xl border border-foreground/15 shadow-sm bg-background px-3 py-2 text-xs text-foreground">
+          <Card elevated className="flex flex-col gap-1 px-3 py-2 text-xs text-foreground">
             {Object.values(CONGESTION_META).map((meta) => (
               <div key={meta.label} className="flex items-center gap-2">
                 <span className="h-0.5 w-4" style={{ backgroundColor: meta.color }} />
                 {meta.label}
               </div>
             ))}
-          </div>
+          </Card>
         )}
       </div>
     </div>

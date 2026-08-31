@@ -20,7 +20,7 @@ export default function TrafficIndicator({
 }) {
   if (state === "loading") {
     return (
-      <span className="flex items-center gap-2 rounded-xl border border-foreground/15 shadow-sm bg-background px-3 py-1.5 text-sm text-muted">
+      <span className="flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-sm text-muted">
         <span className="h-2 w-2 animate-pulse bg-muted/40" />
         Verkehr wird geladen…
       </span>
@@ -29,7 +29,7 @@ export default function TrafficIndicator({
 
   if (state === "none") {
     return (
-      <span className="flex items-center gap-2 rounded-xl border border-foreground/15 shadow-sm bg-background px-3 py-1.5 text-sm text-muted">
+      <span className="flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-sm text-muted">
         <span className="h-2 w-2 bg-muted/40" />
         Keine Live-Verkehrsdaten
       </span>
@@ -45,8 +45,8 @@ export default function TrafficIndicator({
       title={active ? "Verkehr auf der Karte ausblenden" : "Verkehr auf der Karte anzeigen"}
       className={
         active
-          ? "flex items-center gap-2 rounded-full border border-foreground bg-foreground shadow-sm transition-transform active:scale-95 px-3 py-1.5 text-sm font-medium text-background"
-          : "flex items-center gap-2 border border-foreground bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-foreground hover:text-background"
+          ? "flex items-center gap-2 rounded-full border border-foreground bg-foreground px-3 py-1.5 text-sm font-medium text-background transition-transform duration-fast active:scale-95"
+          : "flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors duration-fast hover:border-border-strong"
       }
     >
       <span className="h-2 w-2 shrink-0" style={{ backgroundColor: meta.color }} />

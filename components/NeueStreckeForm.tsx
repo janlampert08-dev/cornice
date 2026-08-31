@@ -7,6 +7,9 @@ import { GlobeIcon, LockIcon } from "@/components/VisibilityIcons";
 import { KATEGORIEN } from "@/lib/constants";
 import { fetchDrivingRoute, type DirectionsResult } from "@/lib/mapboxDirections";
 import { proposeRoute, type ProposeRouteState } from "@/lib/actions/routes";
+import { Input, Textarea } from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
 
 const initialState: ProposeRouteState = { error: null };
 
@@ -61,12 +64,12 @@ export default function NeueStreckeForm() {
     <div className="flex h-dvh flex-col md:flex-row">
       <form
         action={formAction}
-        className="flex w-full flex-1 flex-col gap-4 overflow-y-auto border-foreground/10 px-6 py-8 md:max-w-sm md:border-r"
+        className="flex w-full flex-1 flex-col gap-4 overflow-y-auto border-border px-6 py-8 md:max-w-sm md:border-r lg:max-w-md"
       >
         <BackButton fallbackHref="/" />
 
         <div>
-          <h1 className="text-xl font-semibold">Strecke vorschlagen</h1>
+          <h1 className="text-display font-semibold">Strecke vorschlagen</h1>
           <p className="mt-1 text-sm text-muted">
             Setze nacheinander Wegpunkte auf der Karte — die Route wird automatisch entlang
             echter Strassen berechnet. Öffentliche Vorschläge prüft ein Moderator, bevor sie
@@ -74,22 +77,14 @@ export default function NeueStreckeForm() {
           </p>
         </div>
 
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1.5 text-sm font-medium">
           Name
-          <input
-            name="name"
-            required
-            className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
-          />
+          <Input name="name" required />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1.5 text-sm font-medium">
           Region
-          <input
-            name="region"
-            required
-            className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
-          />
+          <Input name="region" required />
         </label>
 
         <label className="flex items-center gap-2 text-sm">
@@ -97,31 +92,27 @@ export default function NeueStreckeForm() {
             type="checkbox"
             checked={rundfahrt}
             onChange={(e) => setRundfahrt(e.target.checked)}
+            className="h-4 w-4 accent-accent"
           />
           Rundfahrt (Ziel = Start)
         </label>
 
         <div className="grid grid-cols-2 gap-3">
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="flex flex-col gap-1.5 text-sm font-medium">
             Start-Ort
-            <input
+            <Input
               name="start_ort"
               required
               value={startOrt}
               onChange={(e) => setStartOrt(e.target.value)}
-              className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
             />
           </label>
           {rundfahrt ? (
             <input type="hidden" name="ziel_ort" value={startOrt} />
           ) : (
-            <label className="flex flex-col gap-1 text-sm">
+            <label className="flex flex-col gap-1.5 text-sm font-medium">
               Ziel-Ort
-              <input
-                name="ziel_ort"
-                required
-                className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
-              />
+              <Input name="ziel_ort" required />
             </label>
           )}
         </div>
@@ -129,12 +120,12 @@ export default function NeueStreckeForm() {
         <div className="flex items-center gap-3 text-xs text-muted">
           <span>{waypoints.length} Wegpunkt(e) gesetzt</span>
           {waypoints.length > 0 && (
-            <button type="button" onClick={undoLast} className="text-accent">
+            <button type="button" onClick={undoLast} className="font-medium text-accent hover:underline">
               Letzten entfernen
             </button>
           )}
           {waypoints.length > 0 && (
-            <button type="button" onClick={reset} className="text-accent">
+            <button type="button" onClick={reset} className="font-medium text-accent hover:underline">
               Zurücksetzen
             </button>
           )}
@@ -147,7 +138,7 @@ export default function NeueStreckeForm() {
           {waypoints.length > 1 && !routing && activeDirections && (
             <>Strassenroute gefunden: ca. {activeDirections.distanceKm.toFixed(1)} km</>
           )}
-          {routingError && <span className="text-red-600">{routingError}</span>}
+          {routingError && <span className="text-danger">{routingError}</span>}
         </p>
 
         <input
@@ -165,9 +156,9 @@ export default function NeueStreckeForm() {
           value={activeDirections ? JSON.stringify(activeDirections.tempolimits) : "[]"}
         />
 
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1.5 text-sm font-medium">
           Länge (km)
-          <input
+          <Input
             name="laenge_km"
             type="number"
             step="0.1"
@@ -175,7 +166,7 @@ export default function NeueStreckeForm() {
             required
             readOnly
             value={activeDirections ? activeDirections.distanceKm.toFixed(1) : ""}
-            className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm font-mono outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
+            className="font-mono"
           />
         </label>
 
@@ -183,30 +174,26 @@ export default function NeueStreckeForm() {
           <legend className="mb-1 text-muted">Kategorien</legend>
           {KATEGORIEN.map((k) => (
             <label key={k.value} className="flex items-center gap-2">
-              <input type="checkbox" name="kategorien" value={k.value} />
+              <input type="checkbox" name="kategorien" value={k.value} className="h-4 w-4 accent-accent" />
               {k.label}
             </label>
           ))}
         </fieldset>
 
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1.5 text-sm font-medium">
           Charakter (optional)
-          <textarea
-            name="charakter_text"
-            rows={3}
-            className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
-          />
+          <Textarea name="charakter_text" rows={3} />
         </label>
 
-        <div className="flex flex-col gap-2 rounded-xl border border-foreground/15 shadow-sm bg-foreground/[0.03] px-3 py-3 text-sm">
+        <Card surface className="flex flex-col gap-2 px-3 py-3 text-sm">
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => setIstPrivat(true)}
-              className={`flex items-center gap-1.5 border px-3 py-1.5 text-sm ${
+              className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors duration-fast ${
                 istPrivat
                   ? "border-foreground bg-foreground text-background"
-                  : "border-foreground/30 text-muted hover:border-foreground"
+                  : "border-border text-muted hover:border-border-strong"
               }`}
             >
               <LockIcon className="h-4 w-4" />
@@ -215,10 +202,10 @@ export default function NeueStreckeForm() {
             <button
               type="button"
               onClick={() => setIstPrivat(false)}
-              className={`flex items-center gap-1.5 border px-3 py-1.5 text-sm ${
+              className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors duration-fast ${
                 !istPrivat
                   ? "border-foreground bg-foreground text-background"
-                  : "border-foreground/30 text-muted hover:border-foreground"
+                  : "border-border text-muted hover:border-border-strong"
               }`}
             >
               <GlobeIcon className="h-4 w-4" />
@@ -230,22 +217,18 @@ export default function NeueStreckeForm() {
               ? "Nur für dich sichtbar, bis du sie selbst veröffentlichst."
               : "Durchläuft die Moderation und wird danach öffentlich."}
           </p>
-        </div>
+        </Card>
         <input type="hidden" name="ist_privat" value={istPrivat ? "true" : "false"} />
 
         {state.error && (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-danger">
             {state.error}
           </p>
         )}
 
-        <button
-          type="submit"
-          disabled={pending || !activeDirections}
-          className="rounded-full border border-foreground bg-foreground shadow-sm transition-transform active:scale-95 px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
-        >
+        <Button type="submit" disabled={pending || !activeDirections}>
           {pending ? "Speichern…" : istPrivat ? "Privat speichern" : "Vorschlagen"}
-        </button>
+        </Button>
       </form>
 
       <div className="h-[45vh] shrink-0 md:order-first md:h-auto md:flex-1">

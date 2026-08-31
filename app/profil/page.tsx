@@ -10,6 +10,8 @@ import ShareRideButton from "@/components/ShareRideButton";
 import { createClient } from "@/lib/supabase/server";
 import { formatDuration } from "@/lib/format";
 import type { Vehicle } from "@/types/database";
+import Card from "@/components/ui/Card";
+import { buttonVariants } from "@/components/ui/Button";
 
 export default async function ProfilPage() {
   const supabase = await createClient();
@@ -124,18 +126,18 @@ export default async function ProfilPage() {
   return (
     <div className="flex h-dvh flex-col">
       <Header />
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-7 overflow-y-auto px-5 py-8 sm:px-6 sm:py-10">
+      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 overflow-y-auto px-5 py-8 sm:px-6 sm:py-10 lg:max-w-4xl">
         <div className="flex flex-col gap-4">
           <div className="flex items-start justify-between gap-4">
             <AvatarUpload avatarUrl={profile?.avatar_url ?? null} name={profile?.display_name ?? null} />
             <form action="/auth/abmelden" method="post" className="shrink-0">
-              <button className="whitespace-nowrap text-sm text-muted hover:text-foreground">
+              <button className="whitespace-nowrap text-sm text-muted transition-colors duration-fast hover:text-foreground">
                 Abmelden
               </button>
             </form>
           </div>
           <div>
-            <h1 className="text-xl font-semibold">
+            <h1 className="text-display font-semibold">
               {profile?.display_name ?? user.email}
             </h1>
             <p className="text-sm text-muted">{user.email}</p>
@@ -143,26 +145,26 @@ export default async function ProfilPage() {
           <div className="flex flex-wrap gap-2">
             <Link
               href="/strecken/neu"
-              className="self-start rounded-full border border-foreground transition-transform active:scale-95 px-3 py-1.5 text-sm font-medium text-foreground hover:bg-foreground hover:text-background"
+              className={buttonVariants({ variant: "primary", size: "sm", className: "self-start" })}
             >
               + Strecke vorschlagen
             </Link>
             <Link
               href={`/fahrer/${user.id}`}
-              className="self-start rounded-xl border border-foreground/20 px-3 py-1.5 text-sm text-foreground hover:border-foreground"
+              className={buttonVariants({ variant: "secondary", size: "sm", className: "self-start" })}
             >
               Öffentliches Profil ansehen
             </Link>
             <Link
               href="/profil/privatsphaere"
-              className="self-start rounded-xl border border-foreground/20 px-3 py-1.5 text-sm text-foreground hover:border-foreground"
+              className={buttonVariants({ variant: "secondary", size: "sm", className: "self-start" })}
             >
               Privatsphäre-Einstellungen
             </Link>
           </div>
         </div>
 
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-y border-foreground/10 py-4 text-sm">
+        <Card as="dl" className="grid grid-cols-2 gap-x-4 gap-y-4 p-4 text-sm sm:grid-cols-4">
           <div>
             <dt className="text-muted">Pässe befahren</dt>
             <dd className="font-mono text-lg tabular-nums">{passCount}</dd>
@@ -183,151 +185,159 @@ export default async function ProfilPage() {
             <dt className="text-muted">Anzahl Fahrten</dt>
             <dd className="font-mono text-lg tabular-nums">{trackedRides?.length ?? 0}</dd>
           </div>
-        </dl>
+        </Card>
 
-        <section className="flex flex-col gap-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-            Getrackte Fahrten
-          </h2>
-          {trackedRides && trackedRides.length > 0 ? (
-            <ul className="flex flex-col">
-              {trackedRides.map((ride) => {
-                const avgKmh =
-                  ride.dauer_sekunden > 0 ? ride.distanz_km / (ride.dauer_sekunden / 3600) : 0;
-                return (
-                  <li key={ride.id} className="border-b border-foreground/10 py-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <Link
-                        href={`/strecken/${ride.route_id}`}
-                        className="flex min-w-0 flex-1 items-baseline justify-between text-sm transition-colors duration-150 hover:text-accent"
-                      >
-                        <span className="truncate">
-                          {ride.routes?.name ?? "Strecke"}
-                          <span className="ml-2 text-xs text-muted">
-                            {new Date(ride.datum).toLocaleDateString("de-CH")}
-                          </span>
-                        </span>
-                        <span className="ml-2 shrink-0 font-mono tabular-nums text-muted">
-                          {ride.distanz_km.toFixed(1)} km · {formatDuration(ride.dauer_sekunden)} ·{" "}
-                          {avgKmh.toFixed(0)} km/h
-                        </span>
-                      </Link>
-                      <div className="flex shrink-0 items-center gap-3">
-                        <ShareRideButton
-                          routeId={ride.route_id}
-                          distanceKm={ride.distanz_km}
-                          durationSeconds={ride.dauer_sekunden}
-                          date={ride.datum}
-                        />
-                        <RideVisibilityToggle
-                          completionId={ride.id}
-                          isPublic={ride.ist_oeffentlich}
-                          coveragePercent={ride.abdeckung_prozent}
-                        />
-                      </div>
-                    </div>
-                    {ride.notiz && (
-                      <p className="mt-1 text-sm text-muted">{ride.notiz}</p>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <p className="text-sm text-muted">Noch keine Fahrten aufgezeichnet.</p>
-          )}
-        </section>
-
-        <section className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-              Fahrzeuge
-            </h2>
-            <Link href="/profil/fahrzeuge/neu" className="text-sm text-accent">
-              + Fahrzeug hinzufügen
-            </Link>
-          </div>
-          <VehicleList vehicles={(vehicles as Vehicle[]) ?? []} />
-        </section>
-
-        {ownRoutes && ownRoutes.length > 0 && (
-          <section className="flex flex-col gap-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-              Meine Streckenvorschläge
-            </h2>
-            <ul className="flex flex-col">
-              {ownRoutes.map((route) => {
-                const label = route.status_ok
-                  ? "Bewilligt"
-                  : route.ist_privat
-                    ? "Privat"
-                    : route.abgelehnt_am
-                      ? "Abgelehnt"
-                      : "Ausstehend";
-                const color = route.status_ok
-                  ? "text-accent"
-                  : route.abgelehnt_am
-                    ? "text-red-600"
-                    : "text-muted";
-                return (
-                  <li
-                    key={route.id}
-                    className="flex items-center justify-between gap-3 border-b border-foreground/10 py-2"
-                  >
-                    <Link
-                      href={`/strecken/${route.id}`}
-                      className="truncate transition-colors duration-150 hover:text-accent"
-                    >
-                      {route.name}
-                    </Link>
-                    <div className="flex shrink-0 items-center gap-3">
-                      <span className={`text-sm font-medium ${color}`}>{label}</span>
-                      {!route.status_ok && (
-                        <Link
-                          href={`/strecken/${route.id}/bearbeiten`}
-                          className="text-xs text-muted hover:text-foreground"
-                        >
-                          Bearbeiten
-                        </Link>
-                      )}
-                      {route.abgelehnt_am && <DeleteProposalButton routeId={route.id} />}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        )}
-
-        <section className="flex flex-col gap-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-            Favoriten
-          </h2>
-          {favorites && favorites.length > 0 ? (
-            <ul className="flex flex-col">
-              {favorites.map((f) =>
-                f.routes ? (
-                  <li key={f.route_id}>
-                    <Link
-                      href={`/strecken/${f.route_id}`}
-                      className="group flex items-baseline justify-between border-b border-foreground/10 py-2 transition-colors duration-150 hover:bg-accent/[0.06]"
-                    >
-                      <span className="transition-colors duration-150 group-hover:text-accent">
-                        {f.routes.name}
-                      </span>
-                      <span className="font-mono text-sm tabular-nums text-muted">
-                        {f.routes.laenge_km} km
-                      </span>
-                    </Link>
-                  </li>
-                ) : null,
+        <div className="flex flex-col gap-8 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
+          <div className="flex flex-col gap-8">
+            <section className="flex flex-col gap-4">
+              <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
+                Getrackte Fahrten
+              </h2>
+              {trackedRides && trackedRides.length > 0 ? (
+                <Card as="ul" className="divide-y divide-border">
+                  {trackedRides.map((ride) => {
+                    const avgKmh =
+                      ride.dauer_sekunden > 0
+                        ? ride.distanz_km / (ride.dauer_sekunden / 3600)
+                        : 0;
+                    return (
+                      <li key={ride.id} className="px-4 py-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <Link
+                            href={`/strecken/${ride.route_id}`}
+                            className="flex min-w-0 flex-1 items-baseline justify-between text-sm transition-colors duration-fast hover:text-accent"
+                          >
+                            <span className="truncate">
+                              {ride.routes?.name ?? "Strecke"}
+                              <span className="ml-2 text-xs text-muted">
+                                {new Date(ride.datum).toLocaleDateString("de-CH")}
+                              </span>
+                            </span>
+                            <span className="ml-2 shrink-0 font-mono tabular-nums text-muted">
+                              {ride.distanz_km.toFixed(1)} km · {formatDuration(ride.dauer_sekunden)}{" "}
+                              · {avgKmh.toFixed(0)} km/h
+                            </span>
+                          </Link>
+                          <div className="flex shrink-0 items-center gap-3">
+                            <ShareRideButton
+                              routeId={ride.route_id}
+                              distanceKm={ride.distanz_km}
+                              durationSeconds={ride.dauer_sekunden}
+                              date={ride.datum}
+                            />
+                            <RideVisibilityToggle
+                              completionId={ride.id}
+                              isPublic={ride.ist_oeffentlich}
+                              coveragePercent={ride.abdeckung_prozent}
+                            />
+                          </div>
+                        </div>
+                        {ride.notiz && <p className="mt-1 text-sm text-muted">{ride.notiz}</p>}
+                      </li>
+                    );
+                  })}
+                </Card>
+              ) : (
+                <p className="text-sm text-muted">Noch keine Fahrten aufgezeichnet.</p>
               )}
-            </ul>
-          ) : (
-            <p className="text-sm text-muted">Noch keine Favoriten gemerkt.</p>
-          )}
-        </section>
+            </section>
 
+            <section className="flex flex-col gap-4">
+              <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
+                Favoriten
+              </h2>
+              {favorites && favorites.length > 0 ? (
+                <Card as="ul" className="divide-y divide-border">
+                  {favorites.map((f) =>
+                    f.routes ? (
+                      <li key={f.route_id}>
+                        <Link
+                          href={`/strecken/${f.route_id}`}
+                          className="group flex items-baseline justify-between px-4 py-3 transition-colors duration-fast hover:bg-surface"
+                        >
+                          <span className="transition-colors duration-fast group-hover:text-accent">
+                            {f.routes.name}
+                          </span>
+                          <span className="font-mono text-sm tabular-nums text-muted">
+                            {f.routes.laenge_km} km
+                          </span>
+                        </Link>
+                      </li>
+                    ) : null,
+                  )}
+                </Card>
+              ) : (
+                <p className="text-sm text-muted">Noch keine Favoriten gemerkt.</p>
+              )}
+            </section>
+          </div>
+
+          <div className="flex flex-col gap-8">
+            <section className="flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
+                  Fahrzeuge
+                </h2>
+                <Link
+                  href="/profil/fahrzeuge/neu"
+                  className="text-sm font-medium text-accent hover:underline"
+                >
+                  + Fahrzeug hinzufügen
+                </Link>
+              </div>
+              <VehicleList vehicles={(vehicles as Vehicle[]) ?? []} />
+            </section>
+
+            {ownRoutes && ownRoutes.length > 0 && (
+              <section className="flex flex-col gap-4">
+                <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
+                  Meine Streckenvorschläge
+                </h2>
+                <Card as="ul" className="divide-y divide-border">
+                  {ownRoutes.map((route) => {
+                    const label = route.status_ok
+                      ? "Bewilligt"
+                      : route.ist_privat
+                        ? "Privat"
+                        : route.abgelehnt_am
+                          ? "Abgelehnt"
+                          : "Ausstehend";
+                    const color = route.status_ok
+                      ? "text-accent"
+                      : route.abgelehnt_am
+                        ? "text-danger"
+                        : "text-muted";
+                    return (
+                      <li
+                        key={route.id}
+                        className="flex items-center justify-between gap-3 px-4 py-3"
+                      >
+                        <Link
+                          href={`/strecken/${route.id}`}
+                          className="truncate transition-colors duration-fast hover:text-accent"
+                        >
+                          {route.name}
+                        </Link>
+                        <div className="flex shrink-0 items-center gap-3">
+                          <span className={`text-sm font-medium ${color}`}>{label}</span>
+                          {!route.status_ok && (
+                            <Link
+                              href={`/strecken/${route.id}/bearbeiten`}
+                              className="text-xs text-muted hover:text-foreground"
+                            >
+                              Bearbeiten
+                            </Link>
+                          )}
+                          {route.abgelehnt_am && <DeleteProposalButton routeId={route.id} />}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </Card>
+              </section>
+            )}
+          </div>
+        </div>
       </main>
     </div>
   );

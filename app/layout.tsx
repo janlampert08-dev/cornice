@@ -1,11 +1,19 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { IBM_Plex_Mono, Inter } from "next/font/google";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import "./globals.css";
 
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
+});
+
+// Für tabellarische Zahlen (Ränge, km, Höhenmeter) — Instrument-Cluster-artige
+// Präzision statt Inter als De-facto-Mono-Attrappe (siehe globals.css).
+const ibmPlexMono = IBM_Plex_Mono({
+  variable: "--font-ibm-plex-mono",
+  subsets: ["latin"],
+  weight: ["500", "600"],
 });
 
 // Für die Auflösung relativer URLs in opengraph-image/twitter-image nötig
@@ -44,7 +52,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="de" className={`${inter.variable} h-full antialiased`}>
+    <html
+      lang="de"
+      className={`${inter.variable} ${ibmPlexMono.variable} h-full antialiased`}
+    >
       <body className="min-h-full flex flex-col font-sans">
         {children}
         <ServiceWorkerRegister />

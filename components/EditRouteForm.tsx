@@ -4,6 +4,8 @@ import { useActionState, useState } from "react";
 import { KATEGORIEN } from "@/lib/constants";
 import type { UpdateRouteState } from "@/lib/actions/routes";
 import type { RouteGeoJSON } from "@/types/database";
+import { Input, Textarea } from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
 
 const initialState: UpdateRouteState = { error: null };
 
@@ -29,7 +31,7 @@ export default function EditRouteForm({
   return (
     <form action={formAction} className="mx-auto flex w-full max-w-md flex-col gap-4 px-6 py-10">
       <div>
-        <h1 className="text-xl font-semibold">
+        <h1 className="text-display font-semibold">
           {adminMode ? "Strecke bearbeiten (Moderation)" : "Vorschlag bearbeiten"}
         </h1>
         <p className="mt-1 text-sm text-muted">
@@ -39,48 +41,32 @@ export default function EditRouteForm({
         </p>
       </div>
 
-      <label className="flex flex-col gap-1 text-sm">
+      <label className="flex flex-col gap-1.5 text-sm font-medium">
         Name
-        <input
-          name="name"
-          required
-          defaultValue={route.name}
-          className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
-        />
+        <Input name="name" required defaultValue={route.name} />
       </label>
 
-      <label className="flex flex-col gap-1 text-sm">
+      <label className="flex flex-col gap-1.5 text-sm font-medium">
         Region
-        <input
-          name="region"
-          required
-          defaultValue={route.region}
-          className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
-        />
+        <Input name="region" required defaultValue={route.region} />
       </label>
 
       <div className="grid grid-cols-2 gap-3">
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1.5 text-sm font-medium">
           Start-Ort
-          <input
+          <Input
             name="start_ort"
             required
             value={startOrt}
             onChange={(e) => setStartOrt(e.target.value)}
-            className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
           />
         </label>
         {route.ist_rundfahrt ? (
           <input type="hidden" name="ziel_ort" value={startOrt} />
         ) : (
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="flex flex-col gap-1.5 text-sm font-medium">
             Ziel-Ort
-            <input
-              name="ziel_ort"
-              required
-              defaultValue={route.ziel_ort}
-              className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
-            />
+            <Input name="ziel_ort" required defaultValue={route.ziel_ort} />
           </label>
         )}
       </div>
@@ -94,31 +80,23 @@ export default function EditRouteForm({
               name="kategorien"
               value={k.value}
               defaultChecked={route.kategorien.includes(k.value)}
+              className="h-4 w-4 accent-accent"
             />
             {k.label}
           </label>
         ))}
       </fieldset>
 
-      <label className="flex flex-col gap-1 text-sm">
+      <label className="flex flex-col gap-1.5 text-sm font-medium">
         Charakter (optional)
-        <textarea
-          name="charakter_text"
-          rows={3}
-          defaultValue={route.charakter_text ?? ""}
-          className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
-        />
+        <Textarea name="charakter_text" rows={3} defaultValue={route.charakter_text ?? ""} />
       </label>
 
-      {state.error && <p className="text-sm text-red-600">{state.error}</p>}
+      {state.error && <p className="text-sm text-danger">{state.error}</p>}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="self-start rounded-full border border-foreground bg-foreground shadow-sm transition-transform active:scale-95 px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
-      >
+      <Button type="submit" disabled={pending} className="self-start">
         {pending ? "Speichern…" : "Speichern"}
-      </button>
+      </Button>
     </form>
   );
 }

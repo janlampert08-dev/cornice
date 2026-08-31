@@ -4,6 +4,7 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Avatar from "@/components/Avatar";
 import { getPublicProfile } from "@/lib/profile";
+import Card from "@/components/ui/Card";
 
 export async function generateMetadata({
   params,
@@ -33,18 +34,18 @@ export default async function FahrerPage({
   return (
     <div className="flex h-dvh flex-col">
       <Header back="/" />
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-7 overflow-y-auto px-5 py-8 sm:px-6 sm:py-10">
+      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 overflow-y-auto px-5 py-8 sm:px-6 sm:py-10 lg:max-w-4xl">
         <div className="flex items-center gap-4">
           <Avatar
             url={profile.zeigtAvatar ? profile.avatarUrl : null}
             name={profile.displayName}
             size={64}
           />
-          <h1 className="text-xl font-semibold">{profile.displayName ?? "Fahrer"}</h1>
+          <h1 className="text-display font-semibold">{profile.displayName ?? "Fahrer"}</h1>
         </div>
 
         {zeigtStatistiken && (
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-y border-foreground/10 py-4 text-sm">
+          <Card as="dl" className="grid grid-cols-2 gap-x-4 gap-y-4 p-4 text-sm sm:grid-cols-3">
             {profile.zeigtPaesse && (
               <div>
                 <dt className="text-muted">Pässe befahren</dt>
@@ -67,56 +68,55 @@ export default async function FahrerPage({
                 </dd>
               </div>
             )}
-          </dl>
+          </Card>
         )}
 
-        {profile.zeigtFahrzeuge && (
+        <div className="flex flex-col gap-8 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
+          {profile.zeigtFahrzeuge && (
+            <section className="flex flex-col gap-4">
+              <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
+                Fahrzeuge
+              </h2>
+              {profile.vehicles.length === 0 ? (
+                <p className="text-sm text-muted">Keine Fahrzeuge hinterlegt.</p>
+              ) : (
+                <Card as="ul" className="divide-y divide-border">
+                  {profile.vehicles.map((v) => (
+                    <li key={v.id} className="px-4 py-3 text-sm text-foreground">
+                      {v.marke} {v.modell}
+                      {v.baujahr && <span className="ml-2 text-muted">({v.baujahr})</span>}
+                    </li>
+                  ))}
+                </Card>
+              )}
+            </section>
+          )}
+
           <section className="flex flex-col gap-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-              Fahrzeuge
+            <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
+              Gefahrene Strecken
             </h2>
-            {profile.vehicles.length === 0 ? (
-              <p className="text-sm text-muted">Keine Fahrzeuge hinterlegt.</p>
+            {profile.fahrten.length === 0 ? (
+              <p className="text-sm text-muted">Noch keine öffentlichen Fahrten.</p>
             ) : (
-              <ul className="flex flex-col">
-                {profile.vehicles.map((v) => (
-                  <li
-                    key={v.id}
-                    className="border-b border-foreground/10 py-2 text-sm text-foreground"
-                  >
-                    {v.marke} {v.modell}
-                    {v.baujahr && <span className="ml-2 text-muted">({v.baujahr})</span>}
+              <Card as="ul" className="divide-y divide-border">
+                {profile.fahrten.map((f, i) => (
+                  <li key={`${f.route_id}-${f.datum}-${i}`}>
+                    <Link
+                      href={`/strecken/${f.route_id}`}
+                      className="flex items-baseline justify-between px-4 py-3 text-sm transition-colors duration-fast hover:text-accent"
+                    >
+                      <span>{f.route_name}</span>
+                      <span className="font-mono text-xs tabular-nums text-muted">
+                        {new Date(f.datum).toLocaleDateString("de-CH")}
+                      </span>
+                    </Link>
                   </li>
                 ))}
-              </ul>
+              </Card>
             )}
           </section>
-        )}
-
-        <section className="flex flex-col gap-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-            Gefahrene Strecken
-          </h2>
-          {profile.fahrten.length === 0 ? (
-            <p className="text-sm text-muted">Noch keine öffentlichen Fahrten.</p>
-          ) : (
-            <ul className="flex flex-col">
-              {profile.fahrten.map((f, i) => (
-                <li key={`${f.route_id}-${f.datum}-${i}`}>
-                  <Link
-                    href={`/strecken/${f.route_id}`}
-                    className="flex items-baseline justify-between border-b border-foreground/10 py-2 text-sm transition-colors duration-150 hover:text-accent"
-                  >
-                    <span>{f.route_name}</span>
-                    <span className="font-mono text-xs tabular-nums text-muted">
-                      {new Date(f.datum).toLocaleDateString("de-CH")}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        </div>
 
         {istPrivat && <p className="text-sm text-muted">Dieses Profil ist privat.</p>}
       </main>

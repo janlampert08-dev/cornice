@@ -18,6 +18,8 @@ import { formatDuration } from "@/lib/format";
 import PhotoInput from "@/components/PhotoInput";
 import { GlobeIcon, LockIcon } from "@/components/VisibilityIcons";
 import type { RouteGeoJSON, Vehicle } from "@/types/database";
+import { fieldClassName } from "@/components/ui/Input";
+import { buttonVariants } from "@/components/ui/Button";
 
 // Siehe ExploreView.tsx für die Begründung des dynamischen Imports.
 const RouteMap = dynamic(() => import("@/components/RouteMap"), {
@@ -487,11 +489,11 @@ export default function LiveTrackingForm({
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background px-6 pt-[var(--safe-top)] pb-[var(--safe-bottom)] text-center">
         {locationError ? (
           <>
-            <p className="text-sm text-red-600">{locationError}</p>
+            <p className="text-sm text-danger">{locationError}</p>
             <button
               type="button"
               onClick={onExit}
-              className="rounded-xl border border-foreground/20 px-4 py-2 text-sm text-muted hover:border-foreground"
+              className={buttonVariants({ variant: "secondary" })}
             >
               Zurück
             </button>
@@ -523,8 +525,8 @@ export default function LiveTrackingForm({
         <div className="min-h-0 flex-1">
           <RouteMap routes={routes} userLocation={currentPosition} />
         </div>
-        <div className="flex flex-col gap-3 border-t border-foreground/20 bg-background p-4 pb-[calc(1rem+var(--safe-bottom))]">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+        <div className="flex flex-col gap-3 border-t border-border-strong bg-background p-4 pb-[calc(1rem+var(--safe-bottom))]">
+          <p className="text-xs font-semibold tracking-wide text-muted uppercase">
             {hasStarted ? "Aufzeichnung läuft" : "Unterwegs zum Start"}
           </p>
           <dl className="grid grid-cols-3 gap-3 sm:grid-cols-5">
@@ -567,13 +569,13 @@ export default function LiveTrackingForm({
                 : "Standort wird ermittelt…"}
             </p>
           )}
-          {locationError && <p className="text-sm text-red-600">{locationError}</p>}
+          {locationError && <p className="text-sm text-danger">{locationError}</p>}
           <div className="flex flex-wrap items-center justify-between gap-3">
             {hasStarted ? (
               <button
                 type="button"
                 onClick={handleStop}
-                className="rounded-full border border-accent bg-accent shadow-sm transition-transform active:scale-95 px-4 py-2 text-sm font-medium text-background hover:opacity-90"
+                className={buttonVariants({ variant: "accent" })}
               >
                 Strecke beenden
               </button>
@@ -582,14 +584,14 @@ export default function LiveTrackingForm({
                 <button
                   type="button"
                   onClick={handleCancelWaiting}
-                  className="rounded-xl border border-foreground/20 px-4 py-2 text-sm text-muted hover:border-foreground"
+                  className={buttonVariants({ variant: "secondary" })}
                 >
                   Abbrechen
                 </button>
                 <button
                   type="button"
                   onClick={beginActualTracking}
-                  className="text-xs text-accent hover:underline"
+                  className="text-xs font-medium text-accent hover:underline"
                 >
                   Bin schon am Start
                 </button>
@@ -612,7 +614,7 @@ export default function LiveTrackingForm({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-background pt-[var(--safe-top)] pb-[var(--safe-bottom)]">
       <div className="mx-auto flex w-full max-w-lg flex-col gap-4 px-5 py-8 sm:px-6 sm:py-10">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Fazit</h2>
+        <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">Fazit</h2>
 
         <dl className="grid grid-cols-2 gap-4 text-sm">
           <div>
@@ -630,7 +632,7 @@ export default function LiveTrackingForm({
         </dl>
 
         {isNewBest ? (
-          <p className="border border-accent bg-accent/5 px-3 py-2 text-sm font-medium text-accent">
+          <p className="rounded-lg border border-accent bg-accent/5 px-3 py-2 text-sm font-medium text-accent">
             {personalBestSeconds === null
               ? "Erste erfasste Zeit für diese Strecke."
               : `Neue persönliche Bestzeit — bisher ${formatDuration(personalBestSeconds)}.`}
@@ -659,13 +661,13 @@ export default function LiveTrackingForm({
           <input type="hidden" name="trail" value={trailJson} />
 
           <div className="flex flex-col gap-2 text-sm">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Fahrzeug</h3>
+            <h3 className="text-xs font-semibold tracking-wide text-muted uppercase">Fahrzeug</h3>
             {vehicleList.length > 0 && (
               <select
                 name="fahrzeug_id"
                 value={selectedVehicleId}
                 onChange={(e) => setSelectedVehicleId(e.target.value)}
-                className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
+                className={fieldClassName()}
               >
                 <option value="">—</option>
                 {vehicleList.map((v) => (
@@ -681,7 +683,7 @@ export default function LiveTrackingForm({
               <button
                 type="button"
                 onClick={() => setShowAddVehicle(true)}
-                className="self-start text-sm text-accent hover:underline"
+                className="self-start text-sm font-medium text-accent hover:underline"
               >
                 + Fahrzeug hinzufügen
               </button>
@@ -691,12 +693,12 @@ export default function LiveTrackingForm({
               // HTML erlaubt keine geschachtelten Formulare. handleAddVehicle
               // baut die FormData manuell und ruft die Server Action direkt
               // auf, statt über eine native Formular-Submission zu gehen.
-              <div className="flex flex-col gap-2 rounded-xl border border-foreground/15 shadow-sm p-3">
+              <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
                 <div className="grid grid-cols-2 gap-2">
                   <select
                     value={newVehicleTyp}
                     onChange={(e) => setNewVehicleTyp(e.target.value)}
-                    className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
+                    className={fieldClassName()}
                   >
                     <option value="auto">Auto</option>
                     <option value="motorrad">Motorrad</option>
@@ -704,7 +706,7 @@ export default function LiveTrackingForm({
                   <select
                     value={newVehicleGetriebe}
                     onChange={(e) => setNewVehicleGetriebe(e.target.value)}
-                    className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
+                    className={fieldClassName()}
                   >
                     <option value="manuell">Manuell</option>
                     <option value="automatik">Automatik</option>
@@ -715,14 +717,14 @@ export default function LiveTrackingForm({
                   placeholder="Marke"
                   value={newVehicleMarke}
                   onChange={(e) => setNewVehicleMarke(e.target.value)}
-                  className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
+                  className={fieldClassName()}
                 />
                 <input
                   type="text"
                   placeholder="Modell"
                   value={newVehicleModell}
                   onChange={(e) => setNewVehicleModell(e.target.value)}
-                  className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
+                  className={fieldClassName()}
                 />
                 <input
                   type="number"
@@ -731,10 +733,10 @@ export default function LiveTrackingForm({
                   max={2100}
                   value={newVehicleBaujahr}
                   onChange={(e) => setNewVehicleBaujahr(e.target.value)}
-                  className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm font-mono outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
+                  className={fieldClassName("font-mono")}
                 />
                 {addVehicleError && (
-                  <p role="alert" className="text-xs text-red-600">
+                  <p role="alert" className="text-xs text-danger">
                     {addVehicleError}
                   </p>
                 )}
@@ -743,7 +745,7 @@ export default function LiveTrackingForm({
                     type="button"
                     onClick={handleAddVehicle}
                     disabled={addVehiclePending || !newVehicleMarke.trim() || !newVehicleModell.trim()}
-                    className="rounded-full border border-foreground bg-foreground shadow-sm transition-transform active:scale-95 px-3 py-1.5 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
+                    className={buttonVariants({ size: "sm" })}
                   >
                     {addVehiclePending ? "Speichern…" : "Speichern"}
                   </button>
@@ -753,7 +755,7 @@ export default function LiveTrackingForm({
                       setShowAddVehicle(false);
                       setAddVehicleError(null);
                     }}
-                    className="rounded-xl border border-foreground/20 px-3 py-1.5 text-sm text-muted hover:border-foreground"
+                    className={buttonVariants({ variant: "secondary", size: "sm" })}
                   >
                     Abbrechen
                   </button>
@@ -762,9 +764,9 @@ export default function LiveTrackingForm({
             )}
           </div>
 
-          <div className="flex flex-col gap-1 border-t border-foreground/10 pt-4 text-sm">
+          <div className="flex flex-col gap-1 border-t border-border pt-4 text-sm">
             <div className="flex items-baseline justify-between">
-              <label htmlFor="tracking-notiz" className="text-xs font-semibold uppercase tracking-wide text-muted">
+              <label htmlFor="tracking-notiz" className="text-xs font-semibold tracking-wide text-muted uppercase">
                 Notiz (optional)
               </label>
               <span className="font-mono text-xs tabular-nums text-muted">
@@ -779,20 +781,20 @@ export default function LiveTrackingForm({
               value={notiz}
               onChange={(e) => setNotiz(e.target.value)}
               placeholder="z.B. nasse Fahrbahn, mit der Ducati…"
-              className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
+              className={fieldClassName()}
             />
           </div>
 
-          <div className="flex flex-col gap-1 border-t border-foreground/10 pt-4 text-sm">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Sichtbarkeit</h3>
+          <div className="flex flex-col gap-1 border-t border-border pt-4 text-sm">
+            <h3 className="text-xs font-semibold tracking-wide text-muted uppercase">Sichtbarkeit</h3>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setIsPublic(false)}
-                className={`flex items-center gap-1.5 border px-3 py-1.5 text-sm ${
+                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors duration-fast ${
                   !isPublic
                     ? "border-foreground bg-foreground text-background"
-                    : "border-foreground/30 text-muted hover:border-foreground"
+                    : "border-border text-muted hover:border-border-strong"
                 }`}
               >
                 <LockIcon className="h-4 w-4" />
@@ -807,10 +809,10 @@ export default function LiveTrackingForm({
                     ? `Deckt nur ${coveragePercent}% der Strecke ab — kann nicht öffentlich gemacht werden.`
                     : undefined
                 }
-                className={`flex items-center gap-1.5 border px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40 ${
+                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors duration-fast disabled:cursor-not-allowed disabled:opacity-40 ${
                   isPublic
                     ? "border-foreground bg-foreground text-background"
-                    : "border-foreground/30 text-muted hover:enabled:border-foreground"
+                    : "border-border text-muted hover:enabled:border-border-strong"
                 }`}
               >
                 <GlobeIcon className="h-4 w-4" />
@@ -826,7 +828,7 @@ export default function LiveTrackingForm({
             </p>
           </div>
 
-          <div className="border-t border-foreground/10 pt-4">
+          <div className="border-t border-border pt-4">
             <PhotoInput name="foto" id="tracking-foto" />
           </div>
 
@@ -838,23 +840,19 @@ export default function LiveTrackingForm({
           )}
 
           {state.error && (
-            <p role="alert" className="text-sm text-red-600">
+            <p role="alert" className="text-sm text-danger">
               {state.error}
             </p>
           )}
 
           <div className="flex items-center gap-4">
-            <button
-              type="submit"
-              disabled={pending}
-              className="rounded-full border border-accent bg-accent shadow-sm transition-transform active:scale-95 px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
-            >
+            <button type="submit" disabled={pending} className={buttonVariants({ variant: "accent" })}>
               {pending ? "Speichern…" : "Fahrt speichern"}
             </button>
             <button
               type="button"
               onClick={handleDiscard}
-              className="px-2 py-2 text-sm text-muted hover:text-foreground"
+              className="px-2 py-2 text-sm text-muted transition-colors duration-fast hover:text-foreground"
             >
               Verwerfen
             </button>

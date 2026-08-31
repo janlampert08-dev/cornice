@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toggleFavorite } from "@/lib/actions/favorites";
+import Button from "@/components/ui/Button";
 
 export default function FavoriteButton({
   routeId,
@@ -22,12 +23,8 @@ export default function FavoriteButton({
   }
 
   return (
-    <button
-      onClick={handleClick}
-      disabled={pending}
-      className="self-start rounded-xl border border-foreground/20 px-3 py-1.5 text-sm text-foreground hover:border-foreground disabled:opacity-50"
-    >
+    <Button variant="secondary" size="sm" onClick={handleClick} disabled={pending} className="self-start">
       {favorite ? "★ Gemerkt" : "☆ Merken"}
-    </button>
+    </Button>
   );
 }

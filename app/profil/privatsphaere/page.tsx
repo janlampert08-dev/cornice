@@ -22,7 +22,7 @@ export default async function PrivatsphaerePage() {
       <Header back="/profil" />
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 overflow-y-auto px-5 py-8 sm:px-6 sm:py-10">
         <div>
-          <h1 className="text-xl font-semibold">Privatsphäre</h1>
+          <h1 className="text-display font-semibold">Privatsphäre</h1>
           <p className="mt-1 text-sm text-muted">
             Legt fest, was andere Nutzer auf deinem öffentlichen Profil sehen. Standardmässig ist
             alles aus. Ob eine einzelne Fahrt öffentlich ist, entscheidest du separat im

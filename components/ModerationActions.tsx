@@ -1,31 +1,44 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { approveRoute, rejectRoute } from "@/lib/actions/moderation";
+import Button from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/Dialog";
 
 export default function ModerationActions({ routeId }: { routeId: string }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
   return (
     <div className="flex gap-2">
-      <button
+      <Button
+        size="sm"
         onClick={() => startTransition(() => approveRoute(routeId))}
         disabled={pending}
-        className="rounded-full border border-foreground bg-foreground shadow-sm transition-transform active:scale-95 px-3 py-1.5 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
       >
         Freischalten
-      </button>
-      <button
-        onClick={() => {
-          if (confirm("Vorschlag ablehnen?")) {
-            startTransition(() => rejectRoute(routeId));
-          }
-        }}
+      </Button>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => setConfirmOpen(true)}
         disabled={pending}
-        className="rounded-xl border border-foreground/20 px-3 py-1.5 text-sm text-muted hover:border-foreground disabled:opacity-50"
       >
         Ablehnen
-      </button>
+      </Button>
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Vorschlag ablehnen"
+        description="Der Vorschlag wird als abgelehnt markiert und ist für die Ersteller:in nicht mehr sichtbar veröffentlicht."
+        confirmLabel="Ablehnen"
+        variant="danger"
+        pending={pending}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => {
+          setConfirmOpen(false);
+          startTransition(() => rejectRoute(routeId));
+        }}
+      />
     </div>
   );
 }

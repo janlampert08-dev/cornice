@@ -6,6 +6,8 @@ import { KATEGORIEN } from "@/lib/constants";
 import { routeShapePath } from "@/lib/routeShape";
 import { withAlpha, type RouteSignature } from "@/lib/signature";
 import type { Kategorie, RouteGeoJSON } from "@/types/database";
+import { fieldClassName } from "@/components/ui/Input";
+import { buttonVariants } from "@/components/ui/Button";
 
 export default function ExploreSidebar({
   routes,
@@ -49,20 +51,20 @@ export default function ExploreSidebar({
   );
 
   return (
-    <div className="flex w-full flex-col gap-5 overflow-y-auto overscroll-y-contain border-foreground/10 px-5 py-5 sm:px-6 sm:py-6 md:max-w-sm md:border-r">
+    <div className="flex w-full flex-col gap-5 overflow-y-auto overscroll-y-contain border-border px-5 py-5 sm:px-6 sm:py-6 md:max-w-sm md:border-r lg:max-w-md xl:max-w-lg">
       <input
         type="search"
         value={searchQuery}
         onChange={(e) => onSearchChange(e.target.value)}
         placeholder="Strecke, Region oder Ort suchen…"
-        className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
+        className={fieldClassName()}
       />
 
-      <div className="flex flex-col items-start gap-2 border-b border-foreground/10 pb-6">
+      <div className="flex flex-col items-start gap-2 border-b border-border pb-6">
         <button
           onClick={onRequestLocation}
           disabled={locating}
-          className="border border-foreground bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-foreground hover:text-background disabled:opacity-50"
+          className={buttonVariants({ variant: "secondary", size: "sm" })}
         >
           {locating
             ? "Suche Standort…"
@@ -87,10 +89,10 @@ export default function ExploreSidebar({
               type="button"
               onClick={() => onToggleKategorie(k.value)}
               aria-pressed={active}
-              className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-medium transition-colors duration-150 active:scale-95 ${
+              className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-medium transition-colors duration-fast active:scale-95 ${
                 active
                   ? "border-accent bg-accent text-background"
-                  : "border-foreground/20 bg-transparent text-foreground hover:border-foreground"
+                  : "border-border text-foreground hover:border-border-strong"
               }`}
             >
               {k.label}
@@ -101,7 +103,7 @@ export default function ExploreSidebar({
 
       <ul className="flex flex-col gap-1">
         {routes.length === 0 && loadError && (
-          <li className="text-sm text-red-600">
+          <li className="text-sm text-danger">
             Strecken konnten nicht geladen werden. Bitte versuche es später erneut.
           </li>
         )}
@@ -132,10 +134,10 @@ export default function ExploreSidebar({
                     borderLeftColor: withAlpha(trackColor, 0.55),
                   } as CSSProperties
                 }
-                className="group flex h-20 items-center gap-3 border-b border-foreground/10 border-l-[3px] py-3 pl-3 pr-2 transition-colors duration-150 hover:bg-[var(--track-hover-bg)] active:bg-[var(--track-hover-bg)]"
+                className="group flex h-20 items-center gap-3 border-b border-border border-l-[3px] py-3 pr-2 pl-3 transition-colors duration-fast hover:bg-[var(--track-hover-bg)] active:bg-[var(--track-hover-bg)]"
               >
                 <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
-                  <span className="truncate text-base font-medium transition-colors duration-150 group-hover:text-[var(--track-color)]">
+                  <span className="truncate text-base font-medium transition-colors duration-fast group-hover:text-[var(--track-color)]">
                     {route.name}
                   </span>
                   <div className="flex items-center gap-2">
@@ -165,7 +167,7 @@ export default function ExploreSidebar({
                   <svg
                     viewBox="0 0 64 48"
                     aria-hidden="true"
-                    className="h-10 w-14 shrink-0 opacity-80 transition-opacity duration-150 group-hover:opacity-100"
+                    className="h-10 w-14 shrink-0 opacity-80 transition-opacity duration-fast group-hover:opacity-100"
                   >
                     <path
                       d={shape}

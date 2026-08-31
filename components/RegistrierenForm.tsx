@@ -3,6 +3,8 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { signUp, type AuthFormState } from "@/lib/actions/auth";
+import { Input } from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
 
 const initialState: AuthFormState = { error: null };
 
@@ -11,54 +13,45 @@ export default function RegistrierenForm() {
 
   return (
     <>
-      <h1 className="text-xl font-semibold">Registrieren</h1>
+      <h1 className="text-display font-semibold">Registrieren</h1>
       <form action={formAction} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1.5 text-sm font-medium">
           Name
-          <input
+          <Input
             type="text"
             name="display_name"
             required
             minLength={2}
             maxLength={50}
-            className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
+            autoComplete="name"
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1.5 text-sm font-medium">
           E-Mail
-          <input
-            type="email"
-            name="email"
-            required
-            className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
-          />
+          <Input type="email" name="email" required autoComplete="email" />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1.5 text-sm font-medium">
           Passwort
-          <input
+          <Input
             type="password"
             name="password"
             required
             minLength={8}
-            className="rounded-xl border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 transition-shadow"
+            autoComplete="new-password"
           />
         </label>
         {state.error && (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-danger">
             {state.error}
           </p>
         )}
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-full border border-foreground bg-foreground shadow-sm transition-transform active:scale-95 px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
-        >
+        <Button type="submit" disabled={pending} className="mt-1">
           {pending ? "Registrieren…" : "Registrieren"}
-        </button>
+        </Button>
       </form>
       <p className="text-sm text-muted">
         Schon ein Konto?{" "}
-        <Link href="/anmelden" className="text-accent">
+        <Link href="/anmelden" className="font-medium text-accent hover:underline">
           Anmelden
         </Link>
       </p>

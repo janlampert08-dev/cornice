@@ -1,5 +1,6 @@
 import type { Vehicle } from "@/types/database";
 import DeleteVehicleButton from "@/components/DeleteVehicleButton";
+import Card from "@/components/ui/Card";
 
 const TYP_LABEL: Record<Vehicle["typ"], string> = {
   auto: "Auto",
@@ -17,33 +18,35 @@ export default function VehicleList({ vehicles }: { vehicles: Vehicle[] }) {
   }
 
   return (
-    <table className="w-full border-collapse text-sm">
-      <thead>
-        <tr className="border-b border-foreground/10 text-left text-muted">
-          <th className="py-2 font-normal">Typ</th>
-          <th className="py-2 font-normal">Marke / Modell</th>
-          <th className="py-2 font-normal">Getriebe</th>
-          <th className="py-2 text-right font-normal">Baujahr</th>
-          <th className="py-2" />
-        </tr>
-      </thead>
-      <tbody>
-        {vehicles.map((vehicle) => (
-          <tr key={vehicle.id} className="border-b border-foreground/10">
-            <td className="py-2">{TYP_LABEL[vehicle.typ]}</td>
-            <td className="py-2">
-              {vehicle.marke} {vehicle.modell}
-            </td>
-            <td className="py-2">{GETRIEBE_LABEL[vehicle.getriebe]}</td>
-            <td className="py-2 text-right font-mono tabular-nums">
-              {vehicle.baujahr ?? "—"}
-            </td>
-            <td className="py-2 text-right">
-              <DeleteVehicleButton vehicleId={vehicle.id} />
-            </td>
+    <Card className="overflow-x-auto">
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="border-b border-border bg-surface text-left text-muted">
+            <th className="px-3 py-2 font-normal">Typ</th>
+            <th className="px-3 py-2 font-normal">Marke / Modell</th>
+            <th className="px-3 py-2 font-normal">Getriebe</th>
+            <th className="px-3 py-2 text-right font-normal">Baujahr</th>
+            <th className="px-3 py-2" />
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {vehicles.map((vehicle) => (
+            <tr key={vehicle.id} className="border-b border-border last:border-b-0">
+              <td className="px-3 py-2">{TYP_LABEL[vehicle.typ]}</td>
+              <td className="px-3 py-2">
+                {vehicle.marke} {vehicle.modell}
+              </td>
+              <td className="px-3 py-2">{GETRIEBE_LABEL[vehicle.getriebe]}</td>
+              <td className="px-3 py-2 text-right font-mono tabular-nums">
+                {vehicle.baujahr ?? "—"}
+              </td>
+              <td className="px-3 py-2 text-right">
+                <DeleteVehicleButton vehicleId={vehicle.id} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Card>
   );
 }

@@ -6,6 +6,8 @@ import { buildGoogleMapsUrl } from "@/lib/googleMaps";
 import { buildGpx, gpxFileName } from "@/lib/gpx";
 import { deleteRouteAsModerator } from "@/lib/actions/routes";
 import type { RouteGeoJSON } from "@/types/database";
+import Card from "@/components/ui/Card";
+import { ConfirmDialog } from "@/components/ui/Dialog";
 
 // Siehe components/PassStatusButton.tsx (Vorgänger dieser Komponente) für
 // die Begründung: TCS pflegt eigene Seiten pro Pass, aber die genauen
@@ -13,6 +15,9 @@ import type { RouteGeoJSON } from "@/types/database";
 // geratener Link wäre schlechter als der eine Klick über die (garantiert
 // korrekte) Übersichtsseite.
 const TCS_PORTAL_URL = "https://www.tcs.ch/de/tools/verkehrsinfo-verkehrslage/paesse-in-der-schweiz.php";
+
+const ITEM_CLASS =
+  "border-t border-border px-3 py-2 text-left text-sm text-foreground transition-colors duration-fast hover:bg-surface first:border-t-0";
 
 export default function RouteActionsMenu({
   route,
@@ -25,6 +30,7 @@ export default function RouteActionsMenu({
 }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, startDelete] = useTransition();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -75,12 +81,6 @@ export default function RouteActionsMenu({
     setOpen(false);
   }
 
-  function handleDelete() {
-    if (confirm(`"${route.name}" endgültig löschen? Das kann nicht rückgängig gemacht werden.`)) {
-      startDelete(() => deleteRouteAsModerator(route.id));
-    }
-  }
-
   return (
     <div ref={containerRef} className="relative">
       <button
@@ -88,17 +88,13 @@ export default function RouteActionsMenu({
         onClick={() => setOpen((v) => !v)}
         aria-label="Weitere Aktionen"
         aria-expanded={open}
-        className="rounded-xl border border-foreground/20 px-3 py-1.5 text-sm text-foreground hover:border-foreground"
+        className="rounded-lg border border-border px-3 py-1.5 text-sm text-foreground transition-colors duration-fast hover:border-border-strong"
       >
         ⋮
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-10 mt-1 flex w-56 flex-col rounded-xl border border-foreground/15 shadow-sm bg-background">
-          <button
-            type="button"
-            onClick={handleShare}
-            className="px-3 py-2 text-left text-sm text-foreground hover:bg-foreground/[0.05]"
-          >
+        <Card elevated as="div" className="absolute top-full left-0 z-10 mt-1 flex w-56 flex-col overflow-hidden">
+          <button type="button" onClick={handleShare} className={ITEM_CLASS}>
             {copied ? "Link kopiert ✓" : "Teilen"}
           </button>
           <a
@@ -106,15 +102,11 @@ export default function RouteActionsMenu({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setOpen(false)}
-            className="border-t border-foreground/10 px-3 py-2 text-left text-sm text-foreground hover:bg-foreground/[0.05]"
+            className={ITEM_CLASS}
           >
             In Google Maps öffnen ↗
           </a>
-          <button
-            type="button"
-            onClick={handleGpxExport}
-            className="border-t border-foreground/10 px-3 py-2 text-left text-sm text-foreground hover:bg-foreground/[0.05]"
-          >
+          <button type="button" onClick={handleGpxExport} className={ITEM_CLASS}>
             GPX exportieren
           </button>
           {route.saison_status === "saisonal" && (
@@ -123,7 +115,7 @@ export default function RouteActionsMenu({
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setOpen(false)}
-              className="border-t border-foreground/10 px-3 py-2 text-left text-sm text-foreground hover:bg-foreground/[0.05]"
+              className={ITEM_CLASS}
             >
               Live-Passstatus (TCS) ↗
             </a>
@@ -132,7 +124,7 @@ export default function RouteActionsMenu({
             <Link
               href={`/strecken/${route.id}/bearbeiten`}
               onClick={() => setOpen(false)}
-              className="border-t border-foreground/10 px-3 py-2 text-left text-sm text-foreground hover:bg-foreground/[0.05]"
+              className={ITEM_CLASS}
             >
               Bearbeiten
             </Link>
@@ -142,22 +134,38 @@ export default function RouteActionsMenu({
               <Link
                 href={`/strecken/${route.id}/bearbeiten`}
                 onClick={() => setOpen(false)}
-                className="border-t border-foreground/10 px-3 py-2 text-left text-sm text-foreground hover:bg-foreground/[0.05]"
+                className={ITEM_CLASS}
               >
                 Bearbeiten (Moderation)
               </Link>
               <button
                 type="button"
-                onClick={handleDelete}
+                onClick={() => {
+                  setOpen(false);
+                  setDeleteConfirmOpen(true);
+                }}
                 disabled={deleting}
-                className="border-t border-foreground/10 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-600/5 disabled:opacity-50"
+                className={`${ITEM_CLASS} text-danger disabled:opacity-50`}
               >
                 {deleting ? "Wird gelöscht…" : "Strecke löschen"}
               </button>
             </>
           )}
-        </div>
+        </Card>
       )}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        title="Strecke löschen"
+        description={`"${route.name}" wird endgültig gelöscht. Das kann nicht rückgängig gemacht werden.`}
+        confirmLabel="Löschen"
+        variant="danger"
+        pending={deleting}
+        onCancel={() => setDeleteConfirmOpen(false)}
+        onConfirm={() => {
+          setDeleteConfirmOpen(false);
+          startDelete(() => deleteRouteAsModerator(route.id));
+        }}
+      />
     </div>
   );
 }
