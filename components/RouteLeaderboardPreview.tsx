@@ -2,11 +2,8 @@ import Link from "next/link";
 import { Trophy } from "lucide-react";
 import { formatDuration } from "@/lib/format";
 import type { RouteTimeEntry } from "@/lib/leaderboard";
+import { MEDAL_COLORS } from "@/lib/constants";
 import Card from "@/components/ui/Card";
-
-// Gold/Silber/Bronze — Icon statt reiner Farbe für die Top 3, damit der Rang
-// nicht ausschliesslich über Farbe vermittelt wird (Barrierefreiheit).
-const MEDAL_COLORS = ["#D4AF37", "#A8A9AD", "#CD7F32"];
 
 export default function RouteLeaderboardPreview({ entries }: { entries: RouteTimeEntry[] }) {
   return (

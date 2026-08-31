@@ -1,10 +1,12 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { Trophy } from "lucide-react";
 import Header from "@/components/Header";
 import TrackLeaderboardChooser from "@/components/TrackLeaderboardChooser";
 import { getGlobalLeaderboards, type LeaderboardEntry } from "@/lib/leaderboard";
 import { getRoutes } from "@/lib/routes";
 import { createClient } from "@/lib/supabase/server";
+import { MEDAL_COLORS } from "@/lib/constants";
 import Card from "@/components/ui/Card";
 
 export const metadata: Metadata = { title: "Bestenlisten – Cornice" };
@@ -34,29 +36,28 @@ function LeaderboardSection({
             return (
               <li
                 key={entry.userId}
-                className={`flex items-baseline justify-between px-4 py-3 text-sm ${
+                className={`flex items-center gap-2 px-4 py-3 text-sm ${
                   isOwn ? "bg-accent/5" : ""
                 }`}
               >
-                <span>
-                  <span
-                    className={`mr-2 font-mono tabular-nums ${
-                      i === 0 ? "font-semibold text-accent" : "text-muted"
-                    }`}
-                  >
-                    {i + 1}.
+                {i < 3 ? (
+                  <span className="flex w-4 shrink-0 justify-center">
+                    <Trophy className="h-4 w-4" style={{ color: MEDAL_COLORS[i] }} aria-hidden="true" />
+                    <span className="sr-only">Platz {i + 1}</span>
                   </span>
-                  <Link
-                    href={`/fahrer/${entry.userId}`}
-                    className={`transition-colors duration-fast hover:text-accent ${
-                      isOwn ? "font-medium text-accent" : ""
-                    }`}
-                  >
-                    {entry.name}
-                  </Link>
-                </span>
+                ) : (
+                  <span className="w-4 shrink-0 text-center font-mono text-xs text-muted">{i + 1}.</span>
+                )}
+                <Link
+                  href={`/fahrer/${entry.userId}`}
+                  className={`min-w-0 flex-1 truncate transition-colors duration-fast hover:text-accent ${
+                    isOwn ? "font-medium text-accent" : ""
+                  }`}
+                >
+                  {entry.name}
+                </Link>
                 <span
-                  className={`font-mono tabular-nums ${isOwn ? "text-accent" : "text-muted"}`}
+                  className={`shrink-0 font-mono tabular-nums ${isOwn ? "text-accent" : "text-muted"}`}
                 >
                   {format(entry.value)} {unit}
                 </span>
@@ -72,7 +73,7 @@ function LeaderboardSection({
 export default async function LeaderboardsPage() {
   const supabase = await createClient();
   const [
-    { meisteFahrten, meisteHoehenmeter, meisteKm },
+    { meisteFahrten, meisteHoehenmeter, meisteKm, meisteStrecken },
     { routes },
     {
       data: { user },
@@ -87,12 +88,13 @@ export default async function LeaderboardsPage() {
         <div>
           <h1 className="text-display font-semibold">Bestenlisten</h1>
           <p className="mt-1 text-sm text-muted">
-            Nach Distanz, Höhenmetern und Anzahl aufgezeichneter Fahrten. Streckenbestzeiten unten
-            zeigen nur Fahrten, die freiwillig dafür geteilt wurden.
+            Nach Distanz, Höhenmetern, Anzahl aufgezeichneter Fahrten und Anzahl unterschiedlicher
+            Strecken. Streckenbestzeiten unten zeigen nur Fahrten, die freiwillig dafür geteilt
+            wurden.
           </p>
         </div>
 
-        <div className="flex flex-col gap-8 lg:grid lg:grid-cols-3 lg:items-start lg:gap-6">
+        <div className="flex flex-col gap-8 sm:grid sm:grid-cols-2 sm:items-start sm:gap-6 xl:grid-cols-4">
           <LeaderboardSection
             title="Meiste Fahrten"
             entries={meisteFahrten}
@@ -111,6 +113,12 @@ export default async function LeaderboardsPage() {
             entries={meisteKm}
             unit="km"
             format={(v) => v.toFixed(0)}
+            currentUserId={currentUserId}
+          />
+          <LeaderboardSection
+            title="Stammfahrer"
+            entries={meisteStrecken}
+            unit="Strecken"
             currentUserId={currentUserId}
           />
         </div>
