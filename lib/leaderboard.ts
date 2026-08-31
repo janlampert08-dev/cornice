@@ -42,19 +42,21 @@ function toTopEntries(
     .slice(0, TOP_N);
 }
 
-// Drei bewusst nicht-zeitbezogene Bestenlisten (siehe 0013_leaderboard_view.sql
+// Vier bewusst nicht-zeitbezogene Bestenlisten (siehe 0013_leaderboard_view.sql
 // für die Begründung) — belohnen Distanz/Höhenmeter/Anzahl aufgezeichneter
-// Fahrten, nie Geschwindigkeit.
+// Fahrten/unterschiedlicher Strecken, nie Geschwindigkeit.
 export function aggregateLeaderboards(rows: LeaderboardRow[]): {
   meisteFahrten: LeaderboardEntry[];
   meisteHoehenmeter: LeaderboardEntry[];
   meisteKm: LeaderboardEntry[];
+  meisteStrecken: LeaderboardEntry[];
 } {
   const names = new Map<string, string>();
   const avatarUrls = new Map<string, string | null>();
   const fahrtenByUser = new Map<string, number>();
   const hoehenmeterByUser = new Map<string, number>();
   const kmByUser = new Map<string, number>();
+  const streckenByUser = new Map<string, Set<string>>();
 
   for (const row of rows) {
     names.set(row.user_id, row.display_name ?? "Anonym");
@@ -66,12 +68,26 @@ export function aggregateLeaderboards(rows: LeaderboardRow[]): {
 
     hoehenmeterByUser.set(row.user_id, (hoehenmeterByUser.get(row.user_id) ?? 0) + (row.hoehe_m ?? 0));
     kmByUser.set(row.user_id, (kmByUser.get(row.user_id) ?? 0) + (row.effektive_distanz_km ?? 0));
+
+    // "Stammfahrer": Anzahl unterschiedlicher Strecken statt reiner
+    // Fahrtenzahl — belohnt Vielfalt/Konsistenz auch für Nutzer, die nie an
+    // die Spitze der Distanz-/Höhenmeter-Rangliste kommen (siehe Strava
+    // "Local Legend"-Recherche im Redesign-Plan). Bewusst ohne Zeitfenster:
+    // leaderboard_completions liefert kein Datum; ein Rolling-Window wäre
+    // eine eigene View-Änderung (Migration) und ist nicht Teil dieser Phase.
+    if (!streckenByUser.has(row.user_id)) streckenByUser.set(row.user_id, new Set());
+    streckenByUser.get(row.user_id)!.add(row.route_id);
   }
+
+  const streckenCountByUser = new Map<string, number>(
+    [...streckenByUser.entries()].map(([userId, routeIds]) => [userId, routeIds.size]),
+  );
 
   return {
     meisteFahrten: toTopEntries(fahrtenByUser, names, avatarUrls),
     meisteHoehenmeter: toTopEntries(hoehenmeterByUser, names, avatarUrls),
     meisteKm: toTopEntries(kmByUser, names, avatarUrls),
+    meisteStrecken: toTopEntries(streckenCountByUser, names, avatarUrls),
   };
 }
 
@@ -82,7 +98,7 @@ export async function getGlobalLeaderboards(): Promise<
   const { data, error } = await supabase.from("leaderboard_completions").select("*");
 
   if (error || !data) {
-    return { meisteFahrten: [], meisteHoehenmeter: [], meisteKm: [] };
+    return { meisteFahrten: [], meisteHoehenmeter: [], meisteKm: [], meisteStrecken: [] };
   }
 
   return aggregateLeaderboards(data as LeaderboardRow[]);

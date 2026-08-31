@@ -80,4 +80,17 @@ describe("aggregateLeaderboards", () => {
     expect(meisteHoehenmeter).toHaveLength(3);
     expect(meisteHoehenmeter[0].value).toBe(4);
   });
+
+  it("counts distinct routes per user for meisteStrecken, not total completions", () => {
+    const rows = [
+      row({ user_id: "u1", route_id: "r1" }),
+      row({ user_id: "u1", route_id: "r1" }), // dieselbe Strecke zweimal gefahren — zählt nur einmal
+      row({ user_id: "u1", route_id: "r2" }),
+      row({ user_id: "u2", route_id: "r1" }),
+    ];
+    const { meisteStrecken } = aggregateLeaderboards(rows);
+    const byUser = new Map(meisteStrecken.map((e) => [e.userId, e.value]));
+    expect(byUser.get("u1")).toBe(2);
+    expect(byUser.get("u2")).toBe(1);
+  });
 });

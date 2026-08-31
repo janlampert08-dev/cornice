@@ -1,7 +1,15 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import {
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import dynamic from "next/dynamic";
+import { GripHorizontal } from "lucide-react";
 import ExploreSidebar from "@/components/ExploreSidebar";
 import { haversineKm } from "@/lib/geo";
 import { matchesSearch } from "@/lib/search";
@@ -17,12 +25,22 @@ const RouteMap = dynamic(() => import("@/components/RouteMap"), {
   loading: () => <div className="h-full w-full bg-background" />,
 });
 
+// Bottom-Sheet-Massse (Mobile). PEEK entspricht ungefähr der bisherigen
+// festen Kartenhöhe (h-64 = 256px) plus Platz für den Ziehgriff; EXPANDED_GAP
+// lässt oben immer einen Streifen Karte sichtbar, damit der Kontext (wo bin
+// ich?) beim voll aufgezogenen Sheet nicht verloren geht.
+const SHEET_PEEK_PX = 272;
+const SHEET_EXPANDED_GAP_PX = 96;
+const DRAG_TAP_THRESHOLD_PX = 6;
+
 export default function ExploreView({
   routes,
   loadError = false,
+  coverPhotos,
 }: {
   routes: RouteGeoJSON[];
   loadError?: boolean;
+  coverPhotos: Map<string, string>;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
@@ -31,7 +49,62 @@ export default function ExploreView({
   const [hoveredRouteId, setHoveredRouteId] = useState<string | null>(null);
   const [selectedKategorien, setSelectedKategorien] = useState<Kategorie[]>([]);
 
-  const onHoverRoute = useCallback((id: string | null) => setHoveredRouteId(id), []);
+  // Bottom-Sheet-Zustand (nur < md relevant — ab md greift die feste
+  // Liste-links/Karte-rechts-Aufteilung unverändert, siehe Klassen unten).
+  const containerRef = useRef<HTMLElement>(null);
+  const [sheetExpanded, setSheetExpanded] = useState(false);
+  const [dragHeight, setDragHeight] = useState<number | null>(null);
+  const dragRef = useRef<{ startY: number; startHeight: number; moved: boolean } | null>(null);
+
+  const sheetHeight = sheetExpanded ? "calc(100% - " + SHEET_EXPANDED_GAP_PX + "px)" : `${SHEET_PEEK_PX}px`;
+
+  const onHandlePointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      const containerHeight = containerRef.current?.clientHeight ?? window.innerHeight;
+      const currentHeight = sheetExpanded ? containerHeight - SHEET_EXPANDED_GAP_PX : SHEET_PEEK_PX;
+      dragRef.current = { startY: e.clientY, startHeight: currentHeight, moved: false };
+      e.currentTarget.setPointerCapture(e.pointerId);
+    },
+    [sheetExpanded],
+  );
+
+  const onHandlePointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    const deltaY = drag.startY - e.clientY;
+    if (Math.abs(deltaY) > DRAG_TAP_THRESHOLD_PX) drag.moved = true;
+
+    const containerHeight = containerRef.current?.clientHeight ?? window.innerHeight;
+    const maxHeight = containerHeight - SHEET_EXPANDED_GAP_PX;
+    const next = Math.min(Math.max(drag.startHeight + deltaY, SHEET_PEEK_PX), maxHeight);
+    setDragHeight(next);
+  }, []);
+
+  const onHandlePointerUp = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      const drag = dragRef.current;
+      dragRef.current = null;
+      e.currentTarget.releasePointerCapture(e.pointerId);
+
+      if (!drag) return;
+
+      // Reiner Tap (kaum Bewegung) schaltet um, statt am aktuellen Zustand
+      // festzuhalten — sonst müsste man aus der Peek-Position immer ziehen.
+      if (!drag.moved) {
+        setSheetExpanded((current) => !current);
+        setDragHeight(null);
+        return;
+      }
+
+      const containerHeight = containerRef.current?.clientHeight ?? window.innerHeight;
+      const maxHeight = containerHeight - SHEET_EXPANDED_GAP_PX;
+      const current = dragHeight ?? drag.startHeight;
+      const midpoint = (SHEET_PEEK_PX + maxHeight) / 2;
+      setSheetExpanded(current > midpoint);
+      setDragHeight(null);
+    },
+    [dragHeight],
+  );
 
   const onToggleKategorie = useCallback((kategorie: Kategorie) => {
     setSelectedKategorien((current) =>
@@ -103,9 +176,9 @@ export default function ExploreView({
   }, [routes, searchQuery, selectedKategorien, userLocation]);
 
   return (
-    <main className="flex flex-1 flex-col overflow-hidden md:flex-row">
+    <main ref={containerRef} className="relative flex flex-1 flex-col overflow-hidden md:flex-row">
       <div
-        className="h-64 shrink-0 md:order-2 md:h-auto md:flex-1"
+        className="absolute inset-0 md:static md:order-2 md:h-auto md:flex-1"
         role="img"
         aria-label="Kartenansicht der Strecken — die vollständige Liste steht in der Seitenleiste."
       >
@@ -116,20 +189,56 @@ export default function ExploreView({
           hoveredRouteId={hoveredRouteId}
         />
       </div>
-      <ExploreSidebar
-        routes={visibleRoutes}
-        loadError={loadError}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        signatures={signatures}
-        userLocation={userLocation}
-        locating={locating}
-        locationError={locationError}
-        onRequestLocation={requestLocation}
-        onHoverRoute={onHoverRoute}
-        selectedKategorien={selectedKategorien}
-        onToggleKategorie={onToggleKategorie}
-      />
+
+      {/* Mobile: Bottom-Sheet über der Karte, per Ziehgriff auf- und
+          zuziehbar zwischen Peek- und Vollhöhe (siehe Konstanten oben).
+          Ab md: zurück zur ursprünglichen Liste-links/Karte-rechts-Aufteilung,
+          keine der Sheet-Positionierungsklassen greift dort mehr. */}
+      <div
+        // Ab md: display:contents statt eigener Box — der Wrapper selbst
+        // verschwindet aus dem Rendering, ExploreSidebar rutscht direkt als
+        // Flex-Kind in main hoch und übernimmt dort exakt wie vorher die
+        // Liste-links/Karte-rechts-Aufteilung über ihre eigenen
+        // w-full/max-w-*-Klassen. Ein einfaches md:static hätte hier nicht
+        // gereicht: die feste Höhe/Position wären als Box-Eigenschaften
+        // erhalten geblieben und hätten die Desktop-Breite verzerrt.
+        className={`absolute inset-x-0 bottom-0 z-10 flex h-[var(--sheet-h)] flex-col overflow-hidden rounded-t-lg border-t border-border bg-background shadow-overlay md:contents ${
+          dragHeight === null ? "transition-[height] duration-base ease-standard" : ""
+        }`}
+        style={{ "--sheet-h": dragHeight !== null ? `${dragHeight}px` : sheetHeight } as CSSProperties}
+      >
+        <div
+          onPointerDown={onHandlePointerDown}
+          onPointerMove={onHandlePointerMove}
+          onPointerUp={onHandlePointerUp}
+          onPointerCancel={onHandlePointerUp}
+          role="button"
+          tabIndex={0}
+          aria-label={sheetExpanded ? "Liste einklappen" : "Liste ausklappen"}
+          aria-expanded={sheetExpanded}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setSheetExpanded((current) => !current);
+          }}
+          className="flex shrink-0 cursor-grab touch-none items-center justify-center py-2 active:cursor-grabbing md:hidden"
+        >
+          <GripHorizontal className="h-5 w-5 text-muted" aria-hidden="true" />
+        </div>
+        <ExploreSidebar
+          routes={visibleRoutes}
+          loadError={loadError}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          signatures={signatures}
+          coverPhotos={coverPhotos}
+          userLocation={userLocation}
+          locating={locating}
+          locationError={locationError}
+          onRequestLocation={requestLocation}
+          onHoverRoute={setHoveredRouteId}
+          selectedKategorien={selectedKategorien}
+          onToggleKategorie={onToggleKategorie}
+        />
+      </div>
     </main>
   );
 }

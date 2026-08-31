@@ -10,7 +10,7 @@ import RouteActionsMenu from "@/components/RouteActionsMenu";
 import PublishRouteButton from "@/components/PublishRouteButton";
 import ElevationProfile from "@/components/ElevationProfile";
 import PhotoGallery from "@/components/PhotoGallery";
-import Avatar from "@/components/Avatar";
+import RouteLeaderboardPreview from "@/components/RouteLeaderboardPreview";
 import { getRoute } from "@/lib/routes";
 import { getRatings, getOwnRating } from "@/lib/ratings";
 import { getPersonalBestSeconds } from "@/lib/completions";
@@ -21,7 +21,6 @@ import { getRouteLeaderboard } from "@/lib/leaderboard";
 import { fetchCurrentWeather } from "@/lib/weather";
 import { createClient } from "@/lib/supabase/server";
 import { KATEGORIEN } from "@/lib/constants";
-import { formatDuration } from "@/lib/format";
 import { averageTempolimit, estimateRouteDurationMinutes, formatMinutes } from "@/lib/geo";
 import type { Vehicle } from "@/types/database";
 import Card from "@/components/ui/Card";
@@ -88,7 +87,6 @@ export default async function StreckeDetailPage({
       fetchCurrentWeather(route.start_geojson.coordinates as [number, number]),
       user ? isModerator(user.id) : Promise.resolve(false),
     ]);
-  const record = leaderboard[0] ?? null;
 
   return (
     <div className="flex h-dvh flex-col">
@@ -149,37 +147,43 @@ export default async function StreckeDetailPage({
             <ElevationProfile punkte={route.hoehenprofil} />
           )}
 
-          <Card as="dl" className="grid grid-cols-2 gap-x-4 gap-y-4 p-4 text-sm">
-            <div>
-              <dt className="text-muted">Länge</dt>
-              <dd className="font-mono tabular-nums">{route.laenge_km} km</dd>
-            </div>
-            <div>
-              <dt className="text-muted">Höhe</dt>
-              <dd className="font-mono tabular-nums">
+          {/* Bento-Layout statt einer gleichförmigen dl-Tabelle: Länge/Höhe als
+              grössere, betonte Kacheln (die zwei Zahlen, die beim ersten Blick
+              auf eine Strecke am meisten zählen), Rest kleinteiliger darunter.
+              dl bleibt als semantischer Rahmen um alle dt/dd-Paare erhalten —
+              HTML5 erlaubt dt/dd-Gruppen, die einzeln in div (hier: Card)
+              gewrappt sind. */}
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Card surface className="col-span-1 flex flex-col justify-between gap-1 p-4">
+              <dt className="text-sm text-muted">Länge</dt>
+              <dd className="text-title font-mono font-semibold tabular-nums">{route.laenge_km} km</dd>
+            </Card>
+            <Card surface className="col-span-1 flex flex-col justify-between gap-1 p-4">
+              <dt className="text-sm text-muted">Höhe</dt>
+              <dd className="text-title font-mono font-semibold tabular-nums">
                 {route.hoehe_m !== null ? `${route.hoehe_m} m` : "—"}
               </dd>
-            </div>
-            <div>
-              <dt className="text-muted">Max. Steigung</dt>
+            </Card>
+            <Card surface className="flex flex-col justify-between gap-1 p-4">
+              <dt className="text-sm text-muted">Max. Steigung</dt>
               <dd className="font-mono tabular-nums">
                 {route.max_steigung_prozent !== null ? `${route.max_steigung_prozent}%` : "—"}
               </dd>
-            </div>
-            <div>
-              <dt className="text-muted">Kehren</dt>
+            </Card>
+            <Card surface className="flex flex-col justify-between gap-1 p-4">
+              <dt className="text-sm text-muted">Kehren</dt>
               <dd className="font-mono tabular-nums">{route.kehren ?? "—"}</dd>
-            </div>
-            <div>
-              <dt className="text-muted">Ø Tempolimit</dt>
+            </Card>
+            <Card surface className="flex flex-col justify-between gap-1 p-4">
+              <dt className="text-sm text-muted">Ø Tempolimit</dt>
               <dd className="font-mono tabular-nums">
                 {averageTempolimit(route.tempolimits) !== null
                   ? `${averageTempolimit(route.tempolimits)} km/h`
                   : "—"}
               </dd>
-            </div>
-            <div>
-              <dt className="text-muted">Fahrzeit</dt>
+            </Card>
+            <Card surface className="flex flex-col justify-between gap-1 p-4">
+              <dt className="text-sm text-muted">Fahrzeit</dt>
               <dd className="font-mono tabular-nums">
                 ~
                 {formatMinutes(
@@ -190,9 +194,9 @@ export default async function StreckeDetailPage({
                   ),
                 )}
               </dd>
-            </div>
-            <div>
-              <dt className="text-muted">Wetter</dt>
+            </Card>
+            <Card surface className="col-span-2 flex flex-col justify-between gap-1 p-4 sm:col-span-2">
+              <dt className="text-sm text-muted">Wetter</dt>
               <dd className="font-mono tabular-nums">
                 {weather ? (
                   <>
@@ -205,27 +209,10 @@ export default async function StreckeDetailPage({
                   "—"
                 )}
               </dd>
-            </div>
-            <div className="col-span-2">
-              <dt className="text-muted">Rekord</dt>
-              <dd className="font-mono tabular-nums">
-                {record ? (
-                  <span className="inline-flex flex-wrap items-center gap-x-2">
-                    {formatDuration(record.dauerSekunden)}
-                    <Link
-                      href={`/fahrer/${record.userId}`}
-                      className="inline-flex items-center gap-1.5 font-sans text-xs font-normal normal-case text-muted hover:text-accent"
-                    >
-                      <Avatar url={record.avatarUrl} name={record.name} size={18} />
-                      {record.name}
-                    </Link>
-                  </span>
-                ) : (
-                  "—"
-                )}
-              </dd>
-            </div>
-          </Card>
+            </Card>
+          </dl>
+
+          <RouteLeaderboardPreview entries={leaderboard.slice(0, 5)} />
 
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">
