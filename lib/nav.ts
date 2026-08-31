@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { MapPinIcon, PlusIcon, RankingIcon, PersonIcon, ShieldIcon } from "@/components/NavIcons";
+import { MapPinIcon, PlusIcon, RankingIcon, PersonIcon, ShieldIcon, FeedIcon } from "@/components/NavIcons";
 
 export interface NavItem {
   href: string;
@@ -26,6 +26,7 @@ export function getNavItems({
 
   return [
     { href: "/", label: "Strecken", icon: MapPinIcon },
+    { href: "/feed", label: "Feed", icon: FeedIcon },
     { href: "/strecken/neu", label: "Vorschlagen", icon: PlusIcon },
     { href: "/leaderboards", label: "Bestenlisten", icon: RankingIcon },
     { href: "/profil", label: "Profil", icon: PersonIcon },
