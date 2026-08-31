@@ -3,7 +3,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Avatar from "@/components/Avatar";
+import KudosButton from "@/components/KudosButton";
 import { getPublicProfile } from "@/lib/profile";
+import { getKudosForCompletions } from "@/lib/kudos";
+import { createClient } from "@/lib/supabase/server";
 import Card from "@/components/ui/Card";
 
 export async function generateMetadata({
@@ -23,9 +26,20 @@ export default async function FahrerPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const profile = await getPublicProfile(id);
+  const supabase = await createClient();
+
+  // getPublicProfile() und auth.getUser() sind voneinander unabhängig
+  // (das Profil selbst braucht den Betrachter nicht) — parallel gestartet.
+  const [profile, {
+    data: { user: viewer },
+  }] = await Promise.all([getPublicProfile(id), supabase.auth.getUser()]);
 
   if (!profile) notFound();
+
+  const kudosByCompletion = await getKudosForCompletions(
+    profile.fahrten.map((f) => f.completion_id),
+    viewer?.id ?? null,
+  );
 
   const zeigtStatistiken = profile.zeigtPaesse || profile.zeigtHoehenmeter || profile.zeigtDistanz;
   const istPrivat =
@@ -100,19 +114,29 @@ export default async function FahrerPage({
               <p className="text-sm text-muted">Noch keine öffentlichen Fahrten.</p>
             ) : (
               <Card as="ul" className="divide-y divide-border">
-                {profile.fahrten.map((f, i) => (
-                  <li key={`${f.route_id}-${f.datum}-${i}`}>
-                    <Link
-                      href={`/strecken/${f.route_id}`}
-                      className="flex items-baseline justify-between px-4 py-3 text-sm transition-colors duration-fast hover:text-accent"
-                    >
-                      <span>{f.route_name}</span>
-                      <span className="font-mono text-xs tabular-nums text-muted">
-                        {new Date(f.datum).toLocaleDateString("de-CH")}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
+                {profile.fahrten.map((f) => {
+                  const kudos = kudosByCompletion.get(f.completion_id);
+                  return (
+                    <li key={f.completion_id} className="flex items-center gap-2 px-4 py-3">
+                      <Link
+                        href={`/strecken/${f.route_id}`}
+                        className="flex min-w-0 flex-1 items-baseline justify-between text-sm transition-colors duration-fast hover:text-accent"
+                      >
+                        <span className="truncate">{f.route_name}</span>
+                        <span className="ml-2 shrink-0 font-mono text-xs tabular-nums text-muted">
+                          {new Date(f.datum).toLocaleDateString("de-CH")}
+                        </span>
+                      </Link>
+                      {viewer && (
+                        <KudosButton
+                          completionId={f.completion_id}
+                          initialCount={kudos?.count ?? 0}
+                          initialGiven={kudos?.givenByMe ?? false}
+                        />
+                      )}
+                    </li>
+                  );
+                })}
               </Card>
             )}
           </section>

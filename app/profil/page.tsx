@@ -8,11 +8,13 @@ import DeleteProposalButton from "@/components/DeleteProposalButton";
 import AvatarUpload from "@/components/AvatarUpload";
 import RideVisibilityToggle from "@/components/RideVisibilityToggle";
 import ShareRideButton from "@/components/ShareRideButton";
+import KudosButton from "@/components/KudosButton";
 import AchievementBadges from "@/components/AchievementBadges";
 import ActivityHeatmap from "@/components/ActivityHeatmap";
 import CountUp from "@/components/CountUp";
 // Premium-Feature vorerst deaktiviert, siehe components/PremiumCard.tsx.
 import { createClient } from "@/lib/supabase/server";
+import { getKudosForCompletions } from "@/lib/kudos";
 import { formatDuration } from "@/lib/format";
 import type { Vehicle } from "@/types/database";
 import Card from "@/components/ui/Card";
@@ -160,6 +162,13 @@ export default async function ProfilPage() {
     0,
   );
 
+  // Kudos existieren laut RLS (0029_kudos.sql) nur auf öffentlichen Fahrten
+  // — private trackedRides gar nicht erst mitgeben, statt leer zu landen.
+  const kudosByCompletion = await getKudosForCompletions(
+    (trackedRides ?? []).filter((r) => r.ist_oeffentlich).map((r) => r.id),
+    user.id,
+  );
+
   return (
     <div className="flex h-dvh flex-col">
       <Header />
@@ -301,6 +310,13 @@ export default async function ProfilPage() {
                                 </span>
                               </Link>
                               <div className="flex shrink-0 items-center gap-3">
+                                {ride.ist_oeffentlich && (
+                                  <KudosButton
+                                    completionId={ride.id}
+                                    initialCount={kudosByCompletion.get(ride.id)?.count ?? 0}
+                                    initialGiven={kudosByCompletion.get(ride.id)?.givenByMe ?? false}
+                                  />
+                                )}
                                 <ShareRideButton
                                   routeId={ride.route_id}
                                   distanceKm={ride.distanz_km}
