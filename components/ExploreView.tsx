@@ -14,6 +14,7 @@ import ExploreSidebar from "@/components/ExploreSidebar";
 import { haversineKm } from "@/lib/geo";
 import { matchesSearch } from "@/lib/search";
 import { computeSignatures } from "@/lib/signature";
+import { applyAdvancedFilters, EMPTY_ADVANCED_FILTERS, type AdvancedFilters } from "@/lib/exploreFilters";
 import type { Kategorie, RouteGeoJSON } from "@/types/database";
 
 // mapbox-gl ist eine schwere Abhängigkeit (WebGL, eigenes CSS) — dynamisch
@@ -48,6 +49,7 @@ export default function ExploreView({
   const [locationError, setLocationError] = useState<string | null>(null);
   const [hoveredRouteId, setHoveredRouteId] = useState<string | null>(null);
   const [selectedKategorien, setSelectedKategorien] = useState<Kategorie[]>([]);
+  const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>(EMPTY_ADVANCED_FILTERS);
 
   // Bottom-Sheet-Zustand (nur < md relevant — ab md greift die feste
   // Liste-links/Karte-rechts-Aufteilung unverändert, siehe Klassen unten).
@@ -166,6 +168,8 @@ export default function ExploreView({
       );
     }
 
+    filtered = applyAdvancedFilters(filtered, advancedFilters);
+
     if (!userLocation) return filtered;
 
     return [...filtered].sort(
@@ -173,7 +177,7 @@ export default function ExploreView({
         haversineKm(userLocation, a.start_geojson.coordinates) -
         haversineKm(userLocation, b.start_geojson.coordinates),
     );
-  }, [routes, searchQuery, selectedKategorien, userLocation]);
+  }, [routes, searchQuery, selectedKategorien, advancedFilters, userLocation]);
 
   return (
     <main ref={containerRef} className="relative flex flex-1 flex-col overflow-hidden md:flex-row">
@@ -237,6 +241,8 @@ export default function ExploreView({
           onHoverRoute={setHoveredRouteId}
           selectedKategorien={selectedKategorien}
           onToggleKategorie={onToggleKategorie}
+          advancedFilters={advancedFilters}
+          onAdvancedFiltersChange={setAdvancedFilters}
         />
       </div>
     </main>
