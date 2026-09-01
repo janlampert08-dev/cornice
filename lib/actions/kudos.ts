@@ -30,6 +30,8 @@ export async function toggleKudos(completionId: string): Promise<{ ok: boolean }
   if (error) return { ok: false };
 
   revalidatePath("/fahrer/[id]", "page");
+  revalidatePath("/fahrten/[id]", "page");
+  revalidatePath("/feed");
   revalidatePath("/profil");
   return { ok: true };
 }

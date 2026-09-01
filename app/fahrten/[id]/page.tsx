@@ -7,6 +7,7 @@ import Avatar from "@/components/Avatar";
 import KudosButton from "@/components/KudosButton";
 import ElevationProfile from "@/components/ElevationProfile";
 import CompletionMap from "@/components/CompletionMap";
+import CompletionPhoto from "@/components/CompletionPhoto";
 import { getCompletionDetail } from "@/lib/completions";
 import { getRoute } from "@/lib/routes";
 import { getKudosForCompletions } from "@/lib/kudos";
@@ -107,6 +108,14 @@ export default async function FahrtDetailPage({
           <Card className="h-64 overflow-hidden sm:h-80">
             <CompletionMap route={route} />
           </Card>
+
+          {completion.fotoUrl && (
+            <CompletionPhoto
+              completionId={completion.id}
+              fotoUrl={completion.fotoUrl}
+              canRemove={completion.isOwner}
+            />
+          )}
 
           {/* Bento-Stats — dasselbe Muster wie app/strecken/[id]/page.tsx und
               app/profil/page.tsx: Distanz/Zeit als betonte Kacheln, Rest

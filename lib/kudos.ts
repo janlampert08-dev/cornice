@@ -6,8 +6,7 @@ export interface KudosInfo {
 }
 
 // Ein Batch-Read für eine ganze Liste von Fahrten statt einer Query pro
-// Kudos-Button — gleiches Muster wie getRouteCoverPhotos (lib/photos.ts).
-// kudos_summary (0029) ist bereits auf öffentliche Fahrten gefiltert, die
+// Kudos-Button. kudos_summary (0029) ist bereits auf öffentliche Fahrten gefiltert, die
 // zweite Query (eigene Kudos) braucht deshalb keinen zusätzlichen
 // ist_oeffentlich-Check.
 export async function getKudosForCompletions(

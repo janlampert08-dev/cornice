@@ -38,6 +38,7 @@ export interface CompletionDetail {
   vehicle: { typ: string; marke: string; modell: string } | null;
   displayName: string | null;
   avatarUrl: string | null;
+  fotoUrl: string | null;
   isOwner: boolean;
 }
 
@@ -79,6 +80,7 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
       vehicle: null,
       displayName: row.display_name,
       avatarUrl: row.avatar_url,
+      fotoUrl: row.foto_url,
       isOwner: viewerId === row.user_id,
     };
   }
@@ -88,7 +90,7 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
   const { data: own } = await supabase
     .from("route_completions")
     .select(
-      "id, route_id, user_id, datum, dauer_sekunden, distanz_km, ist_oeffentlich, abdeckung_prozent, notiz, vehicles(typ, marke, modell)",
+      "id, route_id, user_id, datum, dauer_sekunden, distanz_km, ist_oeffentlich, abdeckung_prozent, notiz, foto_url, vehicles(typ, marke, modell)",
     )
     .eq("id", id)
     .eq("user_id", viewerId)
@@ -102,6 +104,7 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
       ist_oeffentlich: boolean;
       abdeckung_prozent: number;
       notiz: string | null;
+      foto_url: string | null;
       vehicles: { typ: string; marke: string; modell: string } | null;
     }>();
 
@@ -126,6 +129,7 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
     vehicle: own.vehicles,
     displayName: profile?.display_name ?? null,
     avatarUrl: profile?.avatar_url ?? null,
+    fotoUrl: own.foto_url,
     isOwner: true,
   };
 });
