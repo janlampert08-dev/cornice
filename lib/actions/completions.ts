@@ -47,6 +47,26 @@ async function uploadFoto(
   return { url: data.publicUrl };
 }
 
+// Best-effort-Aufräumen bereits hochgeladener Storage-Objekte, wenn ein
+// späterer Schritt (weiterer Upload, die Fahrt selbst, oder die
+// completion_photos-Zeilen) fehlschlägt — sonst blieben die Dateien ohne
+// referenzierende Zeile verwaist im Bucket liegen.
+async function removeUploadedFotos(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  urls: string[],
+): Promise<void> {
+  const bucketMarker = `/${ROUTE_PHOTOS_BUCKET}/`;
+  const paths = urls
+    .map((url) => {
+      const markerIndex = url.indexOf(bucketMarker);
+      return markerIndex === -1 ? null : url.slice(markerIndex + bucketMarker.length);
+    })
+    .filter((path): path is string => path !== null);
+  if (paths.length > 0) {
+    await supabase.storage.from(ROUTE_PHOTOS_BUCKET).remove(paths);
+  }
+}
+
 // Speichert eine per Live-GPS-Tracking erfasste Fahrt — der einzige Weg,
 // eine Strecke als "gefahren" einzutragen (kein manueller Eintrag ohne GPS
 // mehr, siehe Entfernung von logCompletion/CompletionForm). dauer_sekunden
@@ -139,10 +159,15 @@ export async function logTrackedCompletion(
 
   // Fotos werden vor der Fahrt selbst hochgeladen: schlägt eine Datei fehl
   // (Format/Grösse), soll gar keine halbe Fahrt ohne ihre Fotos entstehen.
+  // Bereits hochgeladene Dateien dieses Versuchs werden dabei wieder entfernt
+  // statt verwaist im Bucket liegen zu bleiben.
   const uploadedUrls: string[] = [];
   for (const foto of fotos) {
     const result = await uploadFoto(supabase, user.id, foto);
-    if ("error" in result) return { error: result.error };
+    if ("error" in result) {
+      await removeUploadedFotos(supabase, uploadedUrls);
+      return { error: result.error };
+    }
     uploadedUrls.push(result.url);
   }
 
@@ -163,6 +188,7 @@ export async function logTrackedCompletion(
     .single();
 
   if (error || !inserted) {
+    await removeUploadedFotos(supabase, uploadedUrls);
     // Race-freie Durchsetzung via DB-Trigger (0024) — der App-seitige Check
     // oben ist nur ein schnelles Vorab-Feedback und kann bei parallelen
     // Requests theoretisch durchrutschen.
@@ -173,7 +199,7 @@ export async function logTrackedCompletion(
   }
 
   if (uploadedUrls.length > 0) {
-    await supabase.from("completion_photos").insert(
+    const { error: photoError } = await supabase.from("completion_photos").insert(
       uploadedUrls.map((foto_url, position) => ({
         completion_id: inserted.id,
         user_id: user.id,
@@ -181,6 +207,15 @@ export async function logTrackedCompletion(
         position,
       })),
     );
+    // Die Fahrt selbst ist zu diesem Zeitpunkt bereits erfolgreich
+    // gespeichert — ein Fehler hier führt bewusst NICHT zu einem
+    // Fehler-Return (das würde den Nutzer zu einem erneuten Absenden
+    // verleiten und eine doppelte Fahrt anlegen). Best effort: die
+    // hochgeladenen Dateien ohne referenzierende Zeile wieder entfernen,
+    // statt sie verwaist im Bucket zu belassen.
+    if (photoError) {
+      await removeUploadedFotos(supabase, uploadedUrls);
+    }
   }
 
   revalidatePath(`/strecken/${routeId}`);

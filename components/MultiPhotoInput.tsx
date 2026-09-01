@@ -20,16 +20,25 @@ interface PhotoEntry {
 export default function MultiPhotoInput({ name, id }: { name: string; id: string }) {
   const [entries, setEntries] = useState<PhotoEntry[]>([]);
   const [sizeError, setSizeError] = useState(false);
+  const [limitError, setLimitError] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Immer aktuell gehalten, damit die Unmount-Cleanup unten die zuletzt
+  // gültigen Previews sieht statt des leeren Anfangswerts, über den ein
+  // Effekt ohne Dependency sonst geschlossen bliebe. Das Aktualisieren
+  // selbst passiert in einem eigenen Effekt statt während des Renders
+  // (Refs während des Renders zu schreiben ist unzulässig).
+  const entriesRef = useRef<PhotoEntry[]>([]);
+  useEffect(() => {
+    entriesRef.current = entries;
+  }, [entries]);
 
   // Object-URLs statt FileReader.readAsDataURL(): siehe PhotoInput.tsx für
   // die Begründung (spürbares Hängen auf Mobilgeräten bei grossen Base64-
   // Strings). Müssen beim Unmount wieder freigegeben werden.
   useEffect(() => {
     return () => {
-      for (const entry of entries) URL.revokeObjectURL(entry.preview);
+      for (const entry of entriesRef.current) URL.revokeObjectURL(entry.preview);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function syncInputFiles(next: PhotoEntry[]) {
@@ -44,13 +53,18 @@ export default function MultiPhotoInput({ name, id }: { name: string; id: string
 
     const oversized = files.some((f) => f.size > MAX_FOTO_BYTES);
     setSizeError(oversized);
-    const accepted = files.filter((f) => f.size <= MAX_FOTO_BYTES);
+    const accepted = files
+      .filter((f) => f.size <= MAX_FOTO_BYTES)
+      .map((file) => ({ file, preview: URL.createObjectURL(file) }));
 
     setEntries((prev) => {
-      const next = [...prev, ...accepted.map((file) => ({ file, preview: URL.createObjectURL(file) }))].slice(
-        0,
-        MAX_PHOTOS,
-      );
+      const combined = [...prev, ...accepted];
+      const next = combined.slice(0, MAX_PHOTOS);
+      // Über das Limit hinaus abgeschnittene Previews sofort freigeben,
+      // sonst bleiben ihre Object-URLs bis zum Unmount im Speicher, ohne
+      // dass sie je angezeigt werden.
+      for (const dropped of combined.slice(MAX_PHOTOS)) URL.revokeObjectURL(dropped.preview);
+      setLimitError(combined.length > MAX_PHOTOS);
       syncInputFiles(next);
       return next;
     });
@@ -112,6 +126,9 @@ export default function MultiPhotoInput({ name, id }: { name: string; id: string
         </label>
       )}
       {sizeError && <span className="text-xs text-danger">Ein Foto ist zu gross (max. 8 MB).</span>}
+      {limitError && (
+        <span className="text-xs text-danger">Maximal {MAX_PHOTOS} Fotos pro Fahrt.</span>
+      )}
     </div>
   );
 }

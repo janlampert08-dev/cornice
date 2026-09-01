@@ -21,8 +21,14 @@ export default function CompletionPhotoGallery({
   canRemove: boolean;
   displayName: string | null;
 }) {
-  const [items, setItems] = useState(photos);
+  // Nur die entfernten IDs vorhalten statt einer eigenen Kopie von `photos`
+  // — bleibt dadurch automatisch konsistent, falls der Server-Component-
+  // Elternteil nach einem revalidatePath mit einer neuen `photos`-Prop
+  // re-rendert (eine volle useState(photos)-Kopie würde das ignorieren).
+  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
+  const items = photos.filter((p) => !removedIds.has(p.id));
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   const close = useCallback(() => setOpenIndex(null), []);
@@ -53,13 +59,26 @@ export default function CompletionPhotoGallery({
     };
   }, [openIndex, close, showPrev, showNext]);
 
-  if (items.length === 0) return null;
+  // Nur wenn die Fahrt selbst nie Fotos hatte nichts rendern — nicht wenn
+  // `items` durch eine optimistische Entfernung vorübergehend leer ist,
+  // sonst verschwindet mit der Section auch eine anschliessende Fehlermeldung.
+  if (photos.length === 0) return null;
 
   function handleRemove(photoId: string) {
-    setItems((prev) => prev.filter((p) => p.id !== photoId));
+    setRemovedIds((prev) => new Set(prev).add(photoId));
     setOpenIndex(null);
     startTransition(async () => {
-      await removeCompletionPhoto(photoId);
+      const result = await removeCompletionPhoto(photoId);
+      if (result.error) {
+        // Rückgängig machen, sonst zeigt die UI ein gelöschtes Foto weiter
+        // als entfernt an, obwohl es serverseitig unverändert bestehen blieb.
+        setRemovedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(photoId);
+          return next;
+        });
+        setError(result.error);
+      }
     });
   }
 
@@ -71,6 +90,7 @@ export default function CompletionPhotoGallery({
       <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
         Fotos ({items.length})
       </h2>
+      {error && <p className="text-sm text-danger">{error}</p>}
       <div className="grid grid-cols-3 gap-1">
         {items.map((photo, i) => (
           <div key={photo.id} className="relative aspect-square overflow-hidden rounded-md">
