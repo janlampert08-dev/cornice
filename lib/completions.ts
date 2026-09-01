@@ -66,6 +66,37 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
 
   if (publicRow) {
     const row = publicRow as PublicFahrt;
+    const isOwner = viewerId === row.user_id;
+
+    // public_fahrten (0017/.../0032) deliberately omits abdeckung_prozent/
+    // notiz/vehicle — they're not meant for other viewers. But when the
+    // viewer IS the owner of this (public) completion, they should still
+    // see their own private fields, same as on any of their other rides —
+    // a second lookup against route_completions (RLS permits the owner to
+    // read their own row) fills those back in instead of leaving them null.
+    let abdeckungProzent: number | null = null;
+    let notiz: string | null = null;
+    let vehicle: CompletionDetail["vehicle"] = null;
+
+    if (isOwner) {
+      const { data: own } = await supabase
+        .from("route_completions")
+        .select("abdeckung_prozent, notiz, vehicles(typ, marke, modell)")
+        .eq("id", id)
+        .eq("user_id", viewerId)
+        .maybeSingle<{
+          abdeckung_prozent: number;
+          notiz: string | null;
+          vehicles: { typ: string; marke: string; modell: string } | null;
+        }>();
+
+      if (own) {
+        abdeckungProzent = own.abdeckung_prozent;
+        notiz = own.notiz;
+        vehicle = own.vehicles;
+      }
+    }
+
     return {
       id: row.completion_id,
       routeId: row.route_id,
@@ -74,12 +105,12 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
       dauerSekunden: row.dauer_sekunden,
       distanzKm: row.distanz_km,
       istOeffentlich: true,
-      abdeckungProzent: null,
-      notiz: null,
-      vehicle: null,
+      abdeckungProzent,
+      notiz,
+      vehicle,
       displayName: row.display_name,
       avatarUrl: row.avatar_url,
-      isOwner: viewerId === row.user_id,
+      isOwner,
     };
   }
 
