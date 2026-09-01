@@ -10,7 +10,7 @@ import {
   countKehren,
   fetchElevationProfile,
 } from "@/lib/elevation";
-import { formatCoordFallback, reverseGeocode } from "@/lib/geocoding";
+import { deriveRouteLocations } from "@/lib/geocoding";
 import type { GeoLineString, Kategorie } from "@/types/database";
 
 export interface ProposeRouteState {
@@ -57,25 +57,10 @@ export async function proposeRoute(
   }
 
   // Start-/Zielort und Region kommen nicht mehr aus dem Formular, sondern
-  // werden aus der gezeichneten Route abgeleitet (Reverse-Geocoding) — bei
-  // einer Rundfahrt ist der letzte Punkt identisch mit dem ersten (siehe
-  // NeueStreckeForm), ein zweiter Lookup wäre redundant. Schlägt das
-  // Geocoding fehl, fällt es auf die Koordinate als Text zurück statt den
-  // Vorschlag zu blockieren — ein Moderator kann den Wert bei der Freigabe
-  // korrigieren (EditRouteForm/updateRouteAsModerator).
-  const coords = geometry.coordinates;
-  const startCoord = coords[0];
-  const endCoord = coords[coords.length - 1];
-  const isLoop = startCoord[0] === endCoord[0] && startCoord[1] === endCoord[1];
-
-  const [startGeo, endGeo] = await Promise.all([
-    reverseGeocode(startCoord),
-    isLoop ? Promise.resolve(null) : reverseGeocode(endCoord),
-  ]);
-
-  const startOrt = startGeo?.ort ?? formatCoordFallback(startCoord);
-  const zielOrt = isLoop ? startOrt : (endGeo?.ort ?? formatCoordFallback(endCoord));
-  const region = startGeo?.region ?? startOrt;
+  // werden aus der gezeichneten Route abgeleitet (Reverse-Geocoding, inkl.
+  // Rundfahrt-/Fallback-Behandlung) — siehe deriveRouteLocations() für die
+  // Details, dort auch isoliert getestet.
+  const { startOrt, zielOrt, region } = await deriveRouteLocations(geometry.coordinates);
 
   // Höhe/Steigung/Kehren automatisch aus der Geometrie ableiten (swisstopo-
   // Höhenprofil + Peilungsanalyse) — bei einem API-Ausfall lieber ohne diese

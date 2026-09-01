@@ -21,10 +21,15 @@ export default function RoutePicker({
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const onPickRef = useRef(onPick);
+  const waypointsRef = useRef(waypoints);
 
   useEffect(() => {
     onPickRef.current = onPick;
   }, [onPick]);
+
+  useEffect(() => {
+    waypointsRef.current = waypoints;
+  }, [waypoints]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current || !MAPBOX_TOKEN) return;
@@ -59,6 +64,27 @@ export default function RoutePicker({
       map.remove();
       mapRef.current = null;
     };
+  }, []);
+
+  // Zentriert die Karte einmalig auf den Standort der Nutzerin, sobald
+  // verfügbar (Fallback bleibt ZURICH_CENTER) — nur solange noch keine
+  // Wegpunkte gesetzt sind, damit ein verspätet eintreffendes Ergebnis eine
+  // bereits begonnene Route nicht verschiebt. Berechtigungsverweigerung/
+  // Timeout wird bewusst still ignoriert, kein Fehlerdialog nötig.
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        if (waypointsRef.current.length > 0) return;
+        mapRef.current?.easeTo({
+          center: [pos.coords.longitude, pos.coords.latitude],
+          zoom: 12,
+          duration: 800,
+        });
+      },
+      () => {},
+      { maximumAge: 60_000, timeout: 5000 },
+    );
   }, []);
 
   // Nummerierte Marker je gesetztem Wegpunkt.
