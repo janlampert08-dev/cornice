@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useMemo, type CSSProperties } from "react";
 import { Mountain, SearchX } from "lucide-react";
@@ -20,7 +19,6 @@ export default function ExploreSidebar({
   searchQuery,
   onSearchChange,
   signatures,
-  coverPhotos,
   userLocation,
   locating,
   locationError,
@@ -36,7 +34,6 @@ export default function ExploreSidebar({
   searchQuery: string;
   onSearchChange: (value: string) => void;
   signatures: Map<string, RouteSignature>;
-  coverPhotos: Map<string, string>;
   userLocation: [number, number] | null;
   locating: boolean;
   locationError: string | null;
@@ -128,7 +125,6 @@ export default function ExploreSidebar({
         {routes.map((route) => {
           const signature = signatures.get(route.id);
           const shape = shapes.get(route.id);
-          const coverUrl = coverPhotos.get(route.id);
           // Wenn das Signatur-Merkmal selbst die Länge ist (signature.label
           // lautet dann z.B. "24 km lang"), nicht zusätzlich eine separate
           // km-Zahl daneben zeigen — sonst steht dieselbe Länge zweimal da.
@@ -186,39 +182,30 @@ export default function ExploreSidebar({
                   </div>
                 </div>
 
-                {/* Coverfoto, wenn für diese Strecke eines vorliegt (siehe
-                    getRouteCoverPhotos in lib/photos.ts); sonst Fallback auf
-                    die bisherige SVG-Routenform auf getöntem Signaturfarb-
-                    Hintergrund — kein Foto bedeutet nicht "kein Vorschaubild". */}
+                {/* SVG-Routenform auf getöntem Signaturfarb-Hintergrund — kein
+                    Foto hier: hochgeladene Fahrt-Fotos sind bewusst nur auf
+                    der jeweiligen Streckenseite (Fotos-Sektion) bzw. der
+                    Fahrt-Detailseite sichtbar, nicht als Vorschaubild in der
+                    Explore-Liste. */}
                 <div
                   className="relative h-16 w-20 shrink-0 overflow-hidden rounded-md"
                   style={{ backgroundColor: withAlpha(trackColor, 0.12) }}
                 >
-                  {coverUrl ? (
-                    <Image
-                      src={coverUrl}
-                      alt=""
-                      fill
-                      sizes="80px"
-                      className="object-cover transition-opacity duration-fast group-hover:opacity-90"
-                    />
-                  ) : (
-                    shape && (
-                      <svg
-                        viewBox="0 0 64 48"
-                        aria-hidden="true"
-                        className="absolute inset-0 h-full w-full opacity-80 transition-opacity duration-fast group-hover:opacity-100"
-                      >
-                        <path
-                          d={shape}
-                          fill="none"
-                          stroke={trackColor}
-                          strokeWidth={2}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    )
+                  {shape && (
+                    <svg
+                      viewBox="0 0 64 48"
+                      aria-hidden="true"
+                      className="absolute inset-0 h-full w-full opacity-80 transition-opacity duration-fast group-hover:opacity-100"
+                    >
+                      <path
+                        d={shape}
+                        fill="none"
+                        stroke={trackColor}
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
                   )}
                 </div>
               </Link>

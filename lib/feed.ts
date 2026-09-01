@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import { getRouteCoverPhotos } from "@/lib/photos";
 import { getKudosForCompletions, type KudosInfo } from "@/lib/kudos";
 import { getFollowedUserIds } from "@/lib/follows";
 import type { PublicFahrt } from "@/types/database";
@@ -7,7 +6,6 @@ import type { PublicFahrt } from "@/types/database";
 export type FeedScope = "global" | "following";
 
 export interface FeedItem extends PublicFahrt {
-  coverPhotoUrl: string | null;
   kudos: KudosInfo;
 }
 
@@ -41,17 +39,11 @@ export async function getFeed(scope: FeedScope, viewerId: string | null): Promis
   const fahrten = (data as PublicFahrt[]) ?? [];
   if (fahrten.length === 0) return [];
 
-  const routeIds = [...new Set(fahrten.map((f) => f.route_id))];
   const completionIds = fahrten.map((f) => f.completion_id);
-
-  const [coverPhotos, kudosByCompletion] = await Promise.all([
-    getRouteCoverPhotos(routeIds),
-    getKudosForCompletions(completionIds, viewerId),
-  ]);
+  const kudosByCompletion = await getKudosForCompletions(completionIds, viewerId);
 
   return fahrten.map((f) => ({
     ...f,
-    coverPhotoUrl: coverPhotos.get(f.route_id) ?? null,
     kudos: kudosByCompletion.get(f.completion_id) ?? { count: 0, givenByMe: false },
   }));
 }

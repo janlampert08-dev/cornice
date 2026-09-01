@@ -30,11 +30,9 @@ const SHEET_EXPANDED_GAP_PX = 96;
 export default function ExploreView({
   routes,
   loadError = false,
-  coverPhotos,
 }: {
   routes: RouteGeoJSON[];
   loadError?: boolean;
-  coverPhotos: Map<string, string>;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
@@ -155,7 +153,6 @@ export default function ExploreView({
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           signatures={signatures}
-          coverPhotos={coverPhotos}
           userLocation={userLocation}
           locating={locating}
           locationError={locationError}

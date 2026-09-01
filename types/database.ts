@@ -186,6 +186,10 @@ export interface PublicFahrt {
   // Ab 0032_public_fahrten_dauer.sql — bei öffentlichen Fahrten schon
   // länger über route_leaderboard/leaderboard_completions offengelegt.
   dauer_sekunden: number | null;
+  // Ab 0034_public_fahrten_foto.sql — für die Fotos-Sektion auf der
+  // Fahrt-Detailseite (app/fahrten/[id]/page.tsx). Schon länger über
+  // route_photos auf der Streckenseite öffentlich sichtbar.
+  foto_url: string | null;
 }
 
 // Zeilenform von public.route_photos — nur die für eine öffentliche

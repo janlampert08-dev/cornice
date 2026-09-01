@@ -11,6 +11,7 @@ export interface CompletionFormState {
   error: string | null;
 }
 
+const ROUTE_PHOTOS_BUCKET = "route-photos";
 const MAX_FOTO_BYTES = 8 * 1024 * 1024;
 const COMPLETION_COOLDOWN_MS = 5000;
 const MAX_NOTIZ_LENGTH = 280;
@@ -36,9 +37,9 @@ async function uploadFoto(
 
   const ext = foto.name.split(".").pop() ?? "jpg";
   const path = `${userId}/${crypto.randomUUID()}.${ext}`;
-  const { error } = await supabase.storage.from("route-photos").upload(path, foto);
+  const { error } = await supabase.storage.from(ROUTE_PHOTOS_BUCKET).upload(path, foto);
   if (error) return { error: "Foto konnte nicht hochgeladen werden." };
-  const { data } = supabase.storage.from("route-photos").getPublicUrl(path);
+  const { data } = supabase.storage.from(ROUTE_PHOTOS_BUCKET).getPublicUrl(path);
   return { url: data.publicUrl };
 }
 
@@ -210,5 +211,58 @@ export async function toggleCompletionVisibility(
   revalidatePath(`/fahrer/${user.id}`);
   revalidatePath(`/strecken/${existing.route_id}`);
   revalidatePath("/leaderboards");
+  return { error: null };
+}
+
+export interface RemovePhotoState {
+  error: string | null;
+}
+
+// X-Button auf der Fahrt-Detailseite (app/fahrten/[id]/page.tsx, nur für den
+// Besitzer sichtbar) — löscht das Objekt aus dem Storage-Bucket (RLS auf
+// storage.objects, siehe 0003_storage.sql, erlaubt das nur im eigenen
+// {user_id}/-Ordner) und setzt foto_url zurück auf null. Kein
+// Berechtigungsproblem, falls der Storage-Löschversuch selbst fehlschlägt
+// (z.B. Objekt bereits weg) — best effort, die eigentliche Sichtbarkeit hängt
+// allein an route_completions.foto_url.
+export async function removeCompletionPhoto(
+  completionId: string,
+): Promise<RemovePhotoState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Bitte melde dich zuerst an." };
+
+  const { data: existing } = await supabase
+    .from("route_completions")
+    .select("route_id, foto_url")
+    .eq("id", completionId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!existing) return { error: "Fahrt nicht gefunden." };
+  if (!existing.foto_url) return { error: null };
+
+  const bucketMarker = `/${ROUTE_PHOTOS_BUCKET}/`;
+  const markerIndex = existing.foto_url.indexOf(bucketMarker);
+  if (markerIndex !== -1) {
+    const path = existing.foto_url.slice(markerIndex + bucketMarker.length);
+    await supabase.storage.from(ROUTE_PHOTOS_BUCKET).remove([path]);
+  }
+
+  const { error } = await supabase
+    .from("route_completions")
+    .update({ foto_url: null })
+    .eq("id", completionId)
+    .eq("user_id", user.id);
+
+  if (error) return { error: "Foto konnte nicht entfernt werden." };
+
+  revalidatePath(`/fahrten/${completionId}`);
+  revalidatePath(`/strecken/${existing.route_id}`);
+  revalidatePath("/profil");
+  revalidatePath("/feed");
   return { error: null };
 }

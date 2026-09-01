@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { Rss } from "lucide-react";
 import Header from "@/components/Header";
 import Avatar from "@/components/Avatar";
@@ -87,20 +86,6 @@ export default async function FeedPage({
           <ul className="flex flex-col gap-4">
             {feed.map((item) => (
               <Card as="li" key={item.completion_id} className="overflow-hidden">
-                {item.coverPhotoUrl && (
-                  <Link
-                    href={`/fahrten/${item.completion_id}`}
-                    className="relative block h-40 w-full bg-surface"
-                  >
-                    <Image
-                      src={item.coverPhotoUrl}
-                      alt=""
-                      fill
-                      sizes="(min-width: 640px) 42rem, 100vw"
-                      className="object-cover"
-                    />
-                  </Link>
-                )}
                 <div className="flex flex-col gap-3 p-4">
                   <div className="flex items-center gap-3">
                     <Link href={`/fahrer/${item.user_id}`} className="shrink-0">
