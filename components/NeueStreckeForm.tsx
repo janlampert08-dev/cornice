@@ -5,9 +5,11 @@ import { Check } from "lucide-react";
 import RoutePicker from "@/components/RoutePicker";
 import BackButton from "@/components/BackButton";
 import DragSheet from "@/components/ui/DragSheet";
+import { ConfirmDialog } from "@/components/ui/Dialog";
 import { GlobeIcon, LockIcon } from "@/components/VisibilityIcons";
 import { KATEGORIEN } from "@/lib/constants";
 import { fetchDrivingRoute, type DirectionsResult } from "@/lib/mapboxDirections";
+import { deriveRouteLocations } from "@/lib/geocoding";
 import { proposeRoute, type ProposeRouteState } from "@/lib/actions/routes";
 import { Input, Textarea } from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
@@ -60,6 +62,10 @@ export default function NeueStreckeForm() {
   const [fetchedKey, setFetchedKey] = useState<string | null>(null);
   const [routingError, setRoutingError] = useState<string | null>(null);
   const [istPrivat, setIstPrivat] = useState(false);
+  const [locationPreview, setLocationPreview] = useState<{ startOrt: string; zielOrt: string; region: string } | null>(
+    null,
+  );
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
 
   const effectiveWaypoints: [number, number][] =
     rundfahrt && waypoints.length >= 2 ? [...waypoints, waypoints[0]] : waypoints;
@@ -92,6 +98,25 @@ export default function NeueStreckeForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveKey]);
 
+  // Vorschau von Start-/Zielort + Region, sobald die Strassenroute steht —
+  // dieselbe Ableitung, die proposeRoute() beim Absenden serverseitig
+  // durchführt (deriveRouteLocations), damit man vor dem Absenden sieht, was
+  // automatisch erkannt wurde, statt es erst auf der fertigen Streckenseite
+  // zu bemerken. Schlägt das Geocoding fehl, bleibt die Vorschau einfach
+  // leer — proposeRoute() hat ohnehin einen eigenen Koordinaten-Fallback.
+  useEffect(() => {
+    if (!activeDirections) return;
+
+    let cancelled = false;
+    deriveRouteLocations(activeDirections.coordinates).then((result) => {
+      if (!cancelled) setLocationPreview(result);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeDirections]);
+
   function handlePick(point: [number, number]) {
     setWaypoints((prev) => [...prev, point]);
   }
@@ -102,6 +127,7 @@ export default function NeueStreckeForm() {
 
   function reset() {
     setWaypoints([]);
+    setResetConfirmOpen(false);
   }
 
   function toggleTag(value: string) {
@@ -197,11 +223,25 @@ export default function NeueStreckeForm() {
               </button>
             )}
             {waypoints.length > 0 && (
-              <button type="button" onClick={reset} className="font-medium text-accent hover:underline">
+              <button
+                type="button"
+                onClick={() => setResetConfirmOpen(true)}
+                className="font-medium text-accent hover:underline"
+              >
                 Zurücksetzen
               </button>
             )}
           </div>
+
+          <ConfirmDialog
+            open={resetConfirmOpen}
+            title="Route zurücksetzen"
+            description="Alle gesetzten Wegpunkte werden entfernt — das lässt sich nicht rückgängig machen."
+            confirmLabel="Zurücksetzen"
+            variant="danger"
+            onCancel={() => setResetConfirmOpen(false)}
+            onConfirm={reset}
+          />
 
           <p className="text-xs text-muted">
             {waypoints.length === 0 && "Klicke auf die Karte, um den Startpunkt zu setzen."}
@@ -212,6 +252,16 @@ export default function NeueStreckeForm() {
             )}
             {routingError && <span className="text-danger">{routingError}</span>}
           </p>
+
+          {activeDirections && locationPreview && (
+            <p className="text-xs text-muted">
+              {locationPreview.startOrt === locationPreview.zielOrt
+                ? `Start/Ziel: ${locationPreview.startOrt}`
+                : `${locationPreview.startOrt} → ${locationPreview.zielOrt}`}
+              {" · "}
+              Region: {locationPreview.region}
+            </p>
+          )}
 
           <input
             type="hidden"
@@ -315,15 +365,18 @@ export default function NeueStreckeForm() {
               </Card>
               <input type="hidden" name="ist_privat" value={istPrivat ? "true" : "false"} />
 
-              {state.error && (
-                <p role="alert" className="text-sm text-danger">
-                  {state.error}
-                </p>
-              )}
-
-              <Button type="submit" disabled={pending || !activeDirections}>
-                {pending ? "Speichern…" : istPrivat ? "Privat speichern" : "Vorschlagen"}
-              </Button>
+              {/* Sticky statt im normalen Fluss — bei ausgeklapptem Sheet
+                  sonst je nach Bildschirmhöhe erst nach Scrollen erreichbar. */}
+              <div className="sticky bottom-0 -mx-6 -mb-8 mt-2 border-t border-border bg-background px-6 py-4">
+                {state.error && (
+                  <p role="alert" className="mb-3 text-sm text-danger">
+                    {state.error}
+                  </p>
+                )}
+                <Button type="submit" disabled={pending || !activeDirections} className="w-full">
+                  {pending ? "Speichern…" : istPrivat ? "Privat speichern" : "Vorschlagen"}
+                </Button>
+              </div>
             </>
           )}
         </form>
