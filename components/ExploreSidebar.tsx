@@ -2,17 +2,28 @@
 
 import Link from "next/link";
 import { useMemo, type CSSProperties } from "react";
-import { Mountain, SearchX } from "lucide-react";
+import { Gauge, Mountain, Route, Ruler, SearchX, TrendingUp } from "lucide-react";
 import { KATEGORIEN } from "@/lib/constants";
 import { routeShapePath } from "@/lib/routeShape";
 import { formatKm } from "@/lib/format";
-import { withAlpha, type RouteSignature } from "@/lib/signature";
+import { withAlpha, type RouteSignature, type SignatureKey } from "@/lib/signature";
 import type { AdvancedFilters } from "@/lib/exploreFilters";
 import type { Kategorie, RouteGeoJSON } from "@/types/database";
 import { fieldClassName } from "@/components/ui/Input";
 import { buttonVariants } from "@/components/ui/Button";
 import AdvancedFiltersPanel from "@/components/AdvancedFiltersPanel";
 import EmptyState from "@/components/ui/EmptyState";
+
+// Icon je Signatur-Merkmal — spiegelt visuell wider, worin die Strecke
+// heraussticht (Kehren -> kurvige Straße, Tempo -> Tacho, etc.), statt für
+// alle Merkmale dasselbe Mountain-Symbol zu zeigen.
+const SIGNATURE_ICONS: Record<SignatureKey, typeof Mountain> = {
+  kehren: Route,
+  steigung: TrendingUp,
+  hoehe: Mountain,
+  tempo: Gauge,
+  laenge: Ruler,
+};
 
 export default function ExploreSidebar({
   routes,
@@ -172,11 +183,16 @@ export default function ExploreSidebar({
                     )}
                     {signature && (
                       <span className="flex items-center gap-1.5">
-                        <Mountain
-                          className="h-3 w-3 shrink-0"
-                          style={{ color: signature.color }}
-                          aria-hidden="true"
-                        />
+                        {(() => {
+                          const SignatureIcon = SIGNATURE_ICONS[signature.key];
+                          return (
+                            <SignatureIcon
+                              className="h-3 w-3 shrink-0"
+                              style={{ color: signature.color }}
+                              aria-hidden="true"
+                            />
+                          );
+                        })()}
                         <span
                           className="truncate text-xs font-medium tracking-wide"
                           style={{ color: signature.color }}
