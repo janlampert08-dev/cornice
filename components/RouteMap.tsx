@@ -6,6 +6,7 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { ZURICH_CENTER, DEFAULT_ZOOM } from "@/lib/constants";
 import { sliceRouteBySpeed, speedColor } from "@/lib/speed";
+import { isDarkTheme, subscribeToThemeChange } from "@/lib/theme";
 import type { RouteGeoJSON, TempolimitSegment } from "@/types/database";
 import Skeleton from "@/components/ui/Skeleton";
 
@@ -60,17 +61,8 @@ function resolveColor(colors: Map<string, string> | undefined, id: string): stri
   return colors?.get(id) ?? colorForRoute(id);
 }
 
-// Einmalig beim Mount ermittelt (siehe Aufrufstelle) statt reaktiv über den
-// Lebenszyklus der Karte verfolgt: ein Style-Wechsel per setStyle() während
-// die Karte bereits läuft, entfernt zuverlässig unsere selbst hinzugefügten
-// Layer (Strecken-, Verkehrs-, Tempo-Segmente) wieder, die dann manuell neu
-// aufgebaut werden müssten. Ein Themenwechsel greift so erst bei der
-// nächsten Neumontage der Karte (Navigation, Reload) — ein für Kartenstile
-// akzeptabler Kompromiss gegenüber dem Risiko verschwindender Layer.
-function resolveMapStyle(): string {
-  const explicit = document.documentElement.dataset.theme;
-  const isDark = explicit === "dark" || (!explicit && window.matchMedia("(prefers-color-scheme: dark)").matches);
-  return isDark ? "mapbox://styles/mapbox/dark-v11" : "mapbox://styles/mapbox/streets-v12";
+function mapStyleForTheme(): string {
+  return isDarkTheme() ? "mapbox://styles/mapbox/dark-v11" : "mapbox://styles/mapbox/streets-v12";
 }
 
 function toFeatureCollection(
@@ -283,13 +275,38 @@ export default function RouteMap({
     trafficSegmentsRef.current = trafficSegments;
   }, [trafficSegments]);
 
+  // Refs statt der Props direkt, weil setupLayers() unten nicht nur beim
+  // Erstaufbau läuft, sondern auch nach jedem Themenwechsel (map.setStyle()
+  // entfernt alle selbst hinzugefügten Layer/Sources) — ohne Refs würde die
+  // Closure die zum Zeitpunkt der Effekt-Ausführung (Mount) aktuellen, dann
+  // veralteten Prop-Werte einfrieren.
+  const showSpeedLimitsRef = useRef(showSpeedLimits);
+  useEffect(() => {
+    showSpeedLimitsRef.current = showSpeedLimits;
+  }, [showSpeedLimits]);
+
+  const showTrafficRef = useRef(showTraffic);
+  useEffect(() => {
+    showTrafficRef.current = showTraffic;
+  }, [showTraffic]);
+
+  const show3DRef = useRef(show3D);
+  useEffect(() => {
+    show3DRef.current = show3D;
+  }, [show3D]);
+
+  const hoveredRouteIdRef = useRef(hoveredRouteId);
+  useEffect(() => {
+    hoveredRouteIdRef.current = hoveredRouteId;
+  }, [hoveredRouteId]);
+
   useEffect(() => {
     if (!containerRef.current || mapRef.current || !MAPBOX_TOKEN) return;
     mapboxgl.accessToken = MAPBOX_TOKEN;
 
     const map = new mapboxgl.Map({
       container: containerRef.current,
-      style: resolveMapStyle(),
+      style: mapStyleForTheme(),
       center: ZURICH_CENTER,
       zoom: DEFAULT_ZOOM,
     });
@@ -297,7 +314,14 @@ export default function RouteMap({
     map.addControl(new mapboxgl.NavigationControl(), "top-right");
     mapRef.current = map;
 
-    map.on("load", () => {
+    let hasFitBounds = false;
+
+    // Läuft beim Erstaufbau und erneut nach jedem map.setStyle()-Aufruf
+    // (siehe Themenwechsel-Effekt unten): "style.load" feuert in beiden
+    // Fällen, "load" dagegen nur einmalig. setStyle() ersetzt den kompletten
+    // Style inkl. aller selbst hinzugefügten Sources/Layer — sie müssen hier
+    // deshalb bei jedem Aufruf neu aufgebaut werden.
+    map.on("style.load", () => {
       // Knapp unterhalb der Strassennummern-Schilder (z.B. A1-Schild) einfügen:
       // road-label (Strassennamen-Text) liegt in der Streets-v12-Style-
       // Reihenfolge VOR road-number-shield, also landet unsere Strecke über
@@ -368,7 +392,7 @@ export default function RouteMap({
           layout: {
             "line-join": "round",
             "line-cap": "round",
-            visibility: showSpeedLimits ? "visible" : "none",
+            visibility: showSpeedLimitsRef.current ? "visible" : "none",
           },
           paint: {
             "line-color": ["get", "color"],
@@ -394,7 +418,7 @@ export default function RouteMap({
           layout: {
             "line-join": "round",
             "line-cap": "round",
-            visibility: showTraffic ? "visible" : "none",
+            visibility: showTrafficRef.current ? "visible" : "none",
           },
           paint: {
             "line-color": ["get", "color"],
@@ -407,9 +431,23 @@ export default function RouteMap({
       // Hervorhebungs-Layer für den per Sidebar-Hover markierten Track: weisser
       // Halo (analog zum Stroke der Endpunkt-Punkte) plus farbige Linie darüber,
       // damit ein Hover auf der Karte sofort auffindbar ist.
+      const hoveredRoute = hoveredRouteIdRef.current
+        ? routesRef.current.find((r) => r.id === hoveredRouteIdRef.current)
+        : undefined;
       map.addSource(HIGHLIGHT_SOURCE, {
         type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
+        data: hoveredRoute
+          ? {
+              type: "FeatureCollection",
+              features: [
+                {
+                  type: "Feature",
+                  geometry: hoveredRoute.geometry_geojson,
+                  properties: { color: resolveColor(colorsRef.current, hoveredRoute.id) },
+                },
+              ],
+            }
+          : { type: "FeatureCollection", features: [] },
       });
       map.addLayer(
         {
@@ -472,26 +510,36 @@ export default function RouteMap({
         type: "sky",
         paint: { "sky-type": "atmosphere", "sky-atmosphere-sun-intensity": 8 },
       });
-      if (show3D) {
+      if (show3DRef.current) {
         map.setTerrain({ source: TERRAIN_SOURCE, exaggeration: TERRAIN_EXAGGERATION });
         map.easeTo({ pitch: TILTED_PITCH, bearing: TILTED_BEARING, duration: 0 });
       }
 
-      fitToRoutes(map, routesRef.current, false);
-
-      map.on("mouseenter", ROUTES_HIT_LAYER, () => {
-        map.getCanvas().style.cursor = "pointer";
-      });
-      map.on("mouseleave", ROUTES_HIT_LAYER, () => {
-        map.getCanvas().style.cursor = "";
-      });
-      map.on("click", ROUTES_HIT_LAYER, (e) => {
-        const id = e.features?.[0]?.properties?.id;
-        if (id) router.push(`/strecken/${id}`);
-      });
+      // Nur beim allerersten Style-Aufbau auf die Strecken zoomen — bei einem
+      // späteren Themenwechsel (erneutes "style.load") soll die aktuelle
+      // Kartenansicht der Nutzerin erhalten bleiben statt zurückzuspringen.
+      if (!hasFitBounds) {
+        fitToRoutes(map, routesRef.current, false);
+        hasFitBounds = true;
+      }
 
       styleLoadedRef.current = true;
       setIsReady(true);
+    });
+
+    // Delegierte Layer-Listener bleiben auch über einen Style-Wechsel hinweg
+    // gültig (Mapbox GL prüft den Layer erst zur Klick-/Hover-Zeit) — daher
+    // ausserhalb von "style.load" registriert, sonst würden sie sich bei
+    // jedem Themenwechsel duplizieren.
+    map.on("mouseenter", ROUTES_HIT_LAYER, () => {
+      map.getCanvas().style.cursor = "pointer";
+    });
+    map.on("mouseleave", ROUTES_HIT_LAYER, () => {
+      map.getCanvas().style.cursor = "";
+    });
+    map.on("click", ROUTES_HIT_LAYER, (e) => {
+      const id = e.features?.[0]?.properties?.id;
+      if (id) router.push(`/strecken/${id}`);
     });
 
     return () => {
@@ -500,6 +548,26 @@ export default function RouteMap({
       styleLoadedRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Kartenstil folgt dem Farbschema live: heller Style bei Hell/System-hell,
+  // dunkler Style bei Dunkel/System-dunkel, auch wenn die Nutzerin das Thema
+  // umschaltet, während die Karte bereits offen ist (statt nur beim
+  // nächsten Mount). map.setStyle() entfernt vorübergehend alle Sources/
+  // Layer, deshalb styleLoadedRef währenddessen zurücksetzen — die
+  // Update-Effekte unten prüfen dieses Flag, bevor sie auf Sources
+  // zugreifen, und setupLayers() (via "style.load") baut alles neu auf.
+  useEffect(() => {
+    let currentStyle = mapStyleForTheme();
+    return subscribeToThemeChange(() => {
+      const map = mapRef.current;
+      if (!map) return;
+      const nextStyle = mapStyleForTheme();
+      if (nextStyle === currentStyle) return;
+      currentStyle = nextStyle;
+      styleLoadedRef.current = false;
+      map.setStyle(nextStyle);
+    });
   }, []);
 
   // Kartendaten aktualisieren, wenn sich die gefilterte Streckenliste oder die

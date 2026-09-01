@@ -4,9 +4,14 @@ import { useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { ZURICH_CENTER, DEFAULT_ZOOM } from "@/lib/constants";
+import { isDarkTheme, subscribeToThemeChange } from "@/lib/theme";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 const LINE_SOURCE = "picker-line";
+
+function mapStyleForTheme(): string {
+  return isDarkTheme() ? "mapbox://styles/mapbox/dark-v11" : "mapbox://styles/mapbox/streets-v12";
+}
 
 export default function RoutePicker({
   waypoints,
@@ -22,6 +27,7 @@ export default function RoutePicker({
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const onPickRef = useRef(onPick);
   const waypointsRef = useRef(waypoints);
+  const previewCoordsRef = useRef(previewCoords);
 
   useEffect(() => {
     onPickRef.current = onPick;
@@ -32,12 +38,16 @@ export default function RoutePicker({
   }, [waypoints]);
 
   useEffect(() => {
+    previewCoordsRef.current = previewCoords;
+  }, [previewCoords]);
+
+  useEffect(() => {
     if (!containerRef.current || mapRef.current || !MAPBOX_TOKEN) return;
     mapboxgl.accessToken = MAPBOX_TOKEN;
 
     const map = new mapboxgl.Map({
       container: containerRef.current,
-      style: "mapbox://styles/mapbox/streets-v12",
+      style: mapStyleForTheme(),
       center: ZURICH_CENTER,
       zoom: DEFAULT_ZOOM,
     });
@@ -45,10 +55,17 @@ export default function RoutePicker({
     map.addControl(new mapboxgl.NavigationControl(), "top-right");
     map.on("click", (e) => onPickRef.current([e.lngLat.lng, e.lngLat.lat]));
 
-    map.on("load", () => {
+    // "style.load" statt "load": feuert auch nach einem späteren
+    // map.setStyle()-Aufruf beim Themenwechsel (siehe eigener Effekt unten),
+    // der Source/Layer sonst kommentarlos entfernt.
+    map.on("style.load", () => {
       map.addSource(LINE_SOURCE, {
         type: "geojson",
-        data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [] } },
+        data: {
+          type: "Feature",
+          properties: {},
+          geometry: { type: "LineString", coordinates: previewCoordsRef.current ?? [] },
+        },
       });
       map.addLayer({
         id: LINE_SOURCE,
@@ -64,6 +81,21 @@ export default function RoutePicker({
       map.remove();
       mapRef.current = null;
     };
+  }, []);
+
+  // Kartenstil folgt dem Farbschema live, auch wenn die Nutzerin während des
+  // Streckeneinzeichnens das Thema umschaltet (siehe RouteMap.tsx für die
+  // ausführliche Begründung des gleichen Musters).
+  useEffect(() => {
+    let currentStyle = mapStyleForTheme();
+    return subscribeToThemeChange(() => {
+      const map = mapRef.current;
+      if (!map) return;
+      const nextStyle = mapStyleForTheme();
+      if (nextStyle === currentStyle) return;
+      currentStyle = nextStyle;
+      map.setStyle(nextStyle);
+    });
   }, []);
 
   // Zentriert die Karte einmalig auf den Standort der Nutzerin, sobald
