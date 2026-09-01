@@ -16,14 +16,14 @@ export default function RegistrierenForm() {
       <h1 className="text-display font-semibold">Registrieren</h1>
       <form action={formAction} className="flex flex-col gap-4">
         <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Name
+          Benutzername
           <Input
             type="text"
             name="display_name"
             required
             minLength={2}
             maxLength={50}
-            autoComplete="name"
+            autoComplete="username"
           />
         </label>
         <label className="flex flex-col gap-1.5 text-sm font-medium">

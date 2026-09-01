@@ -49,10 +49,10 @@ export async function signUp(
     return { error: "Passwort muss mindestens 8 Zeichen lang sein." };
   }
   if (displayName.length < 2) {
-    return { error: "Name muss mindestens 2 Zeichen lang sein." };
+    return { error: "Benutzername muss mindestens 2 Zeichen lang sein." };
   }
   if (displayName.length > 50) {
-    return { error: "Name darf höchstens 50 Zeichen lang sein." };
+    return { error: "Benutzername darf höchstens 50 Zeichen lang sein." };
   }
 
   const supabase = await createClient();
@@ -70,7 +70,7 @@ export async function signUp(
     .maybeSingle();
 
   if (existing) {
-    return { error: "Dieser Name ist bereits vergeben." };
+    return { error: "Dieser Benutzername ist bereits vergeben." };
   }
 
   const origin = await getOrigin();
@@ -85,6 +85,17 @@ export async function signUp(
 
   if (error) {
     return { error: error.message };
+  }
+
+  // Bei aktivierter E-Mail-Bestätigung liefert signUp() für eine bereits
+  // registrierte, bestätigte Adresse keinen Fehler (Supabase schützt so
+  // selbst gegen Enumeration) — erkennbar nur daran, dass identities leer
+  // bleibt statt eine neue Identity zu enthalten. Offiziell von Supabase
+  // dokumentierter Weg, das client-seitig zu unterscheiden, um dem Nutzer
+  // trotzdem eine Rückmeldung zu geben statt ihn auf eine nie versendete
+  // Bestätigungsmail warten zu lassen.
+  if (data.user?.identities?.length === 0) {
+    return { error: "Diese E-Mail-Adresse ist bereits registriert." };
   }
 
   // Ist "Confirm email" im Supabase-Projekt deaktiviert, liefert signUp
