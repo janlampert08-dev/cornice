@@ -205,10 +205,10 @@ export default async function ProfilPage() {
               Öffentliches Profil ansehen
             </Link>
             <Link
-              href="/profil/privatsphaere"
+              href="/profil/einstellungen"
               className={buttonVariants({ variant: "secondary", size: "sm", className: "self-start" })}
             >
-              Privatsphäre-Einstellungen
+              Einstellungen
             </Link>
           </div>
         </div>

@@ -35,7 +35,7 @@ export async function updateVisibilitySettings(
   if (error) return { error: "Einstellungen konnten nicht gespeichert werden." };
 
   revalidatePath("/profil");
-  revalidatePath("/profil/privatsphaere");
+  revalidatePath("/profil/einstellungen");
   revalidatePath(`/fahrer/${user.id}`);
   revalidatePath("/leaderboards");
   return { error: null, success: true };

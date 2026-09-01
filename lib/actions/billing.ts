@@ -139,7 +139,7 @@ export async function confirmSubscription(subscriptionId: string): Promise<boole
   if (error) return false;
 
   revalidatePath("/profil");
-  revalidatePath("/profil/privatsphaere");
+  revalidatePath("/profil/einstellungen");
   return true;
 }
 
