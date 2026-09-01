@@ -46,6 +46,13 @@ export default function EditRouteForm({
         <Input name="name" required defaultValue={route.name} />
       </label>
 
+      {adminMode && (
+        <p className="-mt-2 text-xs text-muted">
+          Region, Start- und Ziel-Ort wurden beim Erstellen automatisch aus der Karte ermittelt —
+          bei Bedarf hier korrigieren.
+        </p>
+      )}
+
       <label className="flex flex-col gap-1.5 text-sm font-medium">
         Region
         <Input name="region" required defaultValue={route.region} />

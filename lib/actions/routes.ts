@@ -10,6 +10,7 @@ import {
   countKehren,
   fetchElevationProfile,
 } from "@/lib/elevation";
+import { formatCoordFallback, reverseGeocode } from "@/lib/geocoding";
 import type { GeoLineString, Kategorie } from "@/types/database";
 
 export interface ProposeRouteState {
@@ -28,9 +29,6 @@ export async function proposeRoute(
   if (!user) return { error: "Bitte melde dich zuerst an." };
 
   const name = String(formData.get("name") ?? "").trim();
-  const region = String(formData.get("region") ?? "").trim();
-  const startOrt = String(formData.get("start_ort") ?? "").trim();
-  const zielOrt = String(formData.get("ziel_ort") ?? "").trim();
   const laengeKm = Number(formData.get("laenge_km"));
   const charakterText = String(formData.get("charakter_text") ?? "").trim() || null;
   const kategorien = formData.getAll("kategorien") as Kategorie[];
@@ -39,8 +37,8 @@ export async function proposeRoute(
   const tempolimitsRaw = String(formData.get("tempolimits") ?? "[]");
   const requestedPrivat = formData.get("ist_privat") === "true";
 
-  if (!name || !region || !startOrt || !zielOrt) {
-    return { error: "Bitte alle Pflichtfelder ausfüllen." };
+  if (!name) {
+    return { error: "Bitte einen Namen für die Strecke angeben." };
   }
   if (!geometryRaw) {
     return { error: "Bitte mindestens zwei Wegpunkte auf der Karte setzen." };
@@ -57,6 +55,27 @@ export async function proposeRoute(
   } catch {
     return { error: "Route konnte nicht verarbeitet werden." };
   }
+
+  // Start-/Zielort und Region kommen nicht mehr aus dem Formular, sondern
+  // werden aus der gezeichneten Route abgeleitet (Reverse-Geocoding) — bei
+  // einer Rundfahrt ist der letzte Punkt identisch mit dem ersten (siehe
+  // NeueStreckeForm), ein zweiter Lookup wäre redundant. Schlägt das
+  // Geocoding fehl, fällt es auf die Koordinate als Text zurück statt den
+  // Vorschlag zu blockieren — ein Moderator kann den Wert bei der Freigabe
+  // korrigieren (EditRouteForm/updateRouteAsModerator).
+  const coords = geometry.coordinates;
+  const startCoord = coords[0];
+  const endCoord = coords[coords.length - 1];
+  const isLoop = startCoord[0] === endCoord[0] && startCoord[1] === endCoord[1];
+
+  const [startGeo, endGeo] = await Promise.all([
+    reverseGeocode(startCoord),
+    isLoop ? Promise.resolve(null) : reverseGeocode(endCoord),
+  ]);
+
+  const startOrt = startGeo?.ort ?? formatCoordFallback(startCoord);
+  const zielOrt = isLoop ? startOrt : (endGeo?.ort ?? formatCoordFallback(endCoord));
+  const region = startGeo?.region ?? startOrt;
 
   // Höhe/Steigung/Kehren automatisch aus der Geometrie ableiten (swisstopo-
   // Höhenprofil + Peilungsanalyse) — bei einem API-Ausfall lieber ohne diese
