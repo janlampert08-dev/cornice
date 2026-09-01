@@ -1,0 +1,152 @@
+"use client";
+
+import { useEffect, useRef, useState, useTransition } from "react";
+import { MoreHorizontal } from "lucide-react";
+import { toggleCompletionVisibility, updateCompletionNotiz } from "@/lib/actions/completions";
+import { COVERAGE_THRESHOLD_PERCENT } from "@/lib/routeCoverage";
+import Card from "@/components/ui/Card";
+import { Dialog } from "@/components/ui/Dialog";
+import Button from "@/components/ui/Button";
+
+const ITEM_CLASS =
+  "border-t border-border px-3 py-2 text-left text-sm text-foreground transition-colors duration-fast hover:bg-surface first:border-t-0 disabled:pointer-events-none disabled:opacity-50";
+
+const MAX_NOTIZ_LENGTH = 280;
+
+// 3-Punkte-Menü auf der Fahrt-Detailseite (app/fahrten/[id]/page.tsx),
+// ersetzt die vorherige statische "Nur für dich sichtbar"-Card — nur für den
+// Besitzer gerendert. Gleiches Grundmuster wie RouteActionsMenu.tsx
+// (Klick-ausserhalb schliesst, Card elevated als Dropdown-Panel).
+export default function CompletionActionsMenu({
+  completionId,
+  isPublic,
+  coveragePercent,
+  notiz,
+}: {
+  completionId: string;
+  isPublic: boolean;
+  coveragePercent: number | null;
+  notiz: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [notizDraft, setNotizDraft] = useState(notiz ?? "");
+  const [toggling, startToggle] = useTransition();
+  const [saving, startSave] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const belowThreshold =
+    coveragePercent !== null && coveragePercent < COVERAGE_THRESHOLD_PERCENT;
+  const toggleBlocked = !isPublic && belowThreshold;
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  function handleToggleVisibility() {
+    setOpen(false);
+    startToggle(async () => {
+      const result = await toggleCompletionVisibility(completionId);
+      setError(result.error);
+    });
+  }
+
+  function handleSaveNotiz() {
+    startSave(async () => {
+      const result = await updateCompletionNotiz(completionId, notizDraft);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      setEditOpen(false);
+    });
+  }
+
+  return (
+    <div ref={containerRef} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Weitere Aktionen"
+        aria-expanded={open}
+        className="rounded-full border border-border p-1.5 text-foreground transition-colors duration-fast hover:border-border-strong"
+      >
+        <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+      </button>
+      {open && (
+        <Card elevated as="div" className="absolute top-full right-0 z-10 mt-1 flex w-60 flex-col overflow-hidden">
+          <button
+            type="button"
+            onClick={handleToggleVisibility}
+            disabled={toggling || toggleBlocked}
+            title={
+              toggleBlocked
+                ? `Kann nicht öffentlich gemacht werden — deckt nur ${Math.round(coveragePercent ?? 0)}% der Strecke ab.`
+                : undefined
+            }
+            className={ITEM_CLASS}
+          >
+            {isPublic ? "Privat machen" : "Öffentlich teilen"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              setNotizDraft(notiz ?? "");
+              setEditOpen(true);
+            }}
+            className={ITEM_CLASS}
+          >
+            Kommentar bearbeiten
+          </button>
+        </Card>
+      )}
+      {error && (
+        <Card
+          elevated
+          className="absolute top-full right-0 z-10 mt-1 w-60 p-2 text-right text-xs text-danger"
+        >
+          {error}
+        </Card>
+      )}
+
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)} title="Kommentar bearbeiten">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-baseline justify-between">
+            <label htmlFor="notiz-edit" className="text-xs font-semibold tracking-wide text-muted uppercase">
+              Notiz
+            </label>
+            <span className="font-mono text-xs tabular-nums text-muted">
+              {notizDraft.length}/{MAX_NOTIZ_LENGTH}
+            </span>
+          </div>
+          <textarea
+            id="notiz-edit"
+            rows={3}
+            maxLength={MAX_NOTIZ_LENGTH}
+            value={notizDraft}
+            onChange={(e) => setNotizDraft(e.target.value)}
+            placeholder="z.B. nasse Fahrbahn, mit der Ducati…"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground transition-shadow duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+          />
+          <div className="mt-2 flex justify-end gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={() => setEditOpen(false)}>
+              Abbrechen
+            </Button>
+            <Button type="button" variant="primary" size="sm" disabled={saving} onClick={handleSaveNotiz}>
+              {saving ? "Speichern…" : "Speichern"}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+    </div>
+  );
+}

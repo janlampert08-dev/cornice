@@ -190,6 +190,13 @@ export interface PublicFahrt {
   // Fahrt-Detailseite (app/fahrten/[id]/page.tsx). Schon länger über
   // route_photos auf der Streckenseite öffentlich sichtbar.
   foto_url: string | null;
+  // Ab 0035_public_fahrten_notiz.sql — sobald eine Fahrt öffentlich ist,
+  // teilt sich ihre Notiz dieselbe Sichtbarkeit (siehe View-Kommentar).
+  notiz: string | null;
+  abdeckung_prozent: number | null;
+  fahrzeug_typ: FahrzeugTyp | null;
+  fahrzeug_marke: string | null;
+  fahrzeug_modell: string | null;
 }
 
 // Zeilenform von public.route_photos — nur die für eine öffentliche

@@ -30,9 +30,10 @@ export interface CompletionDetail {
   dauerSekunden: number | null;
   distanzKm: number | null;
   istOeffentlich: boolean;
-  // Nur gesetzt, wenn der Betrachter der Besitzer ist — rein private Felder
-  // (siehe route_completions-Spaltenkommentare in supabase/migrations),
-  // werden für fremde Betrachter nie geladen, nicht nur nicht angezeigt.
+  // Für private Fahrten nur gesetzt, wenn der Betrachter der Besitzer ist.
+  // Für öffentliche Fahrten (ab 0035_public_fahrten_notiz.sql) für jeden
+  // Betrachter gesetzt — teilt sich dieselbe Sichtbarkeit wie die Fahrt
+  // selbst, siehe public_fahrten-View-Kommentar.
   abdeckungProzent: number | null;
   notiz: string | null;
   vehicle: { typ: string; marke: string; modell: string } | null;
@@ -75,9 +76,14 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
       dauerSekunden: row.dauer_sekunden,
       distanzKm: row.distanz_km,
       istOeffentlich: true,
-      abdeckungProzent: null,
-      notiz: null,
-      vehicle: null,
+      // Ab 0035_public_fahrten_notiz.sql: teilt sich die Sichtbarkeit der
+      // Fahrt selbst — hier immer gesetzt (die View filtert bereits auf
+      // ist_oeffentlich = true), nicht mehr nur für den Besitzer.
+      abdeckungProzent: row.abdeckung_prozent,
+      notiz: row.notiz,
+      vehicle: row.fahrzeug_marke
+        ? { typ: row.fahrzeug_typ!, marke: row.fahrzeug_marke, modell: row.fahrzeug_modell! }
+        : null,
       displayName: row.display_name,
       avatarUrl: row.avatar_url,
       fotoUrl: row.foto_url,
