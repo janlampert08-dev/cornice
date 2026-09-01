@@ -155,7 +155,7 @@ export default function NeueStreckeForm() {
       >
         <form
           action={formAction}
-          className="flex w-full flex-1 flex-col gap-4 overflow-y-auto overscroll-y-contain border-border px-6 py-8 md:max-w-sm md:border-r lg:max-w-md"
+          className="flex w-full flex-1 flex-col gap-4 overflow-y-auto overscroll-y-contain border-border px-6 pt-8 pb-[calc(2rem+var(--safe-bottom))] md:max-w-sm md:border-r lg:max-w-md"
         >
           <BackButton fallbackHref="/" />
 
@@ -366,8 +366,12 @@ export default function NeueStreckeForm() {
               <input type="hidden" name="ist_privat" value={istPrivat ? "true" : "false"} />
 
               {/* Sticky statt im normalen Fluss — bei ausgeklapptem Sheet
-                  sonst je nach Bildschirmhöhe erst nach Scrollen erreichbar. */}
-              <div className="sticky bottom-0 -mx-6 -mb-8 mt-2 border-t border-border bg-background px-6 py-4">
+                  sonst je nach Bildschirmhöhe erst nach Scrollen erreichbar.
+                  pb reserviert zusätzlich den sicheren Bereich (Home-
+                  Indicator) — sonst sitzt der Button auf iPhones ohne
+                  Home-Taste direkt auf dessen Geste-Leiste, siehe
+                  --safe-bottom in globals.css. */}
+              <div className="sticky bottom-0 -mx-6 -mb-[calc(2rem+var(--safe-bottom))] mt-2 border-t border-border bg-background px-6 pt-4 pb-[calc(1rem+var(--safe-bottom))]">
                 {state.error && (
                   <p role="alert" className="mb-3 text-sm text-danger">
                     {state.error}

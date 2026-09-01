@@ -62,7 +62,12 @@ export default function ExploreSidebar({
   );
 
   return (
-    <div className="flex w-full flex-col gap-5 overflow-y-auto overscroll-y-contain border-border px-5 py-5 sm:px-6 sm:py-6 md:max-w-sm md:border-r lg:max-w-md xl:max-w-lg">
+    // pb reserviert unter md zusätzlich Platz für die fixierte BottomNav +
+    // den sicheren Bereich (Home-Indicator) — die globale main{padding-bottom}-
+    // Regel (globals.css) greift hier nicht, weil dieses div (nicht <main>)
+    // der scrollende Container ist. Ab md verschwindet die BottomNav
+    // (md:hidden), daher md:pb-6 als Reset auf den ursprünglichen Wert.
+    <div className="flex w-full flex-col gap-5 overflow-y-auto overscroll-y-contain border-border px-5 pt-5 pb-[calc(5.5rem+var(--safe-bottom))] sm:px-6 sm:pt-6 sm:pb-[calc(5.75rem+var(--safe-bottom))] md:max-w-sm md:border-r md:pb-6 lg:max-w-md xl:max-w-lg">
       <input
         type="search"
         value={searchQuery}
