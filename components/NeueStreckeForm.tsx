@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
+import { Check } from "lucide-react";
 import RoutePicker from "@/components/RoutePicker";
 import BackButton from "@/components/BackButton";
 import DragSheet from "@/components/ui/DragSheet";
@@ -18,17 +19,43 @@ const initialState: ProposeRouteState = { error: null };
 // Routendetailseite (RouteDetailLayout.tsx) — die Karte bleibt hier zudem
 // der primäre Bedienweg (Tippen setzt Wegpunkte), die Peek-Höhe zeigt daher
 // bewusst nur Titel + Hinweistext + Wegpunkt-Zähler, den Rest des
-// Formulars (Name, Region, Kategorien, …) füllt man erst nach dem
-// Aufziehen aus.
+// Formulars füllt man erst nach dem Aufziehen aus.
 const SHEET_PEEK_PX = 280;
 const SHEET_EXPANDED_GAP_PX = 96;
+
+type StepState = "done" | "active" | "upcoming";
+
+// Nummerierter Schritt-Indikator: macht sichtbar, dass Benennen/Details erst
+// Sinn ergeben, sobald eine Route existiert bzw. ein Name vergeben ist —
+// statt alle Felder unsortiert auf einmal zu zeigen.
+function StepLabel({ index, label, state }: { index: number; label: string; state: StepState }) {
+  return (
+    <li className="flex items-center gap-1.5">
+      {state === "done" ? (
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-foreground text-background">
+          <Check className="h-3 w-3" aria-hidden="true" />
+        </span>
+      ) : (
+        <span
+          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] ${
+            state === "active" ? "border-foreground text-foreground" : "border-border text-muted"
+          }`}
+        >
+          {index}
+        </span>
+      )}
+      <span className={state === "upcoming" ? "text-muted" : "font-medium"}>{label}</span>
+    </li>
+  );
+}
 
 export default function NeueStreckeForm() {
   const containerRef = useRef<HTMLElement>(null);
   const [state, formAction, pending] = useActionState(proposeRoute, initialState);
   const [waypoints, setWaypoints] = useState<[number, number][]>([]);
   const [rundfahrt, setRundfahrt] = useState(false);
-  const [startOrt, setStartOrt] = useState("");
+  const [name, setName] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   const [directions, setDirections] = useState<DirectionsResult | null>(null);
   const [fetchedKey, setFetchedKey] = useState<string | null>(null);
   const [routingError, setRoutingError] = useState<string | null>(null);
@@ -39,6 +66,12 @@ export default function NeueStreckeForm() {
   const effectiveKey = JSON.stringify(effectiveWaypoints);
   const routing = effectiveWaypoints.length >= 2 && fetchedKey !== effectiveKey;
   const activeDirections = effectiveWaypoints.length >= 2 && fetchedKey === effectiveKey ? directions : null;
+
+  const routeReady = waypoints.length >= 2;
+  const nameReady = name.trim().length > 0;
+  const routeStepState: StepState = routeReady ? "done" : "active";
+  const nameStepState: StepState = !routeReady ? "upcoming" : nameReady ? "done" : "active";
+  const detailsStepState: StepState = nameReady ? "active" : "upcoming";
 
   useEffect(() => {
     if (effectiveWaypoints.length < 2) return;
@@ -69,6 +102,10 @@ export default function NeueStreckeForm() {
 
   function reset() {
     setWaypoints([]);
+  }
+
+  function toggleTag(value: string) {
+    setTags((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
   }
 
   return (
@@ -105,46 +142,18 @@ export default function NeueStreckeForm() {
             </p>
           </div>
 
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            Name
-            <Input name="name" required />
-          </label>
+          <ol className="flex flex-wrap items-center gap-1.5 text-xs" aria-label="Fortschritt">
+            <StepLabel index={1} label="Route" state={routeStepState} />
+            <span className="h-px w-3 shrink-0 bg-border" aria-hidden="true" />
+            <StepLabel index={2} label="Benennen" state={nameStepState} />
+            <span className="h-px w-3 shrink-0 bg-border" aria-hidden="true" />
+            <StepLabel index={3} label="Veröffentlichen" state={detailsStepState} />
+          </ol>
 
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            Region
-            <Input name="region" required />
-          </label>
-
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={rundfahrt}
-              onChange={(e) => setRundfahrt(e.target.checked)}
-              className="h-4 w-4 accent-accent"
-            />
-            Rundfahrt (Ziel = Start)
-          </label>
-
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1.5 text-sm font-medium">
-              Start-Ort
-              <Input
-                name="start_ort"
-                required
-                value={startOrt}
-                onChange={(e) => setStartOrt(e.target.value)}
-              />
-            </label>
-            {rundfahrt ? (
-              <input type="hidden" name="ziel_ort" value={startOrt} />
-            ) : (
-              <label className="flex flex-col gap-1.5 text-sm font-medium">
-                Ziel-Ort
-                <Input name="ziel_ort" required />
-              </label>
-            )}
-          </div>
-
+          {/* Schritt 1: Route zeichnen — Start-/Zielort und Region werden
+              serverseitig automatisch aus den gesetzten Punkten ermittelt
+              (siehe proposeRoute()), müssen hier also nicht eingegeben
+              werden. */}
           <div className="flex items-center gap-3 text-xs text-muted">
             <span>{waypoints.length} Wegpunkt(e) gesetzt</span>
             {waypoints.length > 0 && (
@@ -183,80 +192,140 @@ export default function NeueStreckeForm() {
             name="tempolimits"
             value={activeDirections ? JSON.stringify(activeDirections.tempolimits) : "[]"}
           />
+          <input
+            type="hidden"
+            name="laenge_km"
+            value={activeDirections ? activeDirections.distanceKm.toFixed(1) : ""}
+          />
 
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            Länge (km)
-            <Input
-              name="laenge_km"
-              type="number"
-              step="0.1"
-              min="0.1"
-              required
-              readOnly
-              value={activeDirections ? activeDirections.distanceKm.toFixed(1) : ""}
-              className="font-mono"
-            />
-          </label>
-
-          <fieldset className="flex flex-col gap-2 text-sm">
-            <legend className="mb-1 text-muted">Kategorien</legend>
-            {KATEGORIEN.map((k) => (
-              <label key={k.value} className="flex items-center gap-2">
-                <input type="checkbox" name="kategorien" value={k.value} className="h-4 w-4 accent-accent" />
-                {k.label}
+          {/* Schritt 2: Benennen — erst sinnvoll, sobald eine Route existiert. */}
+          {routeReady && (
+            <>
+              <label className="flex flex-col gap-1.5 text-sm font-medium">
+                Name
+                <Input
+                  name="name"
+                  required
+                  autoFocus
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
               </label>
-            ))}
-          </fieldset>
 
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            Charakter (optional)
-            <Textarea name="charakter_text" rows={3} />
-          </label>
-
-          <Card surface className="flex flex-col gap-2 px-3 py-3 text-sm">
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setIstPrivat(true)}
-                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors duration-fast ${
-                  istPrivat
-                    ? "border-foreground bg-foreground text-background"
-                    : "border-border text-muted hover:border-border-strong"
-                }`}
-              >
-                <LockIcon className="h-4 w-4" />
-                Privat
-              </button>
-              <button
-                type="button"
-                onClick={() => setIstPrivat(false)}
-                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors duration-fast ${
-                  !istPrivat
-                    ? "border-foreground bg-foreground text-background"
-                    : "border-border text-muted hover:border-border-strong"
-                }`}
-              >
-                <GlobeIcon className="h-4 w-4" />
-                Öffentlich
-              </button>
-            </div>
-            <p className="text-xs text-muted">
-              {istPrivat
-                ? "Nur für dich sichtbar, bis du sie selbst veröffentlichst."
-                : "Durchläuft die Moderation und wird danach öffentlich."}
-            </p>
-          </Card>
-          <input type="hidden" name="ist_privat" value={istPrivat ? "true" : "false"} />
-
-          {state.error && (
-            <p role="alert" className="text-sm text-danger">
-              {state.error}
-            </p>
+              <div>
+                <p className="mb-1.5 text-sm font-medium">Rundfahrt</p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRundfahrt(true)}
+                    className={`rounded-full border px-3 py-1.5 text-sm transition-colors duration-fast ${
+                      rundfahrt
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-border text-muted hover:border-border-strong"
+                    }`}
+                  >
+                    Ja
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRundfahrt(false)}
+                    className={`rounded-full border px-3 py-1.5 text-sm transition-colors duration-fast ${
+                      !rundfahrt
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-border text-muted hover:border-border-strong"
+                    }`}
+                  >
+                    Nein
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-muted">
+                  {rundfahrt
+                    ? "Die Route endet automatisch wieder am Startpunkt."
+                    : "Die Route endet am zuletzt gesetzten Punkt."}
+                </p>
+              </div>
+            </>
           )}
 
-          <Button type="submit" disabled={pending || !activeDirections}>
-            {pending ? "Speichern…" : istPrivat ? "Privat speichern" : "Vorschlagen"}
-          </Button>
+          {/* Schritt 3: Tags, Beschreibung, Sichtbarkeit — erst sinnvoll,
+              sobald die Strecke einen Namen hat. */}
+          {nameReady && (
+            <>
+              <fieldset>
+                <legend className="mb-1.5 text-sm font-medium">Tags (optional)</legend>
+                <div className="flex flex-wrap gap-2">
+                  {KATEGORIEN.map((k) => (
+                    <button
+                      key={k.value}
+                      type="button"
+                      onClick={() => toggleTag(k.value)}
+                      aria-pressed={tags.includes(k.value)}
+                      className={`rounded-full border px-3 py-1.5 text-sm transition-colors duration-fast ${
+                        tags.includes(k.value)
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border text-muted hover:border-border-strong"
+                      }`}
+                    >
+                      {k.label}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+              {tags.map((t) => (
+                <input key={t} type="hidden" name="kategorien" value={t} />
+              ))}
+
+              <label className="flex flex-col gap-1.5 text-sm font-medium">
+                Beschreibung (optional)
+                <Textarea name="charakter_text" rows={3} />
+              </label>
+
+              <Card surface className="flex flex-col gap-2 px-3 py-3 text-sm">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIstPrivat(true)}
+                    className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors duration-fast ${
+                      istPrivat
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-border text-muted hover:border-border-strong"
+                    }`}
+                  >
+                    <LockIcon className="h-4 w-4" />
+                    Privat
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIstPrivat(false)}
+                    className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors duration-fast ${
+                      !istPrivat
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-border text-muted hover:border-border-strong"
+                    }`}
+                  >
+                    <GlobeIcon className="h-4 w-4" />
+                    Öffentlich
+                  </button>
+                </div>
+                <p className="text-xs text-muted">
+                  {istPrivat
+                    ? "Nur für dich sichtbar, bis du sie selbst veröffentlichst."
+                    : "Durchläuft die Moderation und wird danach öffentlich."}
+                </p>
+              </Card>
+              <input type="hidden" name="ist_privat" value={istPrivat ? "true" : "false"} />
+
+              {state.error && (
+                <p role="alert" className="text-sm text-danger">
+                  {state.error}
+                </p>
+              )}
+
+              <Button type="submit" disabled={pending || !activeDirections}>
+                {pending ? "Speichern…" : istPrivat ? "Privat speichern" : "Vorschlagen"}
+              </Button>
+            </>
+          )}
         </form>
       </DragSheet>
     </main>

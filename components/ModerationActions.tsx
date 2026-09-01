@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { approveRoute, rejectRoute } from "@/lib/actions/moderation";
-import Button from "@/components/ui/Button";
+import Button, { buttonVariants } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/Dialog";
 
 export default function ModerationActions({ routeId }: { routeId: string }) {
@@ -18,6 +19,13 @@ export default function ModerationActions({ routeId }: { routeId: string }) {
       >
         Freischalten
       </Button>
+      {/* Start-/Zielort und Region werden bei "Strecke vorschlagen" per
+          Reverse-Geocoding automatisch ermittelt (siehe proposeRoute()) —
+          dieser Link führt zur bestehenden Moderations-Bearbeitung, falls
+          ein Wert vor der Freigabe korrigiert werden muss. */}
+      <Link href={`/strecken/${routeId}/bearbeiten`} className={buttonVariants({ variant: "secondary", size: "sm" })}>
+        Bearbeiten
+      </Link>
       <Button
         variant="secondary"
         size="sm"
