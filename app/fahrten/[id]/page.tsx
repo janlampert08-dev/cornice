@@ -9,7 +9,7 @@ import ShareRideButton from "@/components/ShareRideButton";
 import CompletionActionsMenu from "@/components/CompletionActionsMenu";
 import ElevationProfile from "@/components/ElevationProfile";
 import CompletionMap from "@/components/CompletionMap";
-import CompletionPhoto from "@/components/CompletionPhoto";
+import CompletionPhotoGallery from "@/components/CompletionPhotoGallery";
 import { getCompletionDetail } from "@/lib/completions";
 import { getRoute } from "@/lib/routes";
 import { getKudosForCompletions } from "@/lib/kudos";
@@ -132,13 +132,11 @@ export default async function FahrtDetailPage({
             <CompletionMap route={route} />
           </Card>
 
-          {completion.fotoUrl && (
-            <CompletionPhoto
-              completionId={completion.id}
-              fotoUrl={completion.fotoUrl}
-              canRemove={completion.isOwner}
-            />
-          )}
+          <CompletionPhotoGallery
+            photos={completion.photos}
+            canRemove={completion.isOwner}
+            displayName={completion.displayName}
+          />
 
           {/* Bento-Stats — dasselbe Muster wie app/strecken/[id]/page.tsx und
               app/profil/page.tsx: Distanz/Zeit als betonte Kacheln, Rest

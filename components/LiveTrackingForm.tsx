@@ -15,7 +15,7 @@ import {
 import { interpolateElevation } from "@/lib/elevation";
 import { computeRouteCoverage, COVERAGE_THRESHOLD_PERCENT } from "@/lib/routeCoverage";
 import { formatDuration } from "@/lib/format";
-import PhotoInput from "@/components/PhotoInput";
+import MultiPhotoInput from "@/components/MultiPhotoInput";
 import { GlobeIcon, LockIcon } from "@/components/VisibilityIcons";
 import type { RouteGeoJSON, Vehicle } from "@/types/database";
 import { fieldClassName } from "@/components/ui/Input";
@@ -843,7 +843,7 @@ export default function LiveTrackingForm({
           </div>
 
           <div className="border-t border-border pt-4">
-            <PhotoInput name="foto" id="tracking-foto" />
+            <MultiPhotoInput name="foto" id="tracking-foto" />
           </div>
 
           {!isOnline && (

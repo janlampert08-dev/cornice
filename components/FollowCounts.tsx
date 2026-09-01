@@ -1,0 +1,57 @@
+"use client";
+
+import { useState } from "react";
+import FollowListModal from "@/components/FollowListModal";
+import type { FollowProfile } from "@/lib/follows";
+
+// Follower/Following-Zahlen auf Profilseiten — Klick auf eine der beiden
+// Zahlen öffnet die jeweilige Liste (FollowListModal). Beide Listen kommen
+// bereits vom Server mit (siehe app/profil/page.tsx bzw. app/fahrer/[id]/
+// page.tsx), kein Nachladen beim Öffnen nötig.
+export default function FollowCounts({
+  followersCount,
+  followingCount,
+  followers,
+  following,
+}: {
+  followersCount: number;
+  followingCount: number;
+  followers: FollowProfile[];
+  following: FollowProfile[];
+}) {
+  const [openList, setOpenList] = useState<"followers" | "following" | null>(null);
+
+  return (
+    <div className="flex items-center gap-4 text-sm">
+      <button
+        type="button"
+        onClick={() => setOpenList("followers")}
+        className="transition-colors duration-fast hover:text-accent"
+      >
+        <span className="font-mono font-semibold tabular-nums">{followersCount}</span>{" "}
+        <span className="text-muted">Follower</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => setOpenList("following")}
+        className="transition-colors duration-fast hover:text-accent"
+      >
+        <span className="font-mono font-semibold tabular-nums">{followingCount}</span>{" "}
+        <span className="text-muted">Gefolgt</span>
+      </button>
+
+      <FollowListModal
+        open={openList === "followers"}
+        onClose={() => setOpenList(null)}
+        title="Follower"
+        profiles={followers}
+      />
+      <FollowListModal
+        open={openList === "following"}
+        onClose={() => setOpenList(null)}
+        title="Gefolgt"
+        profiles={following}
+      />
+    </div>
+  );
+}
