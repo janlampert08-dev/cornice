@@ -2,21 +2,37 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { requestPasswordReset, type AuthFormState } from "@/lib/actions/auth";
+import { requestPasswordReset, type RequestPasswordResetState } from "@/lib/actions/auth";
 import { Input } from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 
-const initialState: AuthFormState = { error: null };
+const initialState: RequestPasswordResetState = { error: null, requested: false };
 
 export default function PasswortVergessenForm() {
   const [state, formAction, pending] = useActionState(requestPasswordReset, initialState);
+
+  if (state.requested) {
+    return (
+      <>
+        <h1 className="text-display font-semibold">Passwort vergessen</h1>
+        <p className="text-sm text-foreground">
+          Falls ein Konto mit dieser E-Mail-Adresse existiert, wurde ein Link zum Zurücksetzen
+          verschickt.
+        </p>
+        <p className="text-sm text-muted">
+          <Link href="/anmelden" className="font-medium text-accent hover:underline">
+            Zurück zur Anmeldung
+          </Link>
+        </p>
+      </>
+    );
+  }
 
   return (
     <>
       <h1 className="text-display font-semibold">Passwort vergessen</h1>
       <p className="text-sm text-muted">
-        Gib deine E-Mail-Adresse ein. Falls ein Konto dazu existiert, schicken wir dir einen
-        Link zum Zurücksetzen.
+        Gib deine E-Mail-Adresse ein — wir schicken dir einen Link zum Zurücksetzen.
       </p>
       <form action={formAction} className="flex flex-col gap-4">
         <label className="flex flex-col gap-1.5 text-sm font-medium">
@@ -29,7 +45,7 @@ export default function PasswortVergessenForm() {
           </p>
         )}
         <Button type="submit" disabled={pending} className="mt-1">
-          {pending ? "Senden…" : "Link senden"}
+          {pending ? "Wird gesendet…" : "Link anfordern"}
         </Button>
       </form>
       <p className="text-sm text-muted">

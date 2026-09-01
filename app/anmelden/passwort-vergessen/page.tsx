@@ -1,6 +1,8 @@
 import Header from "@/components/Header";
 import PasswortVergessenForm from "@/components/PasswortVergessenForm";
 
+export const metadata = { title: "Passwort vergessen – Cornice" };
+
 export default function PasswortVergessenPage() {
   return (
     <div className="flex h-dvh flex-col">

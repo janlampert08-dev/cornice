@@ -1,13 +1,13 @@
 "use client";
 
 import { useActionState } from "react";
-import { updatePassword, type AuthFormState } from "@/lib/actions/auth";
+import { updatePassword, type UpdatePasswordState } from "@/lib/actions/auth";
 import { Input } from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 
-const initialState: AuthFormState = { error: null };
+const initialState: UpdatePasswordState = { error: null };
 
-export default function PasswortZuruecksetzenForm() {
+export default function PasswortAendernForm() {
   const [state, formAction, pending] = useActionState(updatePassword, initialState);
 
   return (
@@ -30,7 +30,7 @@ export default function PasswortZuruecksetzenForm() {
           </p>
         )}
         <Button type="submit" disabled={pending} className="mt-1">
-          {pending ? "Speichern…" : "Passwort speichern"}
+          {pending ? "Wird gespeichert…" : "Passwort speichern"}
         </Button>
       </form>
     </>

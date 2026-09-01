@@ -24,8 +24,8 @@ export default function AnmeldenForm() {
           <Input type="password" name="password" required autoComplete="current-password" />
         </label>
         <Link
-          href="/passwort-vergessen"
-          className="-mt-2 self-end text-xs text-muted hover:text-accent"
+          href="/anmelden/passwort-vergessen"
+          className="-mt-2 self-start text-sm text-muted hover:text-accent hover:underline"
         >
           Passwort vergessen?
         </Link>

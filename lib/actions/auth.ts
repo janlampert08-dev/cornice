@@ -110,32 +110,43 @@ export async function signUp(
   redirect("/registrieren/bestaetigen");
 }
 
+export interface RequestPasswordResetState {
+  error: string | null;
+  requested: boolean;
+}
+
 export async function requestPasswordReset(
-  _prevState: AuthFormState,
+  _prevState: RequestPasswordResetState,
   formData: FormData,
-): Promise<AuthFormState> {
-  const email = String(formData.get("email") ?? "");
+): Promise<RequestPasswordResetState> {
+  const email = String(formData.get("email") ?? "").trim();
+  if (!email) return { error: "Bitte E-Mail-Adresse eingeben.", requested: false };
 
   const supabase = await createClient();
   const origin = await getOrigin();
-
-  // Bewusst kein Fehler, wenn die E-Mail nicht existiert — anders als bei
-  // signUp() oben (wo der Trade-off zugunsten besserer UX bewusst gewünscht
-  // ist), da hier über einen bekannten Konto-Fehler hinaus zusätzlich
-  // verraten würde, welche E-Mail-Adressen überhaupt registriert sind.
+  // next ist hier ein fest verdrahteter interner Pfad, kein Nutzereingabewert
+  // — dieselbe origin+next-Konkatenation wie beim bestehenden E-Mail-
+  // Bestätigungslink in signUp() (siehe app/auth/callback/route.ts).
   await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${origin}/auth/callback?next=/passwort-zuruecksetzen`,
+    redirectTo: `${origin}/auth/callback?next=/profil/passwort-aendern`,
   });
 
-  redirect("/passwort-vergessen/gesendet");
+  // resetPasswordForEmail liefert bei unbekannter Adresse ebenfalls keinen
+  // Fehler (Supabase verhindert damit selbst schon Konto-Enumeration) — die
+  // konstante Erfolgsmeldung hier ist daher die korrekte Antwort in beiden
+  // Fällen, kein Verstecken eines echten Fehlers.
+  return { error: null, requested: true };
+}
+
+export interface UpdatePasswordState {
+  error: string | null;
 }
 
 export async function updatePassword(
-  _prevState: AuthFormState,
+  _prevState: UpdatePasswordState,
   formData: FormData,
-): Promise<AuthFormState> {
+): Promise<UpdatePasswordState> {
   const password = String(formData.get("password") ?? "");
-
   if (password.length < 8) {
     return { error: "Passwort muss mindestens 8 Zeichen lang sein." };
   }
@@ -144,21 +155,10 @@ export async function updatePassword(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  // Nur mit einer aktiven Recovery-Session aus dem E-Mail-Link erreichbar
-  // (app/auth/callback/route.ts tauscht den Code gegen eine Session, bevor
-  // /passwort-zuruecksetzen überhaupt lädt) — ohne Session gibt es nichts
-  // zu aktualisieren.
-  if (!user) {
-    return {
-      error: "Dieser Link ist ungültig oder abgelaufen. Bitte fordere einen neuen an.",
-    };
-  }
+  if (!user) return { error: "Der Link ist abgelaufen. Bitte fordere einen neuen an." };
 
   const { error } = await supabase.auth.updateUser({ password });
-  if (error) {
-    return { error: "Passwort konnte nicht geändert werden. Bitte versuche es erneut." };
-  }
+  if (error) return { error: "Passwort konnte nicht geändert werden." };
 
   redirect("/profil");
 }

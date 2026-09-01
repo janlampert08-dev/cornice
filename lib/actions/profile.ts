@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export interface ProfileActionState {
   error: string | null;
+  success?: boolean;
 }
 
 export async function updateVisibilitySettings(
@@ -37,7 +38,7 @@ export async function updateVisibilitySettings(
   revalidatePath("/profil/privatsphaere");
   revalidatePath(`/fahrer/${user.id}`);
   revalidatePath("/leaderboards");
-  return { error: null };
+  return { error: null, success: true };
 }
 
 const MAX_AVATAR_BYTES = 4 * 1024 * 1024;

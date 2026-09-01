@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import ModerationActions from "@/components/ModerationActions";
 import { createClient } from "@/lib/supabase/server";
 import { isModerator, getPendingRoutes } from "@/lib/moderation";
+import { formatKm } from "@/lib/format";
 import Card from "@/components/ui/Card";
 
 export default async function ModerationPage() {
@@ -25,7 +26,10 @@ export default async function ModerationPage() {
         <div>
           <h1 className="text-display font-semibold">Moderation</h1>
           <p className="text-sm text-muted">
-            {routes.length} unveröffentlichte Streckenvorschläge
+            {routes.length}{" "}
+            {routes.length === 1
+              ? "unveröffentlichter Streckenvorschlag"
+              : "unveröffentlichte Streckenvorschläge"}
           </p>
         </div>
 
@@ -45,7 +49,7 @@ export default async function ModerationPage() {
                     </Link>
                     <p className="text-sm text-muted">
                       {route.region} · {route.start_ort} → {route.ziel_ort} ·{" "}
-                      <span className="font-mono tabular-nums">{route.laenge_km} km</span>
+                      <span className="font-mono tabular-nums">{formatKm(route.laenge_km)} km</span>
                     </p>
                   </div>
                 </div>

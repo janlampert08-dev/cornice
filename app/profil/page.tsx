@@ -15,7 +15,7 @@ import CountUp from "@/components/CountUp";
 // Premium-Feature vorerst deaktiviert, siehe components/PremiumCard.tsx.
 import { createClient } from "@/lib/supabase/server";
 import { getKudosForCompletions } from "@/lib/kudos";
-import { formatDuration } from "@/lib/format";
+import { formatDuration, formatKm } from "@/lib/format";
 import type { Vehicle } from "@/types/database";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
@@ -388,7 +388,7 @@ export default async function ProfilPage() {
                                 {f.routes.name}
                               </span>
                               <span className="font-mono text-sm tabular-nums text-muted">
-                                {f.routes.laenge_km} km
+                                {formatKm(f.routes.laenge_km)} km
                               </span>
                             </Link>
                           </li>
