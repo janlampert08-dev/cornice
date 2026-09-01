@@ -98,3 +98,56 @@ export async function signUp(
 
   redirect("/registrieren/bestaetigen");
 }
+
+export interface RequestPasswordResetState {
+  error: string | null;
+  requested: boolean;
+}
+
+export async function requestPasswordReset(
+  _prevState: RequestPasswordResetState,
+  formData: FormData,
+): Promise<RequestPasswordResetState> {
+  const email = String(formData.get("email") ?? "").trim();
+  if (!email) return { error: "Bitte E-Mail-Adresse eingeben.", requested: false };
+
+  const supabase = await createClient();
+  const origin = await getOrigin();
+  // next ist hier ein fest verdrahteter interner Pfad, kein Nutzereingabewert
+  // — dieselbe origin+next-Konkatenation wie beim bestehenden E-Mail-
+  // Bestätigungslink in signUp() (siehe app/auth/callback/route.ts).
+  await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/auth/callback?next=/profil/passwort-aendern`,
+  });
+
+  // resetPasswordForEmail liefert bei unbekannter Adresse ebenfalls keinen
+  // Fehler (Supabase verhindert damit selbst schon Konto-Enumeration) — die
+  // konstante Erfolgsmeldung hier ist daher die korrekte Antwort in beiden
+  // Fällen, kein Verstecken eines echten Fehlers.
+  return { error: null, requested: true };
+}
+
+export interface UpdatePasswordState {
+  error: string | null;
+}
+
+export async function updatePassword(
+  _prevState: UpdatePasswordState,
+  formData: FormData,
+): Promise<UpdatePasswordState> {
+  const password = String(formData.get("password") ?? "");
+  if (password.length < 8) {
+    return { error: "Passwort muss mindestens 8 Zeichen lang sein." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Der Link ist abgelaufen. Bitte fordere einen neuen an." };
+
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) return { error: "Passwort konnte nicht geändert werden." };
+
+  redirect("/profil");
+}

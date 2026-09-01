@@ -14,6 +14,7 @@ import PhotoGallery from "@/components/PhotoGallery";
 import RouteLeaderboardPreview from "@/components/RouteLeaderboardPreview";
 import OfflineRouteButton from "@/components/OfflineRouteButton";
 import { getRoute } from "@/lib/routes";
+import { formatKm } from "@/lib/format";
 import { getRatings, getOwnRating } from "@/lib/ratings";
 import { getPersonalBestSeconds } from "@/lib/completions";
 import { getRoutePhotos } from "@/lib/photos";
@@ -171,7 +172,9 @@ export default async function StreckeDetailPage({
         <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Card surface className="col-span-1 flex flex-col justify-between gap-1 p-4">
             <dt className="text-sm text-muted">Länge</dt>
-            <dd className="text-title font-mono font-semibold tabular-nums">{route.laenge_km} km</dd>
+            <dd className="text-title font-mono font-semibold tabular-nums">
+              {formatKm(route.laenge_km)} km
+            </dd>
           </Card>
           <Card surface className="col-span-1 flex flex-col justify-between gap-1 p-4">
             <dt className="text-sm text-muted">Höhe</dt>

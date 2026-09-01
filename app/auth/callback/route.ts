@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-// Ziel des Bestätigungslinks aus der (unveränderten) Supabase-Standard-E-Mail:
-// {{ .ConfirmationURL }} → Supabase verifiziert serverseitig und leitet hierher
-// mit ?code=... weiter (PKCE-Flow).
+// Ziel sowohl des Bestätigungslinks einer Neuregistrierung als auch des
+// Passwort-zurücksetzen-Links (aus der jeweils unveränderten Supabase-
+// Standard-E-Mail) → Supabase verifiziert serverseitig und leitet hierher
+// mit ?code=... weiter (PKCE-Flow). Welcher der beiden Fälle vorliegt,
+// steuert einzig der jeweils mitgeschickte next-Pfad (siehe emailRedirectTo
+// in lib/actions/auth.ts signUp() bzw. requestPasswordReset()) — die
+// reguläre Anmeldung (signIn()) läuft nie über diese Route. "/willkommen"
+// ist daher als Default sicher, ohne bestehende Nutzer zu beeinflussen.
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  // Dieser Callback wird ausschliesslich vom E-Mail-Bestätigungslink einer
-  // Neuregistrierung angesteuert (siehe emailRedirectTo in
-  // lib/actions/auth.ts signUp()) — die reguläre Anmeldung (signIn()) läuft
-  // nie über diese Route. "/willkommen" ist daher als Default sicher, ohne
-  // bestehende Nutzer zu beeinflussen.
   const next = searchParams.get("next") ?? "/willkommen";
 
   if (code) {

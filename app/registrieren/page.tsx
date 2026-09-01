@@ -1,6 +1,8 @@
 import Header from "@/components/Header";
 import RegistrierenForm from "@/components/RegistrierenForm";
 
+export const metadata = { title: "Registrieren – Cornice" };
+
 export default function RegistrierenPage() {
   return (
     <div className="flex h-dvh flex-col">

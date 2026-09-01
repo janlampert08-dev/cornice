@@ -61,6 +61,8 @@ export default function LiveTrackingForm({
   const [distanceKm, setDistanceKm] = useState(0);
   const [currentSpeedKmh, setCurrentSpeedKmh] = useState<number | null>(null);
   const [currentPosition, setCurrentPosition] = useState<[number, number] | null>(null);
+  const [currentAccuracyM, setCurrentAccuracyM] = useState<number | null>(null);
+  const [currentHeadingDeg, setCurrentHeadingDeg] = useState<number | null>(null);
   const [result, setResult] = useState<{ distanceKm: number; seconds: number } | null>(null);
   const [coveragePercent, setCoveragePercent] = useState<number | null>(null);
   const [trailJson, setTrailJson] = useState("[]");
@@ -263,6 +265,8 @@ export default function LiveTrackingForm({
       );
       setCurrentSpeedKmh(null);
       setCurrentPosition(null);
+      setCurrentAccuracyM(null);
+      setCurrentHeadingDeg(null);
       setCoveragePercent(null);
       setTrailJson(JSON.stringify(resume.trail));
       setHasStarted(resume.hasStarted);
@@ -284,6 +288,8 @@ export default function LiveTrackingForm({
       setElapsedSeconds(0);
       setCurrentSpeedKmh(null);
       setCurrentPosition(null);
+      setCurrentAccuracyM(null);
+      setCurrentHeadingDeg(null);
       setCoveragePercent(null);
       setTrailJson("[]");
       setHasStarted(false);
@@ -308,6 +314,8 @@ export default function LiveTrackingForm({
         // Berechnung filtert weiterhin auf ausreichend genaue Punkte.
         const point: [number, number] = [position.coords.longitude, position.coords.latitude];
         setCurrentPosition(point);
+        setCurrentAccuracyM(position.coords.accuracy);
+        setCurrentHeadingDeg(position.coords.heading);
 
         // Zeitmessung/Distanz erst ab dem Startpunkt — bis dahin läuft nur
         // die Karte mit, damit der Nutzer die Anfahrt verfolgen kann, ohne
@@ -524,7 +532,12 @@ export default function LiveTrackingForm({
     return (
       <div className="fixed inset-0 z-50 flex flex-col bg-background">
         <div className="min-h-0 flex-1">
-          <RouteMap routes={routes} userLocation={currentPosition} />
+          <RouteMap
+            routes={routes}
+            userLocation={currentPosition}
+            userAccuracyM={currentAccuracyM}
+            userHeadingDeg={currentHeadingDeg}
+          />
         </div>
         <div className="flex flex-col gap-3 border-t border-border-strong bg-background p-4 pb-[calc(1rem+var(--safe-bottom))]">
           <p className="text-xs font-semibold tracking-wide text-muted uppercase">

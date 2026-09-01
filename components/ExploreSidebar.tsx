@@ -5,6 +5,7 @@ import { useMemo, type CSSProperties } from "react";
 import { Mountain, SearchX } from "lucide-react";
 import { KATEGORIEN } from "@/lib/constants";
 import { routeShapePath } from "@/lib/routeShape";
+import { formatKm } from "@/lib/format";
 import { withAlpha, type RouteSignature } from "@/lib/signature";
 import type { AdvancedFilters } from "@/lib/exploreFilters";
 import type { Kategorie, RouteGeoJSON } from "@/types/database";
@@ -166,7 +167,7 @@ export default function ExploreSidebar({
                   <div className="flex items-center gap-2">
                     {showPlainKm && (
                       <span className="font-mono text-sm tabular-nums text-muted">
-                        {route.laenge_km} km
+                        {formatKm(route.laenge_km)} km
                       </span>
                     )}
                     {signature && (
