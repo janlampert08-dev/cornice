@@ -49,10 +49,10 @@ export async function signUp(
     return { error: "Passwort muss mindestens 8 Zeichen lang sein." };
   }
   if (displayName.length < 2) {
-    return { error: "Name muss mindestens 2 Zeichen lang sein." };
+    return { error: "Benutzername muss mindestens 2 Zeichen lang sein." };
   }
   if (displayName.length > 50) {
-    return { error: "Name darf höchstens 50 Zeichen lang sein." };
+    return { error: "Benutzername darf höchstens 50 Zeichen lang sein." };
   }
 
   const supabase = await createClient();
@@ -70,7 +70,7 @@ export async function signUp(
     .maybeSingle();
 
   if (existing) {
-    return { error: "Dieser Name ist bereits vergeben." };
+    return { error: "Dieser Benutzername ist bereits vergeben." };
   }
 
   const origin = await getOrigin();
@@ -87,6 +87,17 @@ export async function signUp(
     return { error: error.message };
   }
 
+  // Bei aktivierter E-Mail-Bestätigung liefert signUp() für eine bereits
+  // registrierte, bestätigte Adresse keinen Fehler (Supabase schützt so
+  // selbst gegen Enumeration) — erkennbar nur daran, dass identities leer
+  // bleibt statt eine neue Identity zu enthalten. Offiziell von Supabase
+  // dokumentierter Weg, das client-seitig zu unterscheiden, um dem Nutzer
+  // trotzdem eine Rückmeldung zu geben statt ihn auf eine nie versendete
+  // Bestätigungsmail warten zu lassen.
+  if (data.user?.identities?.length === 0) {
+    return { error: "Diese E-Mail-Adresse ist bereits registriert." };
+  }
+
   // Ist "Confirm email" im Supabase-Projekt deaktiviert, liefert signUp
   // bereits eine aktive Session — dann direkt einloggen statt auf eine
   // (nie versendete) Bestätigungsmail zu verweisen. Führt wie der
@@ -97,4 +108,57 @@ export async function signUp(
   }
 
   redirect("/registrieren/bestaetigen");
+}
+
+export async function requestPasswordReset(
+  _prevState: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const email = String(formData.get("email") ?? "");
+
+  const supabase = await createClient();
+  const origin = await getOrigin();
+
+  // Bewusst kein Fehler, wenn die E-Mail nicht existiert — anders als bei
+  // signUp() oben (wo der Trade-off zugunsten besserer UX bewusst gewünscht
+  // ist), da hier über einen bekannten Konto-Fehler hinaus zusätzlich
+  // verraten würde, welche E-Mail-Adressen überhaupt registriert sind.
+  await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/auth/callback?next=/passwort-zuruecksetzen`,
+  });
+
+  redirect("/passwort-vergessen/gesendet");
+}
+
+export async function updatePassword(
+  _prevState: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const password = String(formData.get("password") ?? "");
+
+  if (password.length < 8) {
+    return { error: "Passwort muss mindestens 8 Zeichen lang sein." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Nur mit einer aktiven Recovery-Session aus dem E-Mail-Link erreichbar
+  // (app/auth/callback/route.ts tauscht den Code gegen eine Session, bevor
+  // /passwort-zuruecksetzen überhaupt lädt) — ohne Session gibt es nichts
+  // zu aktualisieren.
+  if (!user) {
+    return {
+      error: "Dieser Link ist ungültig oder abgelaufen. Bitte fordere einen neuen an.",
+    };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) {
+    return { error: "Passwort konnte nicht geändert werden. Bitte versuche es erneut." };
+  }
+
+  redirect("/profil");
 }

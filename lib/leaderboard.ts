@@ -69,12 +69,14 @@ export function aggregateLeaderboards(rows: LeaderboardRow[]): {
     hoehenmeterByUser.set(row.user_id, (hoehenmeterByUser.get(row.user_id) ?? 0) + (row.hoehe_m ?? 0));
     kmByUser.set(row.user_id, (kmByUser.get(row.user_id) ?? 0) + (row.effektive_distanz_km ?? 0));
 
-    // "Stammfahrer": Anzahl unterschiedlicher Strecken statt reiner
-    // Fahrtenzahl — belohnt Vielfalt/Konsistenz auch für Nutzer, die nie an
-    // die Spitze der Distanz-/Höhenmeter-Rangliste kommen (siehe Strava
-    // "Local Legend"-Recherche im Redesign-Plan). Bewusst ohne Zeitfenster:
-    // leaderboard_completions liefert kein Datum; ein Rolling-Window wäre
-    // eine eigene View-Änderung (Migration) und ist nicht Teil dieser Phase.
+    // "Entdecker": Anzahl unterschiedlicher Strecken statt reiner
+    // Fahrtenzahl — belohnt Vielfalt auch für Nutzer, die nie an die Spitze
+    // der Distanz-/Höhenmeter-Rangliste kommen. Hiess zuvor "Stammfahrer",
+    // was sprachlich das Gegenteil suggerierte (Treue zu derselben Strecke,
+    // wie Stravas "Local Legend" — meiste Fahrten auf einer Strecke). Bewusst
+    // ohne Zeitfenster: leaderboard_completions liefert kein Datum; ein
+    // Rolling-Window wäre eine eigene View-Änderung (Migration) und ist
+    // nicht Teil dieser Phase.
     if (!streckenByUser.has(row.user_id)) streckenByUser.set(row.user_id, new Set());
     streckenByUser.get(row.user_id)!.add(row.route_id);
   }

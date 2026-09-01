@@ -23,6 +23,12 @@ export default function AnmeldenForm() {
           Passwort
           <Input type="password" name="password" required autoComplete="current-password" />
         </label>
+        <Link
+          href="/passwort-vergessen"
+          className="-mt-2 self-end text-xs text-muted hover:text-accent"
+        >
+          Passwort vergessen?
+        </Link>
         {state.error && (
           <p role="alert" className="text-sm text-danger">
             {state.error}

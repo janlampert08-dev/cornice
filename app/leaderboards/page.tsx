@@ -119,7 +119,7 @@ export default async function LeaderboardsPage() {
             currentUserId={currentUserId}
           />
           <LeaderboardSection
-            title="Stammfahrer"
+            title="Entdecker"
             entries={meisteStrecken}
             unit="Strecken"
             currentUserId={currentUserId}
