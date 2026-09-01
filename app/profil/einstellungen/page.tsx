@@ -149,6 +149,15 @@ export default async function EinstellungenPage() {
                     >
                       Passwort ändern
                     </Link>
+                    {/* Von der Profilseite hierher verschoben (stand vorher
+                        oben neben dem Avatar) — gehört inhaltlich zu "Konto"
+                        statt als isolierte Aktion neben dem Profilbild zu
+                        stehen. */}
+                    <form action="/auth/abmelden" method="post" className="mt-2 border-t border-border pt-3">
+                      <button className="text-sm text-muted transition-colors duration-fast hover:text-foreground">
+                        Abmelden
+                      </button>
+                    </form>
                   </div>
                 ),
               },
