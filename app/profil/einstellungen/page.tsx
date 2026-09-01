@@ -58,7 +58,7 @@ export default async function EinstellungenPage() {
               {
                 id: "privatsphaere",
                 label: "Privatsphäre",
-                icon: Lock,
+                icon: <Lock className="h-4 w-4" aria-hidden="true" />,
                 content: (
                   <div className="flex flex-col gap-4">
                     <p className="text-sm text-muted">
@@ -80,7 +80,7 @@ export default async function EinstellungenPage() {
               {
                 id: "darstellung",
                 label: "Darstellung",
-                icon: Palette,
+                icon: <Palette className="h-4 w-4" aria-hidden="true" />,
                 content: (
                   <div className="flex flex-col gap-3">
                     <p className="text-sm text-muted">Farbschema für die ganze App.</p>
@@ -91,7 +91,7 @@ export default async function EinstellungenPage() {
               {
                 id: "strecken",
                 label: "Streckenvorschläge",
-                icon: MapPin,
+                icon: <MapPin className="h-4 w-4" aria-hidden="true" />,
                 content:
                   ownRoutes && ownRoutes.length > 0 ? (
                     <Card as="ul" className="divide-y divide-border">
@@ -139,7 +139,7 @@ export default async function EinstellungenPage() {
               {
                 id: "konto",
                 label: "Konto",
-                icon: KeyRound,
+                icon: <KeyRound className="h-4 w-4" aria-hidden="true" />,
                 content: (
                   <div className="flex flex-col gap-3">
                     <p className="text-sm text-muted">{user.email}</p>

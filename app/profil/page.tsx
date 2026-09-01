@@ -271,10 +271,14 @@ export default async function ProfilPage() {
           </Card>
         </section>
 
-        <div className="flex flex-col gap-8 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
+        <div className="flex flex-col gap-8">
           {/* Meine Fahrten: getrackte Fahrten und gemerkte Strecken drehen sich
               beide um "Strecken, mit denen ich zu tun habe" — eine
-              Gruppen-Card statt zwei unabhängiger Sections nebeneinander. */}
+              Gruppen-Card statt zwei unabhängiger Sections nebeneinander.
+              Volle Breite statt einer Zweispalten-Aufteilung mit Fahrzeuge:
+              die getrackten Fahrten sind praktisch immer deutlich länger als
+              die Garage, eine feste Spalte daneben liess auf Desktop viel
+              Leerraum neben der kurzen Fahrzeuge-Liste stehen. */}
           <section className="flex flex-col gap-3">
             <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
               Meine Fahrten
@@ -407,9 +411,12 @@ export default async function ProfilPage() {
             </Card>
           </section>
 
-          {/* Fahrzeuge: eigenständige Section statt in einer "Verwaltung"-
-              Gruppen-Card versteckt — Streckenvorschläge sind in die neuen
-              Einstellungen umgezogen (app/profil/einstellungen). */}
+          {/* Fahrzeuge: eigenständige, volle Breite statt in einer
+              "Verwaltung"-Gruppen-Card versteckt oder in einer festen
+              Desktop-Spalte neben "Meine Fahrten" gequetscht — so kann das
+              Kachel-Raster auf breiten Bildschirmen mehr Spalten zeigen statt
+              auf halber Breite zu verharren. Streckenvorschläge sind in die
+              neuen Einstellungen umgezogen (app/profil/einstellungen). */}
           <section className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <h2 className="flex items-center gap-1.5 text-sm font-semibold tracking-wide text-muted uppercase">

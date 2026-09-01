@@ -1,12 +1,17 @@
 "use client";
 
-import { useState, type ComponentType, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils/cn";
 
 export interface SettingsTab {
   id: string;
   label: string;
-  icon: ComponentType<{ className?: string }>;
+  // Bereits gerendertes Icon-Element statt der Komponenten-Referenz: diese
+  // Tabs werden von einer Server Component zusammengestellt und als Prop an
+  // dieses "use client"-Modul gereicht — eine Funktion (die Icon-Komponente
+  // selbst) lässt sich über die RSC-Grenze nicht serialisieren, ein bereits
+  // gerendertes JSX-Element schon.
+  icon: ReactNode;
   content: ReactNode;
 }
 
@@ -21,7 +26,7 @@ export default function SettingsTabs({ tabs }: { tabs: SettingsTab[] }) {
   return (
     <div className="flex flex-col gap-6">
       <div role="tablist" aria-label="Einstellungen" className="flex gap-1 overflow-x-auto border-b border-border">
-        {tabs.map(({ id, label, icon: Icon }) => (
+        {tabs.map(({ id, label, icon }) => (
           <button
             key={id}
             type="button"
@@ -37,7 +42,7 @@ export default function SettingsTabs({ tabs }: { tabs: SettingsTab[] }) {
                 : "border-transparent text-muted hover:text-foreground",
             )}
           >
-            <Icon className="h-4 w-4" aria-hidden="true" />
+            {icon}
             {label}
           </button>
         ))}
