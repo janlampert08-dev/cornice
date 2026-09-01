@@ -150,10 +150,45 @@ export default function NeueStreckeForm() {
             <StepLabel index={3} label="Veröffentlichen" state={detailsStepState} />
           </ol>
 
-          {/* Schritt 1: Route zeichnen — Start-/Zielort und Region werden
-              serverseitig automatisch aus den gesetzten Punkten ermittelt
-              (siehe proposeRoute()), müssen hier also nicht eingegeben
-              werden. */}
+          {/* Schritt 1: Route zeichnen — Rundfahrt wird vor dem Setzen der
+              Punkte entschieden, weil sie beeinflusst, wie die Route auf der
+              Karte geschlossen wird (letzter Punkt = erster Punkt). Start-/
+              Zielort und Region werden serverseitig automatisch aus den
+              gesetzten Punkten ermittelt (siehe proposeRoute()), müssen hier
+              also nicht eingegeben werden. */}
+          <div>
+            <p className="mb-1.5 text-sm font-medium">Rundfahrt</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setRundfahrt(true)}
+                className={`rounded-full border px-3 py-1.5 text-sm transition-colors duration-fast ${
+                  rundfahrt
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border text-muted hover:border-border-strong"
+                }`}
+              >
+                Ja
+              </button>
+              <button
+                type="button"
+                onClick={() => setRundfahrt(false)}
+                className={`rounded-full border px-3 py-1.5 text-sm transition-colors duration-fast ${
+                  !rundfahrt
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border text-muted hover:border-border-strong"
+                }`}
+              >
+                Nein
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-muted">
+              {rundfahrt
+                ? "Die Route endet automatisch wieder am Startpunkt."
+                : "Die Route endet am zuletzt gesetzten Punkt."}
+            </p>
+          </div>
+
           <div className="flex items-center gap-3 text-xs text-muted">
             <span>{waypoints.length} Wegpunkt(e) gesetzt</span>
             {waypoints.length > 0 && (
@@ -200,51 +235,16 @@ export default function NeueStreckeForm() {
 
           {/* Schritt 2: Benennen — erst sinnvoll, sobald eine Route existiert. */}
           {routeReady && (
-            <>
-              <label className="flex flex-col gap-1.5 text-sm font-medium">
-                Name
-                <Input
-                  name="name"
-                  required
-                  autoFocus
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </label>
-
-              <div>
-                <p className="mb-1.5 text-sm font-medium">Rundfahrt</p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setRundfahrt(true)}
-                    className={`rounded-full border px-3 py-1.5 text-sm transition-colors duration-fast ${
-                      rundfahrt
-                        ? "border-foreground bg-foreground text-background"
-                        : "border-border text-muted hover:border-border-strong"
-                    }`}
-                  >
-                    Ja
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRundfahrt(false)}
-                    className={`rounded-full border px-3 py-1.5 text-sm transition-colors duration-fast ${
-                      !rundfahrt
-                        ? "border-foreground bg-foreground text-background"
-                        : "border-border text-muted hover:border-border-strong"
-                    }`}
-                  >
-                    Nein
-                  </button>
-                </div>
-                <p className="mt-1 text-xs text-muted">
-                  {rundfahrt
-                    ? "Die Route endet automatisch wieder am Startpunkt."
-                    : "Die Route endet am zuletzt gesetzten Punkt."}
-                </p>
-              </div>
-            </>
+            <label className="flex flex-col gap-1.5 text-sm font-medium">
+              Name
+              <Input
+                name="name"
+                required
+                autoFocus
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
           )}
 
           {/* Schritt 3: Tags, Beschreibung, Sichtbarkeit — erst sinnvoll,
