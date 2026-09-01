@@ -48,6 +48,11 @@ export default function VisibilitySettings(flags: VisibilityFlags) {
           {state.error}
         </p>
       )}
+      {!state.error && state.success && !pending && (
+        <p role="status" className="text-sm text-success">
+          Gespeichert.
+        </p>
+      )}
       <Button type="submit" disabled={pending} className="self-start">
         {pending ? "Speichern…" : "Einstellungen speichern"}
       </Button>

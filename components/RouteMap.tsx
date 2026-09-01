@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { ZURICH_CENTER, DEFAULT_ZOOM } from "@/lib/constants";
 import { sliceRouteBySpeed, speedColor } from "@/lib/speed";
 import type { RouteGeoJSON, TempolimitSegment } from "@/types/database";
+import Skeleton from "@/components/ui/Skeleton";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 const ROUTES_SOURCE = "routes";
@@ -57,6 +58,19 @@ function colorForRoute(id: string): string {
 // Bedeutung: gleiches Merkmal, gleiche Farbe.
 function resolveColor(colors: Map<string, string> | undefined, id: string): string {
   return colors?.get(id) ?? colorForRoute(id);
+}
+
+// Einmalig beim Mount ermittelt (siehe Aufrufstelle) statt reaktiv über den
+// Lebenszyklus der Karte verfolgt: ein Style-Wechsel per setStyle() während
+// die Karte bereits läuft, entfernt zuverlässig unsere selbst hinzugefügten
+// Layer (Strecken-, Verkehrs-, Tempo-Segmente) wieder, die dann manuell neu
+// aufgebaut werden müssten. Ein Themenwechsel greift so erst bei der
+// nächsten Neumontage der Karte (Navigation, Reload) — ein für Kartenstile
+// akzeptabler Kompromiss gegenüber dem Risiko verschwindender Layer.
+function resolveMapStyle(): string {
+  const explicit = document.documentElement.dataset.theme;
+  const isDark = explicit === "dark" || (!explicit && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  return isDark ? "mapbox://styles/mapbox/dark-v11" : "mapbox://styles/mapbox/streets-v12";
 }
 
 function toFeatureCollection(
@@ -180,6 +194,11 @@ export default function RouteMap({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const styleLoadedRef = useRef(false);
+  // Deckt die Lücke zwischen Container-Mount und dem ersten sichtbaren
+  // Kartenbild ab (Style- und Tile-Ladezeit von Mapbox GL selbst, unabhängig
+  // vom bereits vorhandenen Skeleton für den Code-Split in RouteDetailMap/
+  // ExploreView) — ohne das wäre die Karte für ein bis zwei Sekunden leer.
+  const [isReady, setIsReady] = useState(false);
   const routesRef = useRef(routes);
   const colorsRef = useRef(colors);
   const locationMarkerRef = useRef<mapboxgl.Marker | null>(null);
@@ -203,7 +222,7 @@ export default function RouteMap({
 
     const map = new mapboxgl.Map({
       container: containerRef.current,
-      style: "mapbox://styles/mapbox/streets-v12",
+      style: resolveMapStyle(),
       center: ZURICH_CENTER,
       zoom: DEFAULT_ZOOM,
     });
@@ -405,6 +424,7 @@ export default function RouteMap({
       });
 
       styleLoadedRef.current = true;
+      setIsReady(true);
     });
 
     return () => {
@@ -539,5 +559,12 @@ export default function RouteMap({
     );
   }
 
-  return <div ref={containerRef} className="h-full w-full" />;
+  return (
+    <div className="relative h-full w-full">
+      <div ref={containerRef} className="h-full w-full" />
+      {!isReady && (
+        <Skeleton className="pointer-events-none absolute inset-0 h-full w-full" />
+      )}
+    </div>
+  );
 }

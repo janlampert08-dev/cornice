@@ -1,6 +1,8 @@
 import Header from "@/components/Header";
 import AnmeldenForm from "@/components/AnmeldenForm";
 
+export const metadata = { title: "Anmelden – Cornice" };
+
 export default function AnmeldenPage() {
   return (
     <div className="flex h-dvh flex-col">
