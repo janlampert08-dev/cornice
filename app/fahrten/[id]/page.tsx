@@ -5,6 +5,8 @@ import { Clock, Gauge, Mountain, Route as RouteIcon, Ruler } from "lucide-react"
 import Header from "@/components/Header";
 import Avatar from "@/components/Avatar";
 import KudosButton from "@/components/KudosButton";
+import ShareRideButton from "@/components/ShareRideButton";
+import CompletionActionsMenu from "@/components/CompletionActionsMenu";
 import ElevationProfile from "@/components/ElevationProfile";
 import CompletionMap from "@/components/CompletionMap";
 import CompletionPhoto from "@/components/CompletionPhoto";
@@ -70,27 +72,48 @@ export default async function FahrtDetailPage({
       <div className="flex-1 overflow-y-auto">
         <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-5 py-8 sm:px-6 sm:py-10">
           <div className="flex items-center gap-3">
-            <Avatar url={completion.avatarUrl} name={completion.displayName} size={44} />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">
-                {completion.isOwner ? "Deine Fahrt" : (completion.displayName ?? "Fahrer")}
-              </p>
-              <p className="text-xs text-muted">
-                {new Date(completion.datum).toLocaleDateString("de-CH", {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                })}
-              </p>
-            </div>
-            {!completion.isOwner && user && (
-              <KudosButton
-                completionId={completion.id}
-                initialCount={kudos?.count ?? 0}
-                initialGiven={kudos?.givenByMe ?? false}
+            <Link
+              href={completion.isOwner ? "/profil" : `/fahrer/${completion.userId}`}
+              className="group flex min-w-0 flex-1 items-center gap-3"
+            >
+              <Avatar url={completion.avatarUrl} name={completion.displayName} size={44} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium transition-colors duration-fast group-hover:text-accent">
+                  {completion.isOwner ? "Deine Fahrt" : (completion.displayName ?? "Fahrer")}
+                </p>
+                <p className="text-xs text-muted">
+                  {new Date(completion.datum).toLocaleDateString("de-CH", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </p>
+              </div>
+            </Link>
+            <div className="flex shrink-0 items-center gap-3">
+              {!completion.isOwner && user && (
+                <KudosButton
+                  completionId={completion.id}
+                  initialCount={kudos?.count ?? 0}
+                  initialGiven={kudos?.givenByMe ?? false}
+                />
+              )}
+              <ShareRideButton
+                routeId={route.id}
+                distanceKm={completion.distanzKm ?? route.laenge_km}
+                durationSeconds={completion.dauerSekunden}
+                date={completion.datum}
               />
-            )}
+              {completion.isOwner && (
+                <CompletionActionsMenu
+                  completionId={completion.id}
+                  isPublic={completion.istOeffentlich}
+                  coveragePercent={completion.abdeckungProzent}
+                  notiz={completion.notiz}
+                />
+              )}
+            </div>
           </div>
 
           <div>
@@ -159,16 +182,8 @@ export default async function FahrtDetailPage({
             <ElevationProfile punkte={route.hoehenprofil} />
           )}
 
-          {completion.isOwner && (
-            <Card surface className="flex flex-col gap-3 p-4 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold tracking-wide text-muted uppercase">
-                  Nur für dich sichtbar
-                </span>
-                <span className={`text-xs font-medium ${completion.istOeffentlich ? "text-accent" : "text-muted"}`}>
-                  {completion.istOeffentlich ? "Öffentlich geteilt" : "Privat"}
-                </span>
-              </div>
+          {(completion.vehicle || completion.abdeckungProzent !== null || completion.notiz) && (
+            <Card surface className="flex flex-col gap-2 p-4 text-sm">
               {completion.vehicle && (
                 <p className="flex items-center gap-1.5 text-foreground">
                   <RouteIcon className="h-3.5 w-3.5 text-muted" aria-hidden="true" />

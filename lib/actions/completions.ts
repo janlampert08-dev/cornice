@@ -214,6 +214,50 @@ export async function toggleCompletionVisibility(
   return { error: null };
 }
 
+export interface UpdateNotizState {
+  error: string | null;
+}
+
+// "Kommentar bearbeiten" im 3-Punkte-Menü der Fahrt-Detailseite
+// (CompletionActionsMenu.tsx) — ändert die Notiz einer bereits gespeicherten
+// Fahrt nachträglich (RLS erlaubt Update ohnehin nur der eigenen Zeile).
+// Gleiche Kürzung wie beim ursprünglichen Eintrag in logTrackedCompletion.
+export async function updateCompletionNotiz(
+  completionId: string,
+  notiz: string,
+): Promise<UpdateNotizState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Bitte melde dich zuerst an." };
+
+  const trimmed = notiz.trim().slice(0, MAX_NOTIZ_LENGTH);
+
+  const { data: existing } = await supabase
+    .from("route_completions")
+    .select("route_id")
+    .eq("id", completionId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!existing) return { error: "Fahrt nicht gefunden." };
+
+  const { error } = await supabase
+    .from("route_completions")
+    .update({ notiz: trimmed || null })
+    .eq("id", completionId)
+    .eq("user_id", user.id);
+
+  if (error) return { error: "Kommentar konnte nicht gespeichert werden." };
+
+  revalidatePath(`/fahrten/${completionId}`);
+  revalidatePath("/profil");
+  revalidatePath(`/fahrer/${user.id}`);
+  return { error: null };
+}
+
 export interface RemovePhotoState {
   error: string | null;
 }
