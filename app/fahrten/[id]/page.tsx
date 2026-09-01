@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Clock, Gauge, Mountain, Route as RouteIcon, Ruler } from "lucide-react";
+import { Bike, Car, Clock, Gauge, Mountain, Route as RouteIcon, Ruler } from "lucide-react";
 import Header from "@/components/Header";
 import Avatar from "@/components/Avatar";
 import KudosButton from "@/components/KudosButton";
@@ -66,11 +66,13 @@ export default async function FahrtDetailPage({
       ? completion.distanzKm / (completion.dauerSekunden / 3600)
       : null;
 
+  const VehicleIcon = completion.vehicle?.typ === "motorrad" ? Bike : Car;
+
   return (
     <div className="flex h-dvh flex-col">
       <Header back={completion.isOwner ? "/profil" : `/fahrer/${completion.userId}`} />
       <div className="flex-1 overflow-y-auto">
-        <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-5 py-8 sm:px-6 sm:py-10">
+        <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-5 py-8 sm:px-6 sm:py-10 lg:max-w-3xl">
           <div className="flex items-center gap-3">
             <Link
               href={completion.isOwner ? "/profil" : `/fahrer/${completion.userId}`}
@@ -181,17 +183,39 @@ export default async function FahrtDetailPage({
           )}
 
           {(completion.vehicle || completion.abdeckungProzent !== null || completion.notiz) && (
-            <Card surface className="flex flex-col gap-2 p-4 text-sm">
+            <Card surface className="flex flex-col gap-4 p-4">
               {completion.vehicle && (
-                <p className="flex items-center gap-1.5 text-foreground">
-                  <RouteIcon className="h-3.5 w-3.5 text-muted" aria-hidden="true" />
-                  {completion.vehicle.marke} {completion.vehicle.modell}
-                </p>
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-background">
+                    <VehicleIcon className="h-5 w-5 text-muted" aria-hidden="true" />
+                  </span>
+                  <p className="text-sm font-medium text-foreground">
+                    {completion.vehicle.marke} {completion.vehicle.modell}
+                  </p>
+                </div>
               )}
               {completion.abdeckungProzent !== null && (
-                <p className="text-muted">Streckenabdeckung: {completion.abdeckungProzent}%</p>
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-1.5 text-muted">
+                      <RouteIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                      Streckenabdeckung
+                    </span>
+                    <span className="font-mono tabular-nums text-foreground">
+                      {completion.abdeckungProzent}%
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-border">
+                    <div
+                      className="h-full rounded-full bg-accent"
+                      style={{ width: `${Math.min(100, Math.max(0, completion.abdeckungProzent))}%` }}
+                    />
+                  </div>
+                </div>
               )}
-              {completion.notiz && <p className="text-foreground">{completion.notiz}</p>}
+              {completion.notiz && (
+                <p className="text-sm leading-relaxed text-foreground">{completion.notiz}</p>
+              )}
             </Card>
           )}
         </main>

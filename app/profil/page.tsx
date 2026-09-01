@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { ComponentType } from "react";
-import { Award, Bookmark, Car, CalendarDays, ChevronDown, Route as RouteIcon } from "lucide-react";
+import { Award, Bookmark, Car, CalendarDays, ChevronDown, Route as RouteIcon, Settings } from "lucide-react";
 import Header from "@/components/Header";
 import VehicleGrid from "@/components/VehicleGrid";
 import AvatarUpload from "@/components/AvatarUpload";
@@ -173,11 +173,18 @@ export default async function ProfilPage() {
         <div className="flex flex-col gap-4">
           <div className="flex items-start justify-between gap-4">
             <AvatarUpload avatarUrl={profile?.avatar_url ?? null} name={profile?.display_name ?? null} />
-            <form action="/auth/abmelden" method="post" className="shrink-0">
-              <button className="whitespace-nowrap text-sm text-muted transition-colors duration-fast hover:text-foreground">
-                Abmelden
-              </button>
-            </form>
+            {/* Ersetzt den vorherigen "Abmelden"-Textlink an dieser Stelle —
+                Abmelden ist jetzt Teil des Konto-Tabs in den Einstellungen
+                (app/profil/einstellungen), dafür hier ein unauffälliger
+                Zugang zu den Einstellungen selbst statt eines zweiten,
+                redundanten Links weiter unten. */}
+            <Link
+              href="/profil/einstellungen"
+              aria-label="Einstellungen"
+              className="shrink-0 rounded-full border border-border p-2 text-muted transition-colors duration-fast hover:border-border-strong hover:text-foreground"
+            >
+              <Settings className="h-4 w-4" aria-hidden="true" />
+            </Link>
           </div>
           <div className="flex flex-col gap-1.5">
             <h1 className="text-display font-semibold">
@@ -203,12 +210,6 @@ export default async function ProfilPage() {
               className={buttonVariants({ variant: "secondary", size: "sm", className: "self-start" })}
             >
               Öffentliches Profil ansehen
-            </Link>
-            <Link
-              href="/profil/einstellungen"
-              className={buttonVariants({ variant: "secondary", size: "sm", className: "self-start" })}
-            >
-              Einstellungen
             </Link>
           </div>
         </div>
@@ -271,10 +272,14 @@ export default async function ProfilPage() {
           </Card>
         </section>
 
-        <div className="flex flex-col gap-8 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
+        <div className="flex flex-col gap-8">
           {/* Meine Fahrten: getrackte Fahrten und gemerkte Strecken drehen sich
               beide um "Strecken, mit denen ich zu tun habe" — eine
-              Gruppen-Card statt zwei unabhängiger Sections nebeneinander. */}
+              Gruppen-Card statt zwei unabhängiger Sections nebeneinander.
+              Volle Breite statt einer Zweispalten-Aufteilung mit Fahrzeuge:
+              die getrackten Fahrten sind praktisch immer deutlich länger als
+              die Garage, eine feste Spalte daneben liess auf Desktop viel
+              Leerraum neben der kurzen Fahrzeuge-Liste stehen. */}
           <section className="flex flex-col gap-3">
             <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
               Meine Fahrten
@@ -407,9 +412,12 @@ export default async function ProfilPage() {
             </Card>
           </section>
 
-          {/* Fahrzeuge: eigenständige Section statt in einer "Verwaltung"-
-              Gruppen-Card versteckt — Streckenvorschläge sind in die neuen
-              Einstellungen umgezogen (app/profil/einstellungen). */}
+          {/* Fahrzeuge: eigenständige, volle Breite statt in einer
+              "Verwaltung"-Gruppen-Card versteckt oder in einer festen
+              Desktop-Spalte neben "Meine Fahrten" gequetscht — so kann das
+              Kachel-Raster auf breiten Bildschirmen mehr Spalten zeigen statt
+              auf halber Breite zu verharren. Streckenvorschläge sind in die
+              neuen Einstellungen umgezogen (app/profil/einstellungen). */}
           <section className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <h2 className="flex items-center gap-1.5 text-sm font-semibold tracking-wide text-muted uppercase">

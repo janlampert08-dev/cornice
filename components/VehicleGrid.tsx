@@ -16,14 +16,25 @@ const GETRIEBE_LABEL: Record<Vehicle["getriebe"], string> = {
 
 // Ersetzt die vorherige <table>-Darstellung (VehicleList.tsx) durch ein
 // Kachel-Raster, konsistent mit den Stat-Kacheln auf derselben Seite
-// (Card surface) statt einer eigenständigen Tabellen-Optik.
-export default function VehicleGrid({ vehicles }: { vehicles: Vehicle[] }) {
+// (Card surface) statt einer eigenständigen Tabellen-Optik. Gemeinsam von
+// der eigenen Profilseite (editable) und der öffentlichen Fahrer-Seite
+// (nur lesend) genutzt, damit die Garage an beiden Stellen gleich aussieht
+// statt wie zuvor auf /fahrer/[id] als schlichte Textliste zu erscheinen.
+// Ab lg (Desktop) drei statt zwei Spalten, da Fahrzeug-Karten dort sonst
+// unnötig viel Leerraum neben dem Text hätten.
+export default function VehicleGrid({
+  vehicles,
+  editable = true,
+}: {
+  vehicles: Vehicle[];
+  editable?: boolean;
+}) {
   if (vehicles.length === 0) {
     return <EmptyState icon={Car} title="Noch keine Fahrzeuge hinterlegt." />;
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {vehicles.map((vehicle) => {
         const Icon = TYP_ICON[vehicle.typ];
         return (
@@ -44,7 +55,7 @@ export default function VehicleGrid({ vehicles }: { vehicles: Vehicle[] }) {
                 {vehicle.baujahr && ` · ${vehicle.baujahr}`}
               </p>
             </div>
-            <DeleteVehicleButton vehicleId={vehicle.id} />
+            {editable && <DeleteVehicleButton vehicleId={vehicle.id} />}
           </Card>
         );
       })}

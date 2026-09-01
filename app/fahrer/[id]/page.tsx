@@ -1,11 +1,13 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Car } from "lucide-react";
 import Header from "@/components/Header";
 import Avatar from "@/components/Avatar";
 import KudosButton from "@/components/KudosButton";
 import FollowButton from "@/components/FollowButton";
 import FollowCounts from "@/components/FollowCounts";
+import VehicleGrid from "@/components/VehicleGrid";
 import { getPublicProfile } from "@/lib/profile";
 import { getKudosForCompletions } from "@/lib/kudos";
 import { isFollowing, getFollowCounts, getFollowerProfiles, getFollowingProfiles } from "@/lib/follows";
@@ -112,24 +114,19 @@ export default async function FahrerPage({
           </Card>
         )}
 
-        <div className="flex flex-col gap-8 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
+        <div className="flex flex-col gap-8">
+          {/* Volle Breite statt einer festen Desktop-Spalte neben "Gefahrene
+              Strecken" — dasselbe Muster wie die Garage auf der eigenen
+              Profilseite (app/profil/page.tsx), damit sie an beiden Stellen
+              gleich aussieht und auf breiten Bildschirmen mehr Spalten
+              zeigen kann statt auf halber Breite zu verharren. */}
           {profile.zeigtFahrzeuge && (
-            <section className="flex flex-col gap-4">
-              <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
+            <section className="flex flex-col gap-3">
+              <h2 className="flex items-center gap-1.5 text-sm font-semibold tracking-wide text-muted uppercase">
+                <Car className="h-4 w-4" aria-hidden="true" />
                 Fahrzeuge
               </h2>
-              {profile.vehicles.length === 0 ? (
-                <p className="text-sm text-muted">Keine Fahrzeuge hinterlegt.</p>
-              ) : (
-                <Card as="ul" className="divide-y divide-border">
-                  {profile.vehicles.map((v) => (
-                    <li key={v.id} className="px-4 py-3 text-sm text-foreground">
-                      {v.marke} {v.modell}
-                      {v.baujahr && <span className="ml-2 text-muted">({v.baujahr})</span>}
-                    </li>
-                  ))}
-                </Card>
-              )}
+              <VehicleGrid vehicles={profile.vehicles} editable={false} />
             </section>
           )}
 
