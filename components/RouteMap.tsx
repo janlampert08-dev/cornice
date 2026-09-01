@@ -143,21 +143,80 @@ function toTrafficFeatureCollection(
   };
 }
 
-// Kleiner, dezenter Punkt statt des Standard-Mapbox-Pins (der wie ein
-// Pfeil/Tropfen aussieht) — orientiert sich an der üblichen Navi-App-
-// Konvention (z.B. Google/Apple Maps: ein einfacher blauer Punkt statt
-// eines auffälligen Markers). Bewusst eckig statt rund: im ansonsten
-// durchgängig abgerundeten Design (siehe globals.css --radius-*) ist das
-// der eine gewollte flache/technische Akzent — ein Fadenkreuz-Motiv, das
-// sich absichtlich von der weichen Chrome drumherum absetzt.
-function createLocationDotElement(): HTMLDivElement {
-  const el = document.createElement("div");
-  el.style.width = "12px";
-  el.style.height = "12px";
-  el.style.backgroundColor = "#3D5AFE";
-  el.style.border = "2.5px solid #FAFAFA";
-  el.style.boxShadow = "0 0 0 1px rgba(19,19,22,0.25), 0 1px 3px rgba(19,19,22,0.35)";
-  return el;
+// Umrechnung Meter -> Bildschirm-Pixel an einer bestimmten Breite/Zoomstufe
+// (Standard-Web-Mercator-Formel, 256px-Kacheln, daher zoom+8). Nötig, damit
+// der Genauigkeits-Ring in echten Metern skaliert statt in einer festen
+// Pixelgrösse, die bei jedem Zoomstand falsch aussehen würde.
+function metersToPixelsAtLatitude(meters: number, latitude: number, zoom: number): number {
+  const earthCircumferenceM = 40_075_017;
+  const latitudeRadians = (latitude * Math.PI) / 180;
+  const metersPerPixel = (earthCircumferenceM * Math.cos(latitudeRadians)) / Math.pow(2, zoom + 8);
+  return meters / metersPerPixel;
+}
+
+// Standort-Marker aus drei übereinanderliegenden, unabhängig positionierten
+// Ebenen statt eines einzelnen Punkts — orientiert sich an der üblichen
+// Navi-App-Konvention (Apple/Google Maps): ein Genauigkeits-Ring kommuniziert
+// die GPS-Unsicherheit, ein Richtungskegel zeigt die Fahrtrichtung, wenn
+// bekannt, und der Punkt selbst bleibt immer sichtbar. Wrapper ist bewusst
+// 0x0 gross (statt einer festen Grösse) — alle Kinder sind absolut über
+// left/top:0 + translate(-50%,-50%) auf denselben Ankerpunkt zentriert, so
+// bleibt die Zentrierung korrekt, auch wenn der Ring durch wechselnde
+// Genauigkeit laufend seine Grösse ändert.
+function createLocationMarkerElement() {
+  const wrapper = document.createElement("div");
+  wrapper.style.position = "relative";
+  wrapper.style.width = "0px";
+  wrapper.style.height = "0px";
+
+  const accuracyEl = document.createElement("div");
+  accuracyEl.style.position = "absolute";
+  accuracyEl.style.left = "0";
+  accuracyEl.style.top = "0";
+  accuracyEl.style.borderRadius = "50%";
+  accuracyEl.style.backgroundColor = "rgba(61, 90, 254, 0.15)";
+  accuracyEl.style.border = "1px solid rgba(61, 90, 254, 0.35)";
+  accuracyEl.style.transform = "translate(-50%, -50%)";
+  accuracyEl.style.transition = "width 0.3s ease, height 0.3s ease";
+  accuracyEl.style.pointerEvents = "none";
+  accuracyEl.style.display = "none";
+
+  // Kegel statt Pfeil-Icon: per clip-path aus einem Quadrat geschnitten,
+  // Spitze zeigt in Fahrtrichtung (0deg = Norden, wie coords.heading). Die
+  // Rotation berücksichtigt die Kartenausrichtung (map.getBearing()), sonst
+  // würde der Kegel in der 3D-Kippansicht (show3D) in die falsche Richtung
+  // zeigen, sobald die Karte selbst gedreht ist.
+  const headingEl = document.createElement("div");
+  headingEl.style.position = "absolute";
+  headingEl.style.left = "0";
+  headingEl.style.top = "0";
+  headingEl.style.width = "34px";
+  headingEl.style.height = "34px";
+  headingEl.style.transform = "translate(-50%, -50%) rotate(0deg)";
+  headingEl.style.transformOrigin = "50% 50%";
+  headingEl.style.clipPath = "polygon(50% 0%, 14% 100%, 50% 74%, 86% 100%)";
+  headingEl.style.background =
+    "linear-gradient(to bottom, rgba(61,90,254,0.9), rgba(61,90,254,0))";
+  headingEl.style.pointerEvents = "none";
+  headingEl.style.display = "none";
+
+  const dotEl = document.createElement("div");
+  dotEl.style.position = "absolute";
+  dotEl.style.left = "0";
+  dotEl.style.top = "0";
+  dotEl.style.width = "12px";
+  dotEl.style.height = "12px";
+  dotEl.style.borderRadius = "50%";
+  dotEl.style.backgroundColor = "#3D5AFE";
+  dotEl.style.border = "2.5px solid #FAFAFA";
+  dotEl.style.boxShadow = "0 0 0 1px rgba(19,19,22,0.25), 0 1px 3px rgba(19,19,22,0.35)";
+  dotEl.style.transform = "translate(-50%, -50%)";
+
+  wrapper.appendChild(accuracyEl);
+  wrapper.appendChild(headingEl);
+  wrapper.appendChild(dotEl);
+
+  return { wrapper, accuracyEl, headingEl, dotEl };
 }
 
 function fitToRoutes(map: mapboxgl.Map, routes: RouteGeoJSON[], animate: boolean) {
@@ -174,6 +233,8 @@ function fitToRoutes(map: mapboxgl.Map, routes: RouteGeoJSON[], animate: boolean
 export default function RouteMap({
   routes,
   userLocation,
+  userAccuracyM = null,
+  userHeadingDeg = null,
   showSpeedLimits = false,
   showTraffic = false,
   show3D = false,
@@ -183,6 +244,11 @@ export default function RouteMap({
 }: {
   routes: RouteGeoJSON[];
   userLocation?: [number, number] | null;
+  // GPS-Genauigkeitsradius in Metern (position.coords.accuracy) bzw.
+  // Kompasskurs in Grad (position.coords.heading) — optional, da nicht jeder
+  // Aufrufer sie hat (z.B. ExploreView ruft nur einmalig getCurrentPosition).
+  userAccuracyM?: number | null;
+  userHeadingDeg?: number | null;
   showSpeedLimits?: boolean;
   showTraffic?: boolean;
   show3D?: boolean;
@@ -202,6 +268,7 @@ export default function RouteMap({
   const routesRef = useRef(routes);
   const colorsRef = useRef(colors);
   const locationMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const locationElementsRef = useRef<ReturnType<typeof createLocationMarkerElement> | null>(null);
 
   useEffect(() => {
     routesRef.current = routes;
@@ -531,7 +598,12 @@ export default function RouteMap({
     }
   }, [show3D]);
 
-  // Standort-Marker anzeigen/aktualisieren, sobald die Sidebar den Standort ermittelt hat.
+  // Standort-Marker anzeigen/aktualisieren, sobald die Sidebar den Standort
+  // ermittelt hat. Ring/Kegel-Grösse hängt vom aktuellen Kartenzoom bzw. der
+  // Kartenausrichtung ab, nicht nur von Position/Genauigkeit/Kurs selbst —
+  // "zoom"/"rotate" lösen daher ebenfalls ein Neuberechnen aus (z.B. wenn der
+  // Nutzer während einer laufenden Aufzeichnung zoomt, ohne dass währenddessen
+  // ein neuer GPS-Fix eintrifft).
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -539,17 +611,55 @@ export default function RouteMap({
     if (!userLocation) {
       locationMarkerRef.current?.remove();
       locationMarkerRef.current = null;
+      locationElementsRef.current = null;
       return;
+    }
+
+    function applyVisuals() {
+      const els = locationElementsRef.current;
+      if (!els || !userLocation || !map) return;
+      const zoom = map.getZoom();
+
+      if (userAccuracyM != null && userAccuracyM > 0) {
+        const diameterPx = metersToPixelsAtLatitude(userAccuracyM, userLocation[1], zoom) * 2;
+        // Bei sehr schlechtem Fix (z.B. Tunnel, dichter Wald) auf eine
+        // sinnvolle Maximalgrösse begrenzen, statt den Ring über die ganze
+        // Karte wachsen zu lassen.
+        const clampedPx = Math.min(diameterPx, 400);
+        els.accuracyEl.style.width = `${clampedPx}px`;
+        els.accuracyEl.style.height = `${clampedPx}px`;
+        els.accuracyEl.style.display = "block";
+      } else {
+        els.accuracyEl.style.display = "none";
+      }
+
+      if (userHeadingDeg != null && !Number.isNaN(userHeadingDeg)) {
+        const bearing = map.getBearing();
+        els.headingEl.style.transform = `translate(-50%, -50%) rotate(${userHeadingDeg - bearing}deg)`;
+        els.headingEl.style.display = "block";
+      } else {
+        els.headingEl.style.display = "none";
+      }
     }
 
     if (locationMarkerRef.current) {
       locationMarkerRef.current.setLngLat(userLocation);
     } else {
-      locationMarkerRef.current = new mapboxgl.Marker({ element: createLocationDotElement() })
+      const elements = createLocationMarkerElement();
+      locationElementsRef.current = elements;
+      locationMarkerRef.current = new mapboxgl.Marker({ element: elements.wrapper })
         .setLngLat(userLocation)
         .addTo(map);
     }
-  }, [userLocation]);
+
+    applyVisuals();
+    map.on("zoom", applyVisuals);
+    map.on("rotate", applyVisuals);
+    return () => {
+      map.off("zoom", applyVisuals);
+      map.off("rotate", applyVisuals);
+    };
+  }, [userLocation, userAccuracyM, userHeadingDeg]);
 
   if (!MAPBOX_TOKEN) {
     return (
