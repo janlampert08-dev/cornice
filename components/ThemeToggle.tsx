@@ -2,14 +2,11 @@
 
 import { useSyncExternalStore, type ComponentType } from "react";
 import { Monitor, Moon, Sun } from "lucide-react";
+import { THEME_CHANGE_EVENT } from "@/lib/theme";
 
 type ThemePreference = "system" | "light" | "dark";
 
 const STORAGE_KEY = "cornice-theme";
-// localStorage-Schreibvorgänge im selben Tab lösen keinen "storage"-Event
-// aus (der feuert nur in ANDEREN Tabs) — dieses eigene Event sorgt dafür,
-// dass useSyncExternalStore auch im selben Tab sofort neu liest.
-const CHANGE_EVENT = "cornice-theme-change";
 
 const OPTIONS: { value: ThemePreference; label: string; icon: ComponentType<{ className?: string }> }[] = [
   { value: "system", label: "System", icon: Monitor },
@@ -28,10 +25,10 @@ function readServerPreference(): ThemePreference {
 
 function subscribe(callback: () => void) {
   window.addEventListener("storage", callback);
-  window.addEventListener(CHANGE_EVENT, callback);
+  window.addEventListener(THEME_CHANGE_EVENT, callback);
   return () => {
     window.removeEventListener("storage", callback);
-    window.removeEventListener(CHANGE_EVENT, callback);
+    window.removeEventListener(THEME_CHANGE_EVENT, callback);
   };
 }
 
@@ -64,7 +61,7 @@ export default function ThemeToggle() {
       localStorage.setItem(STORAGE_KEY, pref);
     }
     applyTheme(pref);
-    window.dispatchEvent(new Event(CHANGE_EVENT));
+    window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
   }
 
   return (
