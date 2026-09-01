@@ -5,9 +5,10 @@ import Header from "@/components/Header";
 import Avatar from "@/components/Avatar";
 import KudosButton from "@/components/KudosButton";
 import FollowButton from "@/components/FollowButton";
+import FollowCounts from "@/components/FollowCounts";
 import { getPublicProfile } from "@/lib/profile";
 import { getKudosForCompletions } from "@/lib/kudos";
-import { isFollowing } from "@/lib/follows";
+import { isFollowing, getFollowCounts, getFollowerProfiles, getFollowingProfiles } from "@/lib/follows";
 import { createClient } from "@/lib/supabase/server";
 import Card from "@/components/ui/Card";
 
@@ -34,7 +35,13 @@ export default async function FahrerPage({
   // (das Profil selbst braucht den Betrachter nicht) — parallel gestartet.
   const [profile, {
     data: { user: viewer },
-  }] = await Promise.all([getPublicProfile(id), supabase.auth.getUser()]);
+  }, followCounts, followers, following] = await Promise.all([
+    getPublicProfile(id),
+    supabase.auth.getUser(),
+    getFollowCounts(id),
+    getFollowerProfiles(id),
+    getFollowingProfiles(id),
+  ]);
 
   if (!profile) notFound();
 
@@ -65,7 +72,15 @@ export default async function FahrerPage({
               name={profile.displayName}
               size={64}
             />
-            <h1 className="text-display font-semibold">{profile.displayName ?? "Fahrer"}</h1>
+            <div className="flex flex-col gap-1">
+              <h1 className="text-display font-semibold">{profile.displayName ?? "Fahrer"}</h1>
+              <FollowCounts
+                followersCount={followCounts.followers}
+                followingCount={followCounts.following}
+                followers={followers}
+                following={following}
+              />
+            </div>
           </div>
           {showFollow && <FollowButton targetUserId={id} initialFollowing={alreadyFollowing} />}
         </div>

@@ -1,10 +1,9 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { ComponentType } from "react";
-import { Award, Car, CalendarDays, ChevronDown, Heart, MapPin, Route as RouteIcon } from "lucide-react";
+import { Award, Bookmark, Car, CalendarDays, ChevronDown, Route as RouteIcon } from "lucide-react";
 import Header from "@/components/Header";
-import VehicleList from "@/components/VehicleList";
-import DeleteProposalButton from "@/components/DeleteProposalButton";
+import VehicleGrid from "@/components/VehicleGrid";
 import AvatarUpload from "@/components/AvatarUpload";
 import RideVisibilityToggle from "@/components/RideVisibilityToggle";
 import ShareRideButton from "@/components/ShareRideButton";
@@ -12,9 +11,11 @@ import KudosButton from "@/components/KudosButton";
 import AchievementBadges from "@/components/AchievementBadges";
 import ActivityHeatmap from "@/components/ActivityHeatmap";
 import CountUp from "@/components/CountUp";
+import FollowCounts from "@/components/FollowCounts";
 // Premium-Feature vorerst deaktiviert, siehe components/PremiumCard.tsx.
 import { createClient } from "@/lib/supabase/server";
 import { getKudosForCompletions } from "@/lib/kudos";
+import { getFollowCounts, getFollowerProfiles, getFollowingProfiles } from "@/lib/follows";
 import { formatDuration, formatKm } from "@/lib/format";
 import type { Vehicle } from "@/types/database";
 import Card from "@/components/ui/Card";
@@ -71,8 +72,10 @@ export default async function ProfilPage() {
     { data: vehicles },
     { data: completions },
     { data: trackedRides },
-    { data: ownRoutes },
     { data: favorites },
+    followCounts,
+    followers,
+    following,
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -121,20 +124,6 @@ export default async function ProfilPage() {
         }[]
       >(),
     supabase
-      .from("routes")
-      .select("id, name, status_ok, abgelehnt_am, ist_privat")
-      .eq("erstellt_von", user.id)
-      .order("created_at", { ascending: false })
-      .returns<
-        {
-          id: string;
-          name: string;
-          status_ok: boolean;
-          abgelehnt_am: string | null;
-          ist_privat: boolean;
-        }[]
-      >(),
-    supabase
       .from("favorites")
       .select("route_id, routes(id, name, region, laenge_km)")
       .eq("user_id", user.id)
@@ -145,6 +134,9 @@ export default async function ProfilPage() {
           routes: { id: string; name: string; region: string; laenge_km: number } | null;
         }[]
       >(),
+    getFollowCounts(user.id),
+    getFollowerProfiles(user.id),
+    getFollowingProfiles(user.id),
   ]);
 
   // Pro Strecke nur einmal zählen (auch bei mehrfacher Befahrung) — sonst
@@ -187,11 +179,17 @@ export default async function ProfilPage() {
               </button>
             </form>
           </div>
-          <div>
+          <div className="flex flex-col gap-1.5">
             <h1 className="text-display font-semibold">
               {profile?.display_name ?? user.email}
             </h1>
             <p className="text-sm text-muted">{user.email}</p>
+            <FollowCounts
+              followersCount={followCounts.followers}
+              followingCount={followCounts.following}
+              followers={followers}
+              following={following}
+            />
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
@@ -290,21 +288,22 @@ export default async function ProfilPage() {
                 />
                 <div className="mt-4">
                   {trackedRides && trackedRides.length > 0 ? (
-                    // Eine Card pro Fahrt statt einer dichten Einzeilen-Liste
-                    // (Name/Datum/Stats/drei Aktions-Buttons quetschten sich
-                    // vorher alle in eine Zeile) — klare Zonen: Kopf
-                    // (Strecke + Datum), Stat-Zeile, Aktionen getrennt durch
-                    // eine Trennlinie, wie bei einer Aktivitätsliste.
-                    <ul className="flex flex-col gap-3">
+                    // Eine Zeile pro Fahrt statt einer eigenen Card mit
+                    // Trennlinie — Name+Datum und Stats+Aktionen passen in
+                    // zwei kompakte Zonen, Hover-Feedback jetzt auf der
+                    // ganzen Zeile (vorher nur auf dem Streckennamen-Text,
+                    // wirkte dadurch wie ein verzögerter/inkonsistenter
+                    // Hover-Effekt).
+                    <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border">
                       {trackedRides.map((ride) => {
                         const avgKmh =
                           ride.dauer_sekunden > 0
                             ? ride.distanz_km / (ride.dauer_sekunden / 3600)
                             : 0;
                         return (
-                          <li key={ride.id}>
-                            <Card surface className="flex flex-col gap-3 p-4">
-                              <Link href={`/fahrten/${ride.id}`} className="group flex flex-col gap-1.5">
+                          <li key={ride.id} className="group transition-colors duration-fast hover:bg-surface">
+                            <div className="flex flex-col gap-2 p-3">
+                              <Link href={`/fahrten/${ride.id}`} className="flex flex-col gap-1">
                                 <div className="flex items-baseline justify-between gap-2">
                                   <span className="min-w-0 truncate font-medium transition-colors duration-fast group-hover:text-accent">
                                     {ride.routes?.name ?? "Strecke"}
@@ -313,7 +312,7 @@ export default async function ProfilPage() {
                                     {new Date(ride.datum).toLocaleDateString("de-CH")}
                                   </span>
                                 </div>
-                                <div className="flex items-center gap-2 font-mono text-sm tabular-nums text-muted">
+                                <div className="flex items-center gap-2 font-mono text-xs tabular-nums text-muted">
                                   <span>{ride.distanz_km.toFixed(1)} km</span>
                                   <span aria-hidden="true">·</span>
                                   <span>{formatDuration(ride.dauer_sekunden)}</span>
@@ -321,10 +320,7 @@ export default async function ProfilPage() {
                                   <span>{avgKmh.toFixed(0)} km/h</span>
                                 </div>
                               </Link>
-                              {ride.notiz && (
-                                <p className="line-clamp-2 text-sm text-muted">{ride.notiz}</p>
-                              )}
-                              <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+                              <div className="flex items-center justify-between gap-3">
                                 <div>
                                   {ride.ist_oeffentlich && (
                                     <KudosButton
@@ -348,7 +344,7 @@ export default async function ProfilPage() {
                                   />
                                 </div>
                               </div>
-                            </Card>
+                            </div>
                           </li>
                         );
                       })}
@@ -373,7 +369,7 @@ export default async function ProfilPage() {
                   Abschnitten hier verliert niemand etwas Wichtiges, wenn das
                   erst auf Wunsch aufklappt. */}
               <details className="group p-4">
-                <SectionSummary icon={Heart} label="Favoriten" count={favorites?.length ?? 0} />
+                <SectionSummary icon={Bookmark} label="Favoriten" count={favorites?.length ?? 0} />
                 <div className="mt-4">
                   {favorites && favorites.length > 0 ? (
                     <Card as="ul" className="divide-y divide-border">
@@ -397,7 +393,7 @@ export default async function ProfilPage() {
                     </Card>
                   ) : (
                     <EmptyState
-                      icon={Heart}
+                      icon={Bookmark}
                       title="Noch keine Favoriten gemerkt."
                       action={
                         <Link href="/" className={buttonVariants({ variant: "secondary", size: "sm" })}>
@@ -411,76 +407,23 @@ export default async function ProfilPage() {
             </Card>
           </section>
 
-          {/* Verwaltung: eigene Fahrzeuge und eingereichte Streckenvorschläge
-              sind beides "Dinge, die mir gehören/die ich verwalte" — ebenfalls
-              als Gruppen-Card statt zwei eigenständiger Sections. */}
+          {/* Fahrzeuge: eigenständige Section statt in einer "Verwaltung"-
+              Gruppen-Card versteckt — Streckenvorschläge sind in die neuen
+              Einstellungen umgezogen (app/profil/einstellungen). */}
           <section className="flex flex-col gap-3">
-            <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
-              Verwaltung
-            </h2>
-            <Card className="flex flex-col divide-y divide-border">
-              <details open className="group p-4">
-                <SectionSummary icon={Car} label="Fahrzeuge" count={vehicles?.length ?? 0} />
-                <div className="mt-4 flex flex-col gap-3">
-                  <Link
-                    href="/profil/fahrzeuge/neu"
-                    className="self-end text-sm font-medium text-accent hover:underline"
-                  >
-                    + Fahrzeug hinzufügen
-                  </Link>
-                  <VehicleList vehicles={(vehicles as Vehicle[]) ?? []} />
-                </div>
-              </details>
-
-              {ownRoutes && ownRoutes.length > 0 && (
-                <details open className="group p-4">
-                  <SectionSummary icon={MapPin} label="Meine Streckenvorschläge" count={ownRoutes.length} />
-                  <div className="mt-4">
-                    <Card as="ul" className="divide-y divide-border">
-                      {ownRoutes.map((route) => {
-                        const label = route.status_ok
-                          ? "Bewilligt"
-                          : route.ist_privat
-                            ? "Privat"
-                            : route.abgelehnt_am
-                              ? "Abgelehnt"
-                              : "Ausstehend";
-                        const color = route.status_ok
-                          ? "text-accent"
-                          : route.abgelehnt_am
-                            ? "text-danger"
-                            : "text-muted";
-                        return (
-                          <li
-                            key={route.id}
-                            className="flex items-center justify-between gap-3 px-4 py-3"
-                          >
-                            <Link
-                              href={`/strecken/${route.id}`}
-                              className="truncate transition-colors duration-fast hover:text-accent"
-                            >
-                              {route.name}
-                            </Link>
-                            <div className="flex shrink-0 items-center gap-3">
-                              <span className={`text-sm font-medium ${color}`}>{label}</span>
-                              {!route.status_ok && (
-                                <Link
-                                  href={`/strecken/${route.id}/bearbeiten`}
-                                  className="text-xs text-muted hover:text-foreground"
-                                >
-                                  Bearbeiten
-                                </Link>
-                              )}
-                              {route.abgelehnt_am && <DeleteProposalButton routeId={route.id} />}
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </Card>
-                  </div>
-                </details>
-              )}
-            </Card>
+            <div className="flex items-center justify-between">
+              <h2 className="flex items-center gap-1.5 text-sm font-semibold tracking-wide text-muted uppercase">
+                <Car className="h-4 w-4" aria-hidden="true" />
+                Fahrzeuge
+              </h2>
+              <Link
+                href="/profil/fahrzeuge/neu"
+                className="text-sm font-medium text-accent hover:underline"
+              >
+                + Hinzufügen
+              </Link>
+            </div>
+            <VehicleGrid vehicles={(vehicles as Vehicle[]) ?? []} />
           </section>
         </div>
         </main>
