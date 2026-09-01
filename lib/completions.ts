@@ -1,6 +1,11 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
-import type { PublicFahrt } from "@/types/database";
+import type { CompletionPhoto, PublicCompletionPhoto, PublicFahrt } from "@/types/database";
+
+export interface CompletionPhotoItem {
+  id: string;
+  fotoUrl: string;
+}
 
 // Rein privat: nur die eigene bisherige Bestzeit des Nutzers für diese
 // Strecke, kein Vergleich mit anderen (RLS erlaubt ohnehin nur eigene Zeilen).
@@ -39,7 +44,9 @@ export interface CompletionDetail {
   vehicle: { typ: string; marke: string; modell: string } | null;
   displayName: string | null;
   avatarUrl: string | null;
-  fotoUrl: string | null;
+  // Ab 0036_completion_photos.sql: mehrere Fotos statt einem einzelnen
+  // fotoUrl-Feld, in Anzeigereihenfolge (position).
+  photos: CompletionPhotoItem[];
   isOwner: boolean;
 }
 
@@ -68,6 +75,13 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
 
   if (publicRow) {
     const row = publicRow as PublicFahrt;
+
+    const { data: photoRows } = await supabase
+      .from("public_completion_photos")
+      .select("id, foto_url")
+      .eq("completion_id", row.completion_id)
+      .order("position", { ascending: true });
+
     return {
       id: row.completion_id,
       routeId: row.route_id,
@@ -86,7 +100,10 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
         : null,
       displayName: row.display_name,
       avatarUrl: row.avatar_url,
-      fotoUrl: row.foto_url,
+      photos: ((photoRows as Pick<PublicCompletionPhoto, "id" | "foto_url">[]) ?? []).map((p) => ({
+        id: p.id,
+        fotoUrl: p.foto_url,
+      })),
       isOwner: viewerId === row.user_id,
     };
   }
@@ -96,7 +113,7 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
   const { data: own } = await supabase
     .from("route_completions")
     .select(
-      "id, route_id, user_id, datum, dauer_sekunden, distanz_km, ist_oeffentlich, abdeckung_prozent, notiz, foto_url, vehicles(typ, marke, modell)",
+      "id, route_id, user_id, datum, dauer_sekunden, distanz_km, ist_oeffentlich, abdeckung_prozent, notiz, vehicles(typ, marke, modell)",
     )
     .eq("id", id)
     .eq("user_id", viewerId)
@@ -110,17 +127,20 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
       ist_oeffentlich: boolean;
       abdeckung_prozent: number;
       notiz: string | null;
-      foto_url: string | null;
       vehicles: { typ: string; marke: string; modell: string } | null;
     }>();
 
   if (!own) return null;
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name, avatar_url")
-    .eq("id", viewerId)
-    .maybeSingle();
+  const [{ data: profile }, { data: photoRows }] = await Promise.all([
+    supabase.from("profiles").select("display_name, avatar_url").eq("id", viewerId).maybeSingle(),
+    supabase
+      .from("completion_photos")
+      .select("id, foto_url")
+      .eq("completion_id", id)
+      .eq("user_id", viewerId)
+      .order("position", { ascending: true }),
+  ]);
 
   return {
     id: own.id,
@@ -135,7 +155,10 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
     vehicle: own.vehicles,
     displayName: profile?.display_name ?? null,
     avatarUrl: profile?.avatar_url ?? null,
-    fotoUrl: own.foto_url,
+    photos: ((photoRows as Pick<CompletionPhoto, "id" | "foto_url">[]) ?? []).map((p) => ({
+      id: p.id,
+      fotoUrl: p.foto_url,
+    })),
     isOwner: true,
   };
 });

@@ -16,6 +16,10 @@ const MAX_FOTO_BYTES = 8 * 1024 * 1024;
 const COMPLETION_COOLDOWN_MS = 5000;
 const MAX_NOTIZ_LENGTH = 280;
 const MIN_TRAIL_POINTS = 5;
+// Grosszügig genug für eine echte Fahrt (mehrere Stopps unterwegs), aber
+// begrenzt genug um Storage-Missbrauch über ein einzelnes Formular zu
+// verhindern — siehe MAX_FOTO_BYTES für dieselbe Überlegung pro Datei.
+const MAX_PHOTOS_PER_COMPLETION = 6;
 // Grosszügige Obergrenze für die aus Distanz/Dauer abgeleitete
 // Durchschnittsgeschwindigkeit — auch auf einer freigegebenen Passstrasse
 // unrealistisch, deckt aber jede legitime Fahrt ab. Fängt grob gefälschte
@@ -79,7 +83,10 @@ export async function logTrackedCompletion(
   const requestedOeffentlich = formData.get("ist_oeffentlich") === "true";
   const notizRaw = String(formData.get("notiz") ?? "").trim();
   const notiz = notizRaw ? notizRaw.slice(0, MAX_NOTIZ_LENGTH) : null;
-  const foto = formData.get("foto") as File | null;
+  const fotos = formData
+    .getAll("foto")
+    .filter((f): f is File => f instanceof File && f.size > 0)
+    .slice(0, MAX_PHOTOS_PER_COMPLETION);
 
   // distanz_km/dauer_sekunden/abdeckung_prozent kommen NICHT vom Client —
   // die liessen sich beliebig fälschen (z.B. abdeckung_prozent=100,
@@ -130,34 +137,50 @@ export async function logTrackedCompletion(
   // Schwellenwerts nicht öffentlich sein (siehe lib/routeCoverage.ts).
   const istOeffentlich = requestedOeffentlich && abdeckungProzent >= COVERAGE_THRESHOLD_PERCENT;
 
-  let fotoUrl: string | null = null;
-  if (foto && foto.size > 0) {
+  // Fotos werden vor der Fahrt selbst hochgeladen: schlägt eine Datei fehl
+  // (Format/Grösse), soll gar keine halbe Fahrt ohne ihre Fotos entstehen.
+  const uploadedUrls: string[] = [];
+  for (const foto of fotos) {
     const result = await uploadFoto(supabase, user.id, foto);
     if ("error" in result) return { error: result.error };
-    fotoUrl = result.url;
+    uploadedUrls.push(result.url);
   }
 
-  const { error } = await supabase.from("route_completions").insert({
-    route_id: routeId,
-    user_id: user.id,
-    fahrzeug_id: fahrzeugId,
-    datum: new Date().toISOString().slice(0, 10),
-    foto_url: fotoUrl,
-    distanz_km: distanzKm,
-    dauer_sekunden: dauerSekunden,
-    ist_oeffentlich: istOeffentlich,
-    abdeckung_prozent: abdeckungProzent,
-    notiz,
-  });
+  const { data: inserted, error } = await supabase
+    .from("route_completions")
+    .insert({
+      route_id: routeId,
+      user_id: user.id,
+      fahrzeug_id: fahrzeugId,
+      datum: new Date().toISOString().slice(0, 10),
+      distanz_km: distanzKm,
+      dauer_sekunden: dauerSekunden,
+      ist_oeffentlich: istOeffentlich,
+      abdeckung_prozent: abdeckungProzent,
+      notiz,
+    })
+    .select("id")
+    .single();
 
-  if (error) {
+  if (error || !inserted) {
     // Race-freie Durchsetzung via DB-Trigger (0024) — der App-seitige Check
     // oben ist nur ein schnelles Vorab-Feedback und kann bei parallelen
     // Requests theoretisch durchrutschen.
-    if (error.message.includes("cooldown_active")) {
+    if (error?.message.includes("cooldown_active")) {
       return { error: "Bitte warte einen Moment, bevor du erneut einträgst." };
     }
     return { error: "Fahrt konnte nicht gespeichert werden." };
+  }
+
+  if (uploadedUrls.length > 0) {
+    await supabase.from("completion_photos").insert(
+      uploadedUrls.map((foto_url, position) => ({
+        completion_id: inserted.id,
+        user_id: user.id,
+        foto_url,
+        position,
+      })),
+    );
   }
 
   revalidatePath(`/strecken/${routeId}`);
@@ -262,16 +285,13 @@ export interface RemovePhotoState {
   error: string | null;
 }
 
-// X-Button auf der Fahrt-Detailseite (app/fahrten/[id]/page.tsx, nur für den
-// Besitzer sichtbar) — löscht das Objekt aus dem Storage-Bucket (RLS auf
-// storage.objects, siehe 0003_storage.sql, erlaubt das nur im eigenen
-// {user_id}/-Ordner) und setzt foto_url zurück auf null. Kein
-// Berechtigungsproblem, falls der Storage-Löschversuch selbst fehlschlägt
-// (z.B. Objekt bereits weg) — best effort, die eigentliche Sichtbarkeit hängt
-// allein an route_completions.foto_url.
-export async function removeCompletionPhoto(
-  completionId: string,
-): Promise<RemovePhotoState> {
+// Entfernen-Button je Foto in der Fotos-Galerie der Fahrt-Detailseite
+// (app/fahrten/[id]/page.tsx, nur für den Besitzer sichtbar) — löscht das
+// Objekt aus dem Storage-Bucket (RLS auf storage.objects, siehe
+// 0003_storage.sql, erlaubt das nur im eigenen {user_id}/-Ordner) und die
+// zugehörige completion_photos-Zeile. Ab 0036_completion_photos.sql: pro
+// Foto statt pro Fahrt, da eine Fahrt jetzt mehrere Fotos haben kann.
+export async function removeCompletionPhoto(photoId: string): Promise<RemovePhotoState> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -280,14 +300,17 @@ export async function removeCompletionPhoto(
   if (!user) return { error: "Bitte melde dich zuerst an." };
 
   const { data: existing } = await supabase
-    .from("route_completions")
-    .select("route_id, foto_url")
-    .eq("id", completionId)
+    .from("completion_photos")
+    .select("completion_id, foto_url, route_completions(route_id)")
+    .eq("id", photoId)
     .eq("user_id", user.id)
-    .maybeSingle();
+    .maybeSingle<{
+      completion_id: string;
+      foto_url: string;
+      route_completions: { route_id: string } | null;
+    }>();
 
-  if (!existing) return { error: "Fahrt nicht gefunden." };
-  if (!existing.foto_url) return { error: null };
+  if (!existing) return { error: "Foto nicht gefunden." };
 
   const bucketMarker = `/${ROUTE_PHOTOS_BUCKET}/`;
   const markerIndex = existing.foto_url.indexOf(bucketMarker);
@@ -297,15 +320,17 @@ export async function removeCompletionPhoto(
   }
 
   const { error } = await supabase
-    .from("route_completions")
-    .update({ foto_url: null })
-    .eq("id", completionId)
+    .from("completion_photos")
+    .delete()
+    .eq("id", photoId)
     .eq("user_id", user.id);
 
   if (error) return { error: "Foto konnte nicht entfernt werden." };
 
-  revalidatePath(`/fahrten/${completionId}`);
-  revalidatePath(`/strecken/${existing.route_id}`);
+  revalidatePath(`/fahrten/${existing.completion_id}`);
+  if (existing.route_completions) {
+    revalidatePath(`/strecken/${existing.route_completions.route_id}`);
+  }
   revalidatePath("/profil");
   revalidatePath("/feed");
   return { error: null };

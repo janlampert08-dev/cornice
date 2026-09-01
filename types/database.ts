@@ -209,6 +209,29 @@ export interface RoutePhoto {
   display_name: string | null;
 }
 
+// Zeilenform von public.completion_photos (0036_completion_photos.sql) — der
+// direkte, RLS-geschützte Eigentümer-Pfad (getCompletionDetail, eigene
+// Fahrt egal ob privat/öffentlich).
+export interface CompletionPhoto {
+  id: string;
+  completion_id: string;
+  user_id: string;
+  foto_url: string;
+  position: number;
+  created_at: string;
+}
+
+// Zeilenform von public.public_completion_photos — Fotos einer einzelnen
+// öffentlichen Fahrt für Nicht-Besitzer (Fahrt-Detailseite), analog zu
+// PublicFahrt/RoutePhoto: keine user_id, nur der Anzeige-Name.
+export interface PublicCompletionPhoto {
+  id: string;
+  completion_id: string;
+  foto_url: string;
+  position: number;
+  display_name: string | null;
+}
+
 // Minimales Database-Interface für den generischen Supabase-Client-Typparameter.
 // Wird in Phase 2/3 durch generierte Typen ersetzt.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
