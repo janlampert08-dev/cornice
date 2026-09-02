@@ -5,6 +5,7 @@ import Header from "@/components/Header";
 import VisibilitySettings from "@/components/VisibilitySettings";
 import ThemeToggle from "@/components/ThemeToggle";
 import DeleteProposalButton from "@/components/DeleteProposalButton";
+import DeleteAccountSection from "@/components/DeleteAccountSection";
 import { createClient } from "@/lib/supabase/server";
 import Card from "@/components/ui/Card";
 import Button, { buttonVariants } from "@/components/ui/Button";
@@ -155,15 +156,13 @@ export default async function EinstellungenPage() {
               </Link>
               {/* Von der Profilseite hierher verschoben (stand vorher oben
                   neben dem Avatar) — gehört inhaltlich zu "Konto" statt als
-                  isolierte Aktion neben dem Profilbild zu stehen. Danger-
-                  Variante statt des vorherigen unauffälligen Textlinks, da
-                  Abmelden hier die einzige echte Aktion im Konto-Bereich ist
-                  und entsprechend erkennbar sein soll. */}
+                  isolierte Aktion neben dem Profilbild zu stehen. */}
               <form action="/auth/abmelden" method="post" className="mt-2 border-t border-border pt-3">
-                <Button type="submit" variant="danger" size="sm" className="self-start">
+                <Button type="submit" variant="secondary" size="sm" className="self-start">
                   Abmelden
                 </Button>
               </form>
+              <DeleteAccountSection />
             </Card>
           </section>
         </main>
