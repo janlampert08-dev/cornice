@@ -303,15 +303,15 @@ export default async function ProfilPage() {
                           <li key={ride.id} className="group transition-colors duration-fast hover:bg-surface">
                             <div className="flex items-center justify-between gap-3 p-3">
                               <Link href={`/fahrten/${ride.id}`} className="flex min-w-0 flex-1 flex-col gap-1">
-                                <div className="flex items-baseline justify-between gap-2">
-                                  <span className="min-w-0 truncate font-medium transition-colors duration-fast group-hover:text-accent">
-                                    {ride.routes?.name ?? "Strecke"}
-                                  </span>
-                                  <span className="shrink-0 text-xs text-muted">
-                                    {new Date(ride.datum).toLocaleDateString("de-CH")}
-                                  </span>
-                                </div>
+                                <span className="min-w-0 truncate font-medium transition-colors duration-fast group-hover:text-accent">
+                                  {ride.routes?.name ?? "Strecke"}
+                                </span>
+                                {/* Datum jetzt Teil derselben mono/tabular-nums-Zeile wie
+                                    Dauer/Tempo statt separat rechts neben dem Titel — gleiche
+                                    Schrift, Grösse und Punkt-Trennung wie die übrigen Werte. */}
                                 <div className="flex items-center gap-2 font-mono text-xs tabular-nums text-muted">
+                                  <span>{new Date(ride.datum).toLocaleDateString("de-CH")}</span>
+                                  <span aria-hidden="true">·</span>
                                   <span>{formatDuration(ride.dauer_sekunden)}</span>
                                   <span aria-hidden="true">·</span>
                                   <span>{avgKmh.toFixed(0)} km/h</span>
