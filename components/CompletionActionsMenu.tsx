@@ -10,7 +10,6 @@ import {
 } from "@/lib/actions/completions";
 import { GlobeIcon, LockIcon } from "@/components/VisibilityIcons";
 import { COVERAGE_THRESHOLD_PERCENT } from "@/lib/routeCoverage";
-import type { FahrtArt } from "@/types/database";
 import Card from "@/components/ui/Card";
 import { Dialog } from "@/components/ui/Dialog";
 import Button from "@/components/ui/Button";
@@ -26,15 +25,15 @@ const MAX_NOTIZ_LENGTH = 280;
 // (Klick-ausserhalb schliesst, Card elevated als Dropdown-Panel).
 export default function CompletionActionsMenu({
   completionId,
-  art,
   isPublic,
   coveragePercent,
+  blockedReason = null,
   notiz,
 }: {
   completionId: string;
-  art: FahrtArt;
   isPublic: boolean;
   coveragePercent: number | null;
+  blockedReason?: string | null;
   notiz: string | null;
 }) {
   const router = useRouter();
@@ -50,12 +49,9 @@ export default function CompletionActionsMenu({
 
   const belowThreshold =
     coveragePercent !== null && coveragePercent < COVERAGE_THRESHOLD_PERCENT;
-  const toggleBlocked = !isPublic && belowThreshold;
-  // Freie Fahrten lassen sich in dieser Phase nicht teilen (serverseitig
-  // erzwungen in logFreeRide/toggleCompletionVisibility) — der Umschalter
-  // entfällt dann ganz, statt einen Knopf anzubieten, der nur einen Fehler
-  // erzeugt.
-  const zeigtSichtbarkeit = art === "strecke";
+  // Gesperrt wird je nach Fahrtart über den Deckungsgrad (Strecke) oder die
+  // Mindestwerte fürs Teilen (freie Fahrt, siehe publicationBlockReason).
+  const toggleBlocked = !isPublic && (belowThreshold || blockedReason !== null);
 
   useEffect(() => {
     if (!open) return;
@@ -113,14 +109,14 @@ export default function CompletionActionsMenu({
       </button>
       {open && (
         <Card elevated as="div" className="absolute top-full right-0 z-10 mt-1 flex w-60 flex-col overflow-hidden">
-          {zeigtSichtbarkeit && (
           <button
             type="button"
             onClick={handleToggleVisibility}
             disabled={toggling || toggleBlocked}
             title={
               toggleBlocked
-                ? `Kann nicht öffentlich gemacht werden — deckt nur ${Math.round(coveragePercent ?? 0)}% der Strecke ab.`
+                ? (blockedReason ??
+                  `Kann nicht öffentlich gemacht werden — deckt nur ${Math.round(coveragePercent ?? 0)}% der Strecke ab.`)
                 : undefined
             }
             className={`${ITEM_CLASS} flex items-center gap-1.5`}
@@ -136,7 +132,6 @@ export default function CompletionActionsMenu({
             )}
             {isPublic ? "Privat machen" : "Öffentlich teilen"}
           </button>
-          )}
           <button
             type="button"
             onClick={() => {

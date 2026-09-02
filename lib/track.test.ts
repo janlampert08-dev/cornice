@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   MAX_JUMP_KM,
+  cropTrackEnds,
   maxJumpKm,
   movingSeconds,
+  publicationBlockReason,
   simplifyTrack,
+  toCoordinates,
   toEwktLineString,
 } from "@/lib/track";
-import { computeTrailStats, type TrailPoint } from "@/lib/geo";
+import { computeTrailStats, haversineKm, type TrailPoint } from "@/lib/geo";
 
 // Punkte entlang eines Ost-West-Verlaufs auf 47.37° N. Ein Grad Länge sind
 // dort rund 75 km, 0.001° also etwa 75 m.
@@ -95,20 +98,77 @@ describe("maxJumpKm", () => {
 
 describe("toEwktLineString", () => {
   it("writes an SRID-tagged line string", () => {
-    expect(toEwktLineString(straightLine(2))).toBe(
+    expect(toEwktLineString(toCoordinates(straightLine(2)))).toBe(
       "SRID=4326;LINESTRING(8.500000 47.370000,8.501000 47.370000)",
     );
   });
 
   it("collapses consecutive duplicates", () => {
     const track = [point(8.5, 47.37, 0), point(8.5, 47.37, 10), point(8.501, 47.37, 20)];
-    expect(toEwktLineString(track)).toBe(
+    expect(toEwktLineString(toCoordinates(track))).toBe(
       "SRID=4326;LINESTRING(8.500000 47.370000,8.501000 47.370000)",
     );
   });
 
   it("returns null when fewer than two distinct points remain", () => {
-    expect(toEwktLineString([point(8.5, 47.37, 0), point(8.5, 47.37, 10)])).toBeNull();
+    expect(
+      toEwktLineString(toCoordinates([point(8.5, 47.37, 0), point(8.5, 47.37, 10)])),
+    ).toBeNull();
     expect(toEwktLineString([])).toBeNull();
+  });
+});
+
+describe("cropTrackEnds", () => {
+  // 0.001° Länge sind auf 47.37° N rund 75 m, die Linie unten also gut 3.7 km.
+  const line = () => toCoordinates(straightLine(50));
+
+  it("returns the track unchanged when the privacy zone is switched off", () => {
+    expect(cropTrackEnds(line(), 0)).toEqual(line());
+  });
+
+  it("removes the beginning and the end within the radius", () => {
+    const cropped = cropTrackEnds(line(), 200);
+    expect(cropped.length).toBeLessThan(50);
+    // Nach dem Kappen liegt kein Punkt mehr innerhalb des Radius um Start
+    // oder Ziel — genau das ist die Zusage der Privatzone.
+    const first = line()[0];
+    const last = line()[line().length - 1];
+    for (const point of cropped) {
+      expect(haversineKm(point, first) * 1000).toBeGreaterThan(200);
+      expect(haversineKm(point, last) * 1000).toBeGreaterThan(200);
+    }
+  });
+
+  it("gives up rather than publishing a track that is shorter than two radii", () => {
+    expect(cropTrackEnds(toCoordinates(straightLine(5)), 500)).toEqual([]);
+  });
+
+  it("crops both ends of a loop that returns to its start", () => {
+    // Rundfahrt: Start und Ziel am selben Ort, dazwischen weit weg.
+    const loop: [number, number][] = [
+      [8.5, 47.37],
+      [8.51, 47.37],
+      [8.52, 47.38],
+      [8.51, 47.39],
+      [8.5, 47.37001],
+    ];
+    const cropped = cropTrackEnds(loop, 200);
+    expect(cropped).not.toContainEqual(loop[0]);
+    expect(cropped).not.toContainEqual(loop[loop.length - 1]);
+    expect(cropped.length).toBeGreaterThan(1);
+  });
+});
+
+describe("publicationBlockReason", () => {
+  it("allows a normal ride", () => {
+    expect(publicationBlockReason(12.4, 1800)).toBeNull();
+  });
+
+  it("blocks a ride that is too short in distance", () => {
+    expect(publicationBlockReason(0.4, 1800)).toMatch(/km/);
+  });
+
+  it("blocks a ride that barely moved", () => {
+    expect(publicationBlockReason(12.4, 60)).toMatch(/Minuten/);
   });
 });

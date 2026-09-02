@@ -224,6 +224,9 @@ export interface Profile {
   // manuell gesetzt (kein Zahlungsanbieter angebunden).
   ist_premium: boolean;
   zeigt_premium_badge: boolean;
+  // Radius der Privatzone in Metern (0 = aus), siehe
+  // 0045_freie_fahrten_teilen.sql und cropTrackEnds in lib/track.ts.
+  privatzone_radius_m: number;
   created_at: string;
 }
 
@@ -262,6 +265,23 @@ export interface PublicFahrt {
   fahrzeug_typ: FahrzeugTyp | null;
   fahrzeug_marke: string | null;
   fahrzeug_modell: string | null;
+  // Ab 0045_freie_fahrten_teilen.sql: die View trägt beide Fahrtarten.
+  // Bei art = "frei" sind route_id/route_name/laenge_km null und titel,
+  // start_ort und hoehenmeter_aufstieg treten an ihre Stelle.
+  art: FahrtArt;
+  titel: string | null;
+  start_ort: string | null;
+  bewegte_zeit_sekunden: number | null;
+  hoehenmeter_aufstieg: number | null;
+}
+
+// Zeilenform von public.public_fahrt_tracks (0045) — der an den Enden
+// gekappte Track einer öffentlichen Fahrt. Bewusst eine eigene View statt
+// einer Spalte in public_fahrten, damit der Feed nicht bei jedem Aufruf
+// dreissig vollständige Geometrien lädt.
+export interface PublicFahrtTrack {
+  completion_id: string;
+  track_geojson: GeoLineString;
 }
 
 // Zeilenform von public.route_photos — nur die für eine öffentliche

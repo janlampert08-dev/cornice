@@ -24,6 +24,7 @@ import { getRoute } from "@/lib/routes";
 import { getKudosForCompletions } from "@/lib/kudos";
 import { createClient } from "@/lib/supabase/server";
 import { formatDuration } from "@/lib/format";
+import { publicationBlockReason } from "@/lib/track";
 import Card from "@/components/ui/Card";
 
 export async function generateMetadata({
@@ -137,13 +138,18 @@ export default async function FahrtDetailPage({
                   initialGiven={kudos?.givenByMe ?? false}
                 />
               )}
-              {/* Das Teilen-Bild wird aus der Streckengeometrie gezeichnet
-                  (lib/shareImage.ts) — für freie Fahrten kommt es zusammen
-                  mit dem öffentlichen Track. */}
-              {route && (
+              {/* Eine freie Fahrt kann nur geteilt werden, wenn sie selbst
+                  öffentlich ist — nur dann existiert der gekappte Track, aus
+                  dem das Bild seine Linie zeichnet. Streckenfahrten nehmen
+                  wie bisher die Streckengeometrie. */}
+              {(route || (istFreieFahrt && completion.istOeffentlich && completion.track)) && (
                 <ShareRideButton
-                  routeId={route.id}
-                  distanceKm={completion.distanzKm ?? route.laenge_km}
+                  routeId={route?.id ?? null}
+                  completionId={completion.id}
+                  title={istFreieFahrt ? freieFahrtTitel(completion.titel, completion.startOrt) : (route?.name ?? "")}
+                  region={completion.region ?? route?.region ?? null}
+                  elevationM={istFreieFahrt ? completion.hoehenmeterAufstieg : (route?.hoehe_m ?? null)}
+                  distanceKm={completion.distanzKm ?? route?.laenge_km ?? 0}
                   durationSeconds={completion.dauerSekunden}
                   date={completion.datum}
                 />
@@ -151,9 +157,16 @@ export default async function FahrtDetailPage({
               {completion.isOwner && (
                 <CompletionActionsMenu
                   completionId={completion.id}
-                  art={completion.art}
                   isPublic={completion.istOeffentlich}
                   coveragePercent={completion.abdeckungProzent}
+                  blockedReason={
+                    istFreieFahrt
+                      ? publicationBlockReason(
+                          completion.distanzKm ?? 0,
+                          completion.bewegteZeitSekunden ?? completion.dauerSekunden ?? 0,
+                        )
+                      : null
+                  }
                   notiz={completion.notiz}
                 />
               )}

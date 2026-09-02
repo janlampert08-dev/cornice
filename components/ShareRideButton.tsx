@@ -13,13 +13,29 @@ function slugify(name: string): string {
     .replace(/(^-|-$)/g, "");
 }
 
+// Das Teilen-Bild wird erst beim Klick zusammengebaut: die Geometrie dafür
+// wird bewusst nicht mit der Seite ausgeliefert, sondern hier nachgeladen.
+//
+// Zwei Quellen, je nach Fahrtart: eine Streckenfahrt zeichnet die
+// Streckengeometrie (routes_geojson), eine freie Fahrt ihren eigenen,
+// öffentlich gekappten Track (public_fahrt_tracks, siehe 0045). Für eine
+// freie Fahrt, die nicht geteilt ist, gibt es keinen öffentlichen Track —
+// die Fahrt-Detailseite blendet den Knopf dann aus.
 export default function ShareRideButton({
   routeId,
+  completionId,
+  title,
+  region,
+  elevationM,
   distanceKm,
   durationSeconds,
   date,
 }: {
-  routeId: string;
+  routeId: string | null;
+  completionId: string;
+  title: string;
+  region: string | null;
+  elevationM: number | null;
   distanceKm: number;
   durationSeconds: number | null;
   date: string;
@@ -30,33 +46,54 @@ export default function ShareRideButton({
     setLoading(true);
     try {
       const supabase = createClient();
-      const { data: route } = await supabase
-        .from("routes_geojson")
-        .select("name, region, hoehe_m, geometry_geojson")
-        .eq("id", routeId)
-        .maybeSingle<{
-          name: string;
-          region: string;
-          hoehe_m: number | null;
-          geometry_geojson: GeoLineString;
-        }>();
 
-      if (!route) return;
+      let coordinates: [number, number][] | null = null;
+      let name = title;
+      let regionLabel = region ?? "";
+      let elevation = elevationM;
+
+      if (routeId) {
+        const { data: route } = await supabase
+          .from("routes_geojson")
+          .select("name, region, hoehe_m, geometry_geojson")
+          .eq("id", routeId)
+          .maybeSingle<{
+            name: string;
+            region: string;
+            hoehe_m: number | null;
+            geometry_geojson: GeoLineString;
+          }>();
+
+        if (!route) return;
+        coordinates = route.geometry_geojson.coordinates;
+        name = route.name;
+        regionLabel = route.region;
+        elevation = route.hoehe_m;
+      } else {
+        const { data: track } = await supabase
+          .from("public_fahrt_tracks")
+          .select("track_geojson")
+          .eq("completion_id", completionId)
+          .maybeSingle<{ track_geojson: GeoLineString }>();
+
+        if (!track) return;
+        coordinates = track.track_geojson.coordinates;
+      }
 
       const blob = await renderShareImage({
-        routeName: route.name,
-        region: route.region,
+        routeName: name,
+        region: regionLabel,
         distanceKm,
         durationSeconds,
         date,
-        elevationM: route.hoehe_m,
-        coordinates: route.geometry_geojson.coordinates,
+        elevationM: elevation,
+        coordinates,
       });
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${slugify(route.name)}-${date}.jpg`;
+      a.download = `${slugify(name)}-${date}.jpg`;
       a.click();
       URL.revokeObjectURL(url);
     } finally {

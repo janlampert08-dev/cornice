@@ -8,6 +8,7 @@ import type {
   HoehenprofilPunkt,
   PublicCompletionPhoto,
   PublicFahrt,
+  PublicFahrtTrack,
 } from "@/types/database";
 
 // Anzeigename einer freien Fahrt: der selbst vergebene Titel, sonst der
@@ -108,18 +109,35 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
   if (publicRow) {
     const row = publicRow as PublicFahrt;
 
-    const { data: photoRows } = await supabase
-      .from("public_completion_photos")
-      .select("id, foto_url")
-      .eq("completion_id", row.completion_id)
-      .order("position", { ascending: true });
+    const [{ data: photoRows }, { data: trackRow }] = await Promise.all([
+      supabase
+        .from("public_completion_photos")
+        .select("id, foto_url")
+        .eq("completion_id", row.completion_id)
+        .order("position", { ascending: true }),
+      // Nur die gekappte Fassung (0045) — der rohe Track ist selbst für den
+      // Besitzer nur über den Pfad unten erreichbar.
+      supabase
+        .from("public_fahrt_tracks")
+        .select("track_geojson")
+        .eq("completion_id", row.completion_id)
+        .maybeSingle<Pick<PublicFahrtTrack, "track_geojson">>(),
+    ]);
+
+    let ownHoehenprofil: HoehenprofilPunkt[] | null = null;
+    if (viewerId === row.user_id) {
+      const { data: own } = await supabase
+        .from("route_completions")
+        .select("hoehenprofil")
+        .eq("id", row.completion_id)
+        .eq("user_id", viewerId)
+        .maybeSingle<{ hoehenprofil: HoehenprofilPunkt[] | null }>();
+      ownHoehenprofil = own?.hoehenprofil ?? null;
+    }
 
     return {
       id: row.completion_id,
-      // public_fahrten führt (noch) nur Streckenfahrten: freie Fahrten sind
-      // in dieser Phase immer privat und laufen deshalb ausschliesslich über
-      // den Besitzer-Pfad unten.
-      art: "strecke",
+      art: row.art,
       routeId: row.route_id,
       userId: row.user_id,
       datum: row.datum,
@@ -141,13 +159,19 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
         fotoUrl: p.foto_url,
       })),
       isOwner: viewerId === row.user_id,
-      titel: null,
-      startOrt: null,
-      region: null,
-      bewegteZeitSekunden: null,
-      hoehenmeterAufstieg: null,
-      hoehenprofil: null,
-      track: null,
+      titel: row.titel,
+      startOrt: row.start_ort,
+      region: row.region,
+      bewegteZeitSekunden: row.bewegte_zeit_sekunden,
+      hoehenmeterAufstieg: row.hoehenmeter_aufstieg,
+      // Das Höhenprofil steht bewusst nicht in public_fahrten — ein ~80
+      // Punkte grosses JSON-Feld, das Feed und Profil bei ihrem select("*")
+      // jedes Mal mitzögen. Für den Besitzer wird es einzeln nachgeladen,
+      // damit er es nicht verliert, sobald er seine Fahrt teilt (derselbe
+      // Fehler, den 0035_public_fahrten_notiz.sql für Notiz und Fahrzeug
+      // korrigiert hat).
+      hoehenprofil: ownHoehenprofil,
+      track: trackRow?.track_geojson ?? null,
     };
   }
 

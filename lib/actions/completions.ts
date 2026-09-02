@@ -11,9 +11,12 @@ import {
   MAX_TRAIL_POINTS,
   maxJumpKm,
   movingSeconds,
+  publicationBlockReason,
   simplifyTrack,
+  toCoordinates,
   toEwktLineString,
 } from "@/lib/track";
+import { publicTrackEwkt } from "@/lib/publicTrack";
 import { buildHoehenprofil, computeAscentM, fetchElevationProfile } from "@/lib/elevation";
 import { reverseGeocode } from "@/lib/geocoding";
 import { getRoute } from "@/lib/routes";
@@ -250,6 +253,8 @@ export async function logTrackedCompletion(
   // Schwellenwerts nicht öffentlich sein (siehe lib/routeCoverage.ts).
   const istOeffentlich = requestedOeffentlich && abdeckungProzent >= COVERAGE_THRESHOLD_PERCENT;
 
+  const streckenKoordinaten = toCoordinates(simplifyTrack(trail));
+
   const uploaded = await uploadFotos(supabase, user.id, fotos);
   if ("error" in uploaded) return { error: uploaded.error };
   const uploadedUrls = uploaded.urls;
@@ -277,7 +282,13 @@ export async function logTrackedCompletion(
       // Ab 0044 wird der gefahrene Track gespeichert statt nach der
       // Berechnung verworfen — vereinfacht (die Kennzahlen oben stammen
       // weiterhin aus den Rohpunkten). Nur für den Besitzer lesbar.
-      track: toEwktLineString(simplifyTrack(trail)),
+      track: toEwktLineString(streckenKoordinaten),
+      // Die gekappte Fassung entsteht nur, wenn die Fahrt auch wirklich
+      // geteilt wird (0045) — eine private Fahrt hinterlässt keine
+      // öffentliche Geometrie.
+      track_oeffentlich: istOeffentlich
+        ? await publicTrackEwkt(supabase, user.id, streckenKoordinaten)
+        : null,
     })
     .select("id")
     .single();
@@ -335,11 +346,11 @@ async function deriveElevation(
 // keinen Deckungsgrad als Echtheitsanker — an seine Stelle treten die
 // Plausibilitätsregeln in implausibilityReason().
 //
-// Freie Fahrten sind in dieser Phase immer privat: ist_oeffentlich wird hier
-// bewusst nicht aus dem Formular übernommen, sondern fest auf false gesetzt.
-// Das öffentliche Teilen (Feed, Profil) kommt zusammen mit der Kappung der
-// Track-Enden und dem Meldeweg für Fahrten — vorher darf kein GPS-Track
-// einer freien Fahrt nach aussen gelangen.
+// Ob die Fahrt geteilt wird, entscheidet der Nutzer im Fazit-Screen. An die
+// Stelle des Deckungsgrads tritt dabei publicationBlockReason() — dieselbe
+// Funktion, mit der das Formular die Auswahl ausgraut, hier serverseitig
+// erzwungen: unabhängig davon, was das Formular schickt, wird eine zu kurze
+// Fahrt nur privat gespeichert.
 export async function logFreeRide(
   _prevState: FreeRideFormState,
   formData: FormData,
@@ -372,6 +383,11 @@ export async function logFreeRide(
   const implausible = implausibilityReason(trail, distanzKm, dauerSekunden);
   if (implausible) return { error: implausible };
 
+  const bewegteSekunden = movingSeconds(trail);
+  const istOeffentlich =
+    formData.get("ist_oeffentlich") === "true" &&
+    publicationBlockReason(distanzKm, bewegteSekunden) === null;
+
   const fahrzeugId = String(formData.get("fahrzeug_id") ?? "") || null;
   const titelRaw = String(formData.get("titel") ?? "").trim();
   const titel = titelRaw ? titelRaw.slice(0, MAX_TITEL_LENGTH) : null;
@@ -382,10 +398,9 @@ export async function logFreeRide(
     .filter((f): f is File => f instanceof File && f.size > 0)
     .slice(0, MAX_PHOTOS_PER_COMPLETION);
 
-  const simplified = simplifyTrack(trail);
-  const track = toEwktLineString(simplified);
+  const coordinates = toCoordinates(simplifyTrack(trail));
+  const track = toEwktLineString(coordinates);
   if (!track) return { error: "Ungültige Tracking-Daten." };
-  const coordinates = simplified.map((p) => [p.lng, p.lat] as [number, number]);
 
   // Ortsbezug und Höhendaten parallel — beide sind externe Aufrufe, die die
   // Antwortzeit sonst nacheinander verlängern würden.
@@ -408,8 +423,8 @@ export async function logFreeRide(
       datum: todayInZurich(),
       distanz_km: distanzKm,
       dauer_sekunden: dauerSekunden,
-      bewegte_zeit_sekunden: movingSeconds(trail),
-      ist_oeffentlich: false,
+      bewegte_zeit_sekunden: bewegteSekunden,
+      ist_oeffentlich: istOeffentlich,
       titel,
       notiz,
       start_ort: ort?.ort ?? null,
@@ -417,6 +432,9 @@ export async function logFreeRide(
       hoehenmeter_aufstieg: elevation.hoehenmeter_aufstieg,
       hoehenprofil: elevation.hoehenprofil,
       track,
+      track_oeffentlich: istOeffentlich
+        ? await publicTrackEwkt(supabase, user.id, coordinates)
+        : null,
     })
     .select("id")
     .single();
@@ -434,6 +452,10 @@ export async function logFreeRide(
   await attachPhotos(supabase, inserted.id, user.id, uploaded.urls);
 
   revalidatePath("/profil");
+  if (istOeffentlich) {
+    revalidatePath("/feed");
+    revalidatePath(`/fahrer/${user.id}`);
+  }
   return { error: null, completionId: inserted.id };
 }
 
@@ -513,37 +535,75 @@ export async function toggleCompletionVisibility(
 
   const { data: existing } = await supabase
     .from("route_completions")
-    .select("route_id, art, ist_oeffentlich, abdeckung_prozent")
+    .select(
+      "route_id, art, ist_oeffentlich, abdeckung_prozent, distanz_km, dauer_sekunden, bewegte_zeit_sekunden",
+    )
     .eq("id", completionId)
     .eq("user_id", user.id)
-    .maybeSingle();
+    .maybeSingle<{
+      route_id: string | null;
+      art: "strecke" | "frei";
+      ist_oeffentlich: boolean;
+      abdeckung_prozent: number | null;
+      distanz_km: number | null;
+      dauer_sekunden: number | null;
+      bewegte_zeit_sekunden: number | null;
+    }>();
 
   if (!existing) return { error: "Fahrt nicht gefunden." };
 
   const nextOeffentlich = !existing.ist_oeffentlich;
-  // Solange freie Fahrten nicht geteilt werden können (siehe logFreeRide),
-  // gilt das auch nachträglich — sonst liesse sich die Sperre über diesen
+
+  // Dieselben zwei Anker wie beim ersten Speichern, je nach Fahrtart: der
+  // Deckungsgrad bei einer Streckenfahrt, die Mindestwerte bei einer freien
+  // Fahrt. Ohne diese Prüfung liesse sich die Regel über den nachträglichen
   // Umschalter umgehen.
-  if (nextOeffentlich && existing.art === "frei") {
-    return { error: "Freie Fahrten können derzeit nicht öffentlich geteilt werden." };
+  if (nextOeffentlich) {
+    if (existing.art === "frei") {
+      const blocked = publicationBlockReason(
+        existing.distanz_km ?? 0,
+        existing.bewegte_zeit_sekunden ?? existing.dauer_sekunden ?? 0,
+      );
+      if (blocked) return { error: blocked };
+    } else if ((existing.abdeckung_prozent ?? 0) < COVERAGE_THRESHOLD_PERCENT) {
+      return {
+        error: `Diese Fahrt deckt nur ${Math.round(existing.abdeckung_prozent ?? 0)}% der Strecke ab und kann daher nicht öffentlich gemacht werden.`,
+      };
+    }
   }
-  if (nextOeffentlich && existing.abdeckung_prozent < COVERAGE_THRESHOLD_PERCENT) {
-    return {
-      error: `Diese Fahrt deckt nur ${Math.round(existing.abdeckung_prozent)}% der Strecke ab und kann daher nicht öffentlich gemacht werden.`,
-    };
+
+  // Die öffentliche Geometrie entsteht beim Veröffentlichen und verschwindet
+  // beim Zurücknehmen — es soll kein gekappter Track einer Fahrt liegen
+  // bleiben, die niemand mehr sehen darf.
+  let trackOeffentlich: string | null = null;
+  if (nextOeffentlich) {
+    const { data: trackRow } = await supabase
+      .from("fahrt_tracks")
+      .select("track_geojson")
+      .eq("completion_id", completionId)
+      .maybeSingle<{ track_geojson: { coordinates: [number, number][] } }>();
+    if (trackRow?.track_geojson?.coordinates) {
+      trackOeffentlich = await publicTrackEwkt(
+        supabase,
+        user.id,
+        trackRow.track_geojson.coordinates,
+      );
+    }
   }
 
   const { error } = await supabase
     .from("route_completions")
-    .update({ ist_oeffentlich: nextOeffentlich })
+    .update({ ist_oeffentlich: nextOeffentlich, track_oeffentlich: trackOeffentlich })
     .eq("id", completionId)
     .eq("user_id", user.id);
 
   if (error) return { error: "Sichtbarkeit konnte nicht geändert werden." };
 
   revalidatePath("/profil");
+  revalidatePath("/feed");
+  revalidatePath(`/fahrten/${completionId}`);
   revalidatePath(`/fahrer/${user.id}`);
-  revalidatePath(`/strecken/${existing.route_id}`);
+  if (existing.route_id) revalidatePath(`/strecken/${existing.route_id}`);
   revalidatePath("/leaderboards");
   return { error: null };
 }

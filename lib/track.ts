@@ -25,6 +25,20 @@ export const MAX_JUMP_KM = 2;
 // 30-Stunden-Fahrt mit absurdem Durchschnittstempo zu speichern.
 export const MAX_RIDE_SECONDS = 12 * 3600;
 
+// Auswahl für die Privatzone: Start und Ziel werden im Umkreis dieses
+// Radius aus dem öffentlich sichtbaren Track entfernt. Ein roher Track
+// beginnt und endet in aller Regel vor der eigenen Haustür — ohne Kappung
+// wäre jede geteilte Fahrt eine Adressangabe.
+export const PRIVACY_RADIUS_OPTIONS = [0, 100, 200, 500] as const;
+export const DEFAULT_PRIVACY_RADIUS_M = 200;
+
+// Untergrenzen, ab denen eine freie Fahrt überhaupt geteilt werden darf.
+// Sie ersetzen den Deckungsgrad, den es ohne Strecke nicht geben kann:
+// eine Aufzeichnung über wenige hundert Meter sagt niemandem etwas und ist
+// als Feed-Beitrag nur Rauschen. Gespeichert (privat) wird sie trotzdem.
+export const MIN_PUBLIC_DISTANCE_KM = 1;
+export const MIN_PUBLIC_MOVING_SECONDS = 180;
+
 // Ab dieser Geschwindigkeit zählt ein Segment als Fahrt statt als Pause.
 // Bewusst niedrig: Schrittgeschwindigkeit im Stau ist Fahrzeit, GPS-Zittern
 // im Stand (Ampel, Kaffeepause) ist es nicht.
@@ -125,6 +139,12 @@ export function movingSeconds(points: TrailPoint[], minKmh: number = MOVING_MIN_
   return Math.round(seconds);
 }
 
+// Die Koordinatenfolge eines Trails ohne Zeitstempel — die Form, in der
+// Geometrie gespeichert und gekappt wird.
+export function toCoordinates(points: TrailPoint[]): [number, number][] {
+  return points.map((p) => [p.lng, p.lat] as [number, number]);
+}
+
 // Grösster Abstand zwischen zwei aufeinanderfolgenden Punkten — Indikator
 // für einen zusammengesetzten oder gefälschten Trail (siehe MAX_JUMP_KM).
 export function maxJumpKm(points: TrailPoint[]): number {
@@ -136,6 +156,56 @@ export function maxJumpKm(points: TrailPoint[]): number {
   return max;
 }
 
+// Grund dafür, dass eine freie Fahrt nicht öffentlich sein kann — oder
+// null, wenn nichts dagegen spricht. Client und Server nutzen dieselbe
+// Funktion: das Formular schaltet die Auswahl aus, der Server erzwingt sie
+// (gleiches Muster wie COVERAGE_THRESHOLD_PERCENT bei Streckenfahrten).
+export function publicationBlockReason(
+  distanzKm: number,
+  bewegteSekunden: number,
+): string | null {
+  if (distanzKm < MIN_PUBLIC_DISTANCE_KM) {
+    return `Zu kurz zum Teilen — geteilte Fahrten brauchen mindestens ${MIN_PUBLIC_DISTANCE_KM} km.`;
+  }
+  if (bewegteSekunden < MIN_PUBLIC_MOVING_SECONDS) {
+    return `Zu kurz zum Teilen — geteilte Fahrten brauchen mindestens ${Math.round(MIN_PUBLIC_MOVING_SECONDS / 60)} Minuten in Bewegung.`;
+  }
+  return null;
+}
+
+// Entfernt Anfang und Ende des Tracks im Umkreis von radiusM um den ersten
+// bzw. letzten Punkt — die Privatzone. Bewusst nur an den Enden entlang der
+// Fahrtrichtung und nicht "jeder Punkt in der Nähe des Startpunkts": eine
+// Runde, die unterwegs am eigenen Wohnort vorbeiführt, soll dort kein Loch
+// bekommen, das erst recht verrät, worum es geht.
+//
+// Bleiben danach weniger als zwei Punkte übrig (kurze Fahrt, grosser
+// Radius), gibt es für diese Fahrt keinen öffentlichen Track — die Zahlen
+// bleiben, die Karte entfällt. Das ist die sichere Richtung.
+export function cropTrackEnds(
+  coordinates: [number, number][],
+  radiusM: number,
+): [number, number][] {
+  if (radiusM <= 0 || coordinates.length < 2) return [...coordinates];
+
+  const radiusKm = radiusM / 1000;
+  const first = coordinates[0];
+  const last = coordinates[coordinates.length - 1];
+
+  let start = 0;
+  while (start < coordinates.length && haversineKm(coordinates[start], first) <= radiusKm) {
+    start++;
+  }
+
+  let end = coordinates.length - 1;
+  while (end >= 0 && haversineKm(coordinates[end], last) <= radiusKm) {
+    end--;
+  }
+
+  if (end - start + 1 < 2) return [];
+  return coordinates.slice(start, end + 1);
+}
+
 // Sechs Nachkommastellen entsprechen gut 0.1 m — jenseits jeder GPS-
 // Genauigkeit, spart aber gegenüber der vollen Float-Darstellung deutlich
 // Platz in der Geometrie.
@@ -145,11 +215,11 @@ const COORD_PRECISION = 6;
 // String durch, Postgres wendet die Eingabefunktion des Typs an). Liefert
 // null, wenn nach dem Entfernen aufeinanderfolgender Duplikate weniger als
 // zwei Punkte übrig bleiben — ein LineString braucht mindestens zwei.
-export function toEwktLineString(points: TrailPoint[]): string | null {
+export function toEwktLineString(coordinates: [number, number][]): string | null {
   const parts: string[] = [];
   let previous: string | null = null;
-  for (const point of points) {
-    const coordinate = `${point.lng.toFixed(COORD_PRECISION)} ${point.lat.toFixed(COORD_PRECISION)}`;
+  for (const [lng, lat] of coordinates) {
+    const coordinate = `${lng.toFixed(COORD_PRECISION)} ${lat.toFixed(COORD_PRECISION)}`;
     if (coordinate === previous) continue;
     parts.push(coordinate);
     previous = coordinate;

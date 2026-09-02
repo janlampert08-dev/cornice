@@ -13,6 +13,7 @@ import { getKudosForCompletions } from "@/lib/kudos";
 import { isFollowing, getFollowCounts, getFollowerProfiles, getFollowingProfiles } from "@/lib/follows";
 import { createClient } from "@/lib/supabase/server";
 import Card from "@/components/ui/Card";
+import { freieFahrtTitel } from "@/lib/completions";
 
 export async function generateMetadata({
   params,
@@ -141,8 +142,10 @@ export default async function FahrerPage({
           )}
 
           <section className="flex flex-col gap-4">
+            {/* Nicht mehr nur "Gefahrene Strecken": die Liste enthält seit
+                0045_freie_fahrten_teilen.sql auch geteilte freie Fahrten. */}
             <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
-              Gefahrene Strecken
+              Geteilte Fahrten
             </h2>
             {profile.fahrten.length === 0 ? (
               <p className="text-sm text-muted">Noch keine öffentlichen Fahrten.</p>
@@ -156,7 +159,11 @@ export default async function FahrerPage({
                         href={`/fahrten/${f.completion_id}`}
                         className="flex min-w-0 flex-1 items-baseline justify-between text-sm transition-colors duration-fast hover:text-accent"
                       >
-                        <span className="truncate">{f.route_name}</span>
+                        <span className="truncate">
+                          {f.art === "frei"
+                            ? freieFahrtTitel(f.titel, f.start_ort)
+                            : f.route_name}
+                        </span>
                         <span className="ml-2 shrink-0 font-mono text-xs tabular-nums text-muted">
                           {new Date(f.datum).toLocaleDateString("de-CH")}
                         </span>

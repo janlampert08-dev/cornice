@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { logFreeRide, type FreeRideFormState } from "@/lib/actions/completions";
@@ -8,6 +8,7 @@ import { useRideRecorder } from "@/components/useRideRecorder";
 import { FREE_RIDE_STORAGE_KEY } from "@/lib/trackingStorage";
 import RideSummaryForm from "@/components/RideSummaryForm";
 import { formatDuration } from "@/lib/format";
+import { movingSeconds, publicationBlockReason } from "@/lib/track";
 import type { Vehicle } from "@/types/database";
 import { fieldClassName } from "@/components/ui/Input";
 import { buttonVariants } from "@/components/ui/Button";
@@ -37,7 +38,17 @@ export default function FreeRideForm({ vehicles }: { vehicles: Vehicle[] }) {
   const { phase, result, clearSnapshot, discard } = recorder;
 
   const [titel, setTitel] = useState("");
+  const [isPublic, setIsPublic] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  // Dieselbe Prüfung wie im Server (logFreeRide): eine zu kurze Aufzeichnung
+  // lässt sich speichern, aber nicht teilen. Die Bewegtzeit wird hier aus
+  // demselben Trail berechnet, den das Formular ohnehin mitschickt — der
+  // Server rechnet sie unabhängig noch einmal nach.
+  const publicationBlocked = useMemo(() => {
+    if (!result) return null;
+    return publicationBlockReason(result.distanceKm, movingSeconds(recorder.finishedTrail));
+  }, [result, recorder.finishedTrail]);
 
   // Nach dem Speichern direkt auf die neue Fahrt — anders als bei einer
   // Streckenfahrt gibt es keine Seite, zu der man "zurück" könnte.
@@ -87,13 +98,16 @@ export default function FreeRideForm({ vehicles }: { vehicles: Vehicle[] }) {
             error={state.error}
             vehicles={vehicles}
             trailJson={recorder.trailJson}
-            // Freie Fahrten sind in dieser Phase immer privat — serverseitig
-            // erzwungen (logFreeRide), hier nur erklärt statt eine Auswahl
-            // anzubieten, die noch nichts bewirkt.
-            visibility={null}
-            visibilityNote="Freie Fahrten sind vorerst nur für dich sichtbar. Das Teilen im Feed kommt als nächster Schritt."
-            isPublic={false}
-            onIsPublicChange={() => {}}
+            visibility={{
+              publicDisabled: publicationBlocked !== null,
+              publicDisabledHint: publicationBlocked ?? undefined,
+              publicHint:
+                "Öffentlich: erscheint im Feed und auf deinem öffentlichen Profil. Start und Ziel werden auf der Karte gekappt (Privatzone in den Einstellungen). Später jederzeit umschaltbar.",
+              privateHint:
+                "Privat: nur du siehst diese Fahrt in deinem Profil, für andere bleibt sie unsichtbar. Später jederzeit umschaltbar.",
+            }}
+            isPublic={isPublic}
+            onIsPublicChange={setIsPublic}
             onSubmit={() => setSubmitted(true)}
             onDiscard={handleExit}
           >

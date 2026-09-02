@@ -24,6 +24,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getFollowCounts, getFollowerProfiles, getFollowingProfiles } from "@/lib/follows";
 import { formatDuration, formatKm } from "@/lib/format";
 import { freieFahrtTitel } from "@/lib/completions";
+import { publicationBlockReason } from "@/lib/track";
 import type { FahrtArt, Vehicle } from "@/types/database";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
@@ -117,7 +118,7 @@ export default async function ProfilPage() {
     supabase
       .from("route_completions")
       .select(
-        "id, art, route_id, datum, dauer_sekunden, distanz_km, ist_oeffentlich, abdeckung_prozent, notiz, titel, start_ort, routes(name)",
+        "id, art, route_id, datum, dauer_sekunden, distanz_km, ist_oeffentlich, abdeckung_prozent, notiz, titel, start_ort, bewegte_zeit_sekunden, routes(name)",
       )
       .eq("user_id", user.id)
       .not("dauer_sekunden", "is", null)
@@ -139,6 +140,7 @@ export default async function ProfilPage() {
           notiz: string | null;
           titel: string | null;
           start_ort: string | null;
+          bewegte_zeit_sekunden: number | null;
           routes: { name: string } | null;
         }[]
       >(),
@@ -347,21 +349,23 @@ export default async function ProfilPage() {
                                   <span>{avgKmh.toFixed(0)} km/h</span>
                                 </div>
                               </Link>
-                              {/* Freie Fahrten sind in dieser Phase immer
-                                  privat (siehe logFreeRide) — statt eines
-                                  Schalters, der nur einen Fehler erzeugt,
-                                  steht hier die Fahrtart. */}
-                              {ride.art === "frei" ? (
-                                <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-xs text-muted">
-                                  Freie Fahrt
-                                </span>
-                              ) : (
-                                <RideVisibilityToggle
-                                  completionId={ride.id}
-                                  isPublic={ride.ist_oeffentlich}
-                                  coveragePercent={ride.abdeckung_prozent ?? 100}
-                                />
-                              )}
+                              {/* Beide Fahrtarten lassen sich hier teilen —
+                                  gesperrt wird je nach Art über den
+                                  Deckungsgrad (Strecke) oder die Mindestwerte
+                                  (freie Fahrt, siehe lib/track.ts). */}
+                              <RideVisibilityToggle
+                                completionId={ride.id}
+                                isPublic={ride.ist_oeffentlich}
+                                coveragePercent={ride.abdeckung_prozent}
+                                blockedReason={
+                                  ride.art === "frei"
+                                    ? publicationBlockReason(
+                                        ride.distanz_km,
+                                        ride.bewegte_zeit_sekunden ?? ride.dauer_sekunden,
+                                      )
+                                    : null
+                                }
+                              />
                             </div>
                           </li>
                         );
