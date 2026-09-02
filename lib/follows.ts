@@ -39,23 +39,36 @@ export interface FollowProfile {
 export async function getFollowCounts(userId: string): Promise<FollowCounts> {
   const supabase = await createClient();
   const { data } = await supabase.rpc("get_follow_counts", { p_user_id: userId }).single();
-  return { followers: data?.followers ?? 0, following: data?.following ?? 0 };
+  const row = data as FollowCounts | null;
+  return { followers: row?.followers ?? 0, following: row?.following ?? 0 };
+}
+
+interface FollowerListRow {
+  follower_id: string;
+  follower_display_name: string | null;
+  follower_avatar_url: string | null;
 }
 
 export async function getFollowerProfiles(userId: string): Promise<FollowProfile[]> {
   const supabase = await createClient();
   const { data } = await supabase.rpc("get_follower_list", { p_user_id: userId });
-  return (data ?? []).map((r) => ({
+  return ((data as FollowerListRow[] | null) ?? []).map((r) => ({
     id: r.follower_id,
     displayName: r.follower_display_name,
     avatarUrl: r.follower_avatar_url,
   }));
 }
 
+interface FollowingListRow {
+  followed_id: string;
+  followed_display_name: string | null;
+  followed_avatar_url: string | null;
+}
+
 export async function getFollowingProfiles(userId: string): Promise<FollowProfile[]> {
   const supabase = await createClient();
   const { data } = await supabase.rpc("get_following_list", { p_user_id: userId });
-  return (data ?? []).map((r) => ({
+  return ((data as FollowingListRow[] | null) ?? []).map((r) => ({
     id: r.followed_id,
     displayName: r.followed_display_name,
     avatarUrl: r.followed_avatar_url,
