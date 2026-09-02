@@ -6,6 +6,7 @@ import { isRateLimited } from "@/lib/rateLimit";
 import { computeRouteCoverage, COVERAGE_THRESHOLD_PERCENT } from "@/lib/routeCoverage";
 import { computeTrailStats, type TrailPoint } from "@/lib/geo";
 import { getRoute } from "@/lib/routes";
+import { todayInZurich } from "@/lib/format";
 
 export interface CompletionFormState {
   error: string | null;
@@ -177,7 +178,10 @@ export async function logTrackedCompletion(
       route_id: routeId,
       user_id: user.id,
       fahrzeug_id: fahrzeugId,
-      datum: new Date().toISOString().slice(0, 10),
+      // Lokales Kalenderdatum (Europe/Zurich), nicht UTC — sonst würde eine
+      // Fahrt kurz nach Mitternacht Ortszeit fälschlich auf den Vortag
+      // gestempelt (siehe todayInZurich in lib/format.ts).
+      datum: todayInZurich(),
       distanz_km: distanzKm,
       dauer_sekunden: dauerSekunden,
       ist_oeffentlich: istOeffentlich,

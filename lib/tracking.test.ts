@@ -77,4 +77,23 @@ describe("evaluateProximity", () => {
     );
     expect(result.shouldAutoStop).toBe(true);
   });
+
+  // Regression: die "hasLeftStart"-Prüfung muss den Start-Radius verwenden,
+  // nicht den Ziel-Radius — bislang durch identische Default-Werte (beide
+  // 0.15km) maskiert. NEAR_START liegt ~0.2km von START entfernt: innerhalb
+  // eines grosszügigen Start-Radius (0.5km), aber ausserhalb eines engen
+  // Ziel-Radius (0.1km). Mit dem alten, fehlerhaften Code (Vergleich gegen
+  // endProximityKm) wäre hasLeftStart hier fälschlich bereits true.
+  it("uses the start radius, not the end radius, to decide whether the start has been left", () => {
+    const NEAR_START: [number, number] = [8.5425, 47.37];
+    const result = evaluateProximity(
+      NEAR_START,
+      START,
+      LOOP_END,
+      state({ hasStarted: true, hasLeftStart: false }),
+      0.5,
+      0.1,
+    );
+    expect(result.hasLeftStart).toBe(false);
+  });
 });
