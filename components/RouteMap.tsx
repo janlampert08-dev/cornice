@@ -265,6 +265,7 @@ export default function RouteMap({
   trail = [],
   fitTrail = false,
   centerOnFirstLocation = false,
+  followLocation = false,
 }: {
   routes: RouteGeoJSON[];
   userLocation?: [number, number] | null;
@@ -290,6 +291,13 @@ export default function RouteMap({
   // Aufzeichnung einer freien Fahrt, wo es keine Strecke gibt, auf die sich
   // die Karte beim Aufbau legen könnte.
   centerOnFirstLocation?: boolean;
+  // Kartenausschnitt der laufenden GPS-Position nachführen (wie eine
+  // Navi-App) statt nur den Standort-Marker zu bewegen — für die aktive
+  // Aufzeichnung einer Fahrt (LiveTrackingForm/FreeRideForm). Greift erst,
+  // nachdem centerOnFirstLocation (falls gesetzt) die Karte einmalig
+  // positioniert hat, und pausiert, solange die Nutzerin die Karte selbst
+  // verschiebt.
+  followLocation?: boolean;
 }) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -306,6 +314,11 @@ export default function RouteMap({
   const hasCenteredOnLocationRef = useRef(false);
   const locationMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const locationElementsRef = useRef<ReturnType<typeof createLocationMarkerElement> | null>(null);
+  // Per Hand verschoben, während followLocation aktiv ist — pausiert das
+  // automatische Nachführen, statt der Nutzerin die Karte bei jedem
+  // GPS-Fix wieder unter dem Finger wegzuziehen. "dragstart" feuert nur bei
+  // Nutzer-Gesten, nicht bei den programmatischen easeTo()-Aufrufen unten.
+  const isDraggingRef = useRef(false);
 
   useEffect(() => {
     routesRef.current = routes;
@@ -613,6 +626,13 @@ export default function RouteMap({
       if (id) router.push(`/strecken/${id}`);
     });
 
+    map.on("dragstart", () => {
+      isDraggingRef.current = true;
+    });
+    map.on("dragend", () => {
+      isDraggingRef.current = false;
+    });
+
     return () => {
       map.remove();
       mapRef.current = null;
@@ -795,6 +815,11 @@ export default function RouteMap({
     if (centerOnFirstLocation && !hasCenteredOnLocationRef.current) {
       hasCenteredOnLocationRef.current = true;
       map.easeTo({ center: userLocation, zoom: 14, duration: 0 });
+    } else if (followLocation && hasCenteredOnLocationRef.current && !isDraggingRef.current) {
+      // Nur der Kartenmittelpunkt wandert mit — Zoom/Pitch/Bearing bleiben,
+      // wie die Nutzerin sie zuletzt eingestellt hat. Kurze Animation statt
+      // eines harten Sprungs, da GPS-Fixes alle paar Sekunden eintreffen.
+      map.easeTo({ center: userLocation, duration: 800 });
     }
 
     if (locationMarkerRef.current) {
@@ -814,7 +839,7 @@ export default function RouteMap({
       map.off("zoom", applyVisuals);
       map.off("rotate", applyVisuals);
     };
-  }, [userLocation, userAccuracyM, userHeadingDeg, centerOnFirstLocation]);
+  }, [userLocation, userAccuracyM, userHeadingDeg, centerOnFirstLocation, followLocation]);
 
   if (!MAPBOX_TOKEN) {
     return (

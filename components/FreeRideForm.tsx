@@ -157,6 +157,7 @@ export default function FreeRideForm({
           routes={EMPTY_ROUTES}
           trail={recorder.liveTrail}
           centerOnFirstLocation
+          followLocation
           userLocation={recorder.position}
           userAccuracyM={recorder.accuracyM}
           userHeadingDeg={recorder.headingDeg}
