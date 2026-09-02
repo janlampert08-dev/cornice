@@ -4,7 +4,13 @@ import Header from "@/components/Header";
 import ModerationActions from "@/components/ModerationActions";
 import ReportedContentActions from "@/components/ReportedContentActions";
 import { createClient } from "@/lib/supabase/server";
-import { isModerator, getPendingRoutes, getOpenRouteReports, getOpenRatingReports } from "@/lib/moderation";
+import {
+  isModerator,
+  getPendingRoutes,
+  getOpenRouteReports,
+  getOpenRatingReports,
+  getOpenCompletionReports,
+} from "@/lib/moderation";
 import { formatKm } from "@/lib/format";
 import Card from "@/components/ui/Card";
 
@@ -24,11 +30,14 @@ export default async function ModerationPage() {
   if (!user) redirect("/anmelden");
   if (!(await isModerator(user.id))) redirect("/");
 
-  const [routes, routeReports, ratingReports] = await Promise.all([
+  const [routes, routeReports, ratingReports, completionReports] = await Promise.all([
     getPendingRoutes(),
     getOpenRouteReports(),
     getOpenRatingReports(),
+    getOpenCompletionReports(),
   ]);
+
+  const offeneMeldungen = routeReports.length + ratingReports.length + completionReports.length;
 
   return (
     <div className="flex h-dvh flex-col">
@@ -77,12 +86,11 @@ export default async function ModerationPage() {
         <div className="mt-4">
           <h2 className="text-display font-semibold">Gemeldete Inhalte</h2>
           <p className="text-sm text-muted">
-            {routeReports.length + ratingReports.length}{" "}
-            {routeReports.length + ratingReports.length === 1 ? "offene Meldung" : "offene Meldungen"}
+            {offeneMeldungen} {offeneMeldungen === 1 ? "offene Meldung" : "offene Meldungen"}
           </p>
         </div>
 
-        {routeReports.length === 0 && ratingReports.length === 0 ? (
+        {offeneMeldungen === 0 ? (
           <p className="text-sm text-muted">Keine offenen Meldungen.</p>
         ) : (
           <div className="flex flex-col gap-3">
@@ -134,6 +142,34 @@ export default async function ModerationPage() {
                   targetId={report.ratingId}
                   type="rating"
                   deleteConfirmDescription="Der Kommentar wird endgültig gelöscht. Das kann nicht rückgängig gemacht werden."
+                />
+              </Card>
+            ))}
+            {completionReports.map((report) => (
+              <Card key={report.id} className="flex flex-col gap-3 p-4">
+                <div>
+                  <p className="text-xs font-semibold tracking-wide text-muted uppercase">
+                    {report.istFreieFahrt ? "Freie Fahrt" : "Fahrt"} gemeldet ·{" "}
+                    {REPORT_REASON_LABEL[report.grund] ?? report.grund}
+                  </p>
+                  <Link
+                    href={`/fahrten/${report.completionId}`}
+                    className="font-medium transition-colors duration-fast hover:text-accent"
+                  >
+                    {report.fahrtTitel}
+                  </Link>
+                  {report.fahrtNotiz && (
+                    <p className="mt-1 text-sm text-foreground">„{report.fahrtNotiz}“</p>
+                  )}
+                  {report.kommentar && (
+                    <p className="mt-1 text-sm text-muted">Meldungsgrund: „{report.kommentar}“</p>
+                  )}
+                </div>
+                <ReportedContentActions
+                  reportId={report.id}
+                  targetId={report.completionId}
+                  type="completion"
+                  deleteConfirmDescription="Die Fahrt verschwindet aus Feed und öffentlichem Profil, inklusive ihrer Karte. Der Fahrer behält seine Aufzeichnung."
                 />
               </Card>
             ))}

@@ -16,6 +16,7 @@ import Avatar from "@/components/Avatar";
 import KudosButton from "@/components/KudosButton";
 import ShareRideButton from "@/components/ShareRideButton";
 import CompletionActionsMenu from "@/components/CompletionActionsMenu";
+import CompletionReportButton from "@/components/CompletionReportButton";
 import ElevationProfile from "@/components/ElevationProfile";
 import CompletionMap from "@/components/CompletionMap";
 import CompletionPhotoGallery from "@/components/CompletionPhotoGallery";
@@ -153,6 +154,11 @@ export default async function FahrtDetailPage({
                   durationSeconds={completion.dauerSekunden}
                   date={completion.datum}
                 />
+              )}
+              {/* Melden nur für andere und nur bei einer geteilten Fahrt —
+                  private Fahrten sieht ohnehin niemand sonst. */}
+              {!completion.isOwner && user && completion.istOeffentlich && (
+                <CompletionReportButton completionId={completion.id} />
               )}
               {completion.isOwner && (
                 <CompletionActionsMenu
