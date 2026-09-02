@@ -37,8 +37,9 @@ export async function rejectRoute(routeId: string) {
 
   await supabase
     .from("routes")
-    .update({ abgelehnt_am: new Date().toISOString() })
+    .update({ status_ok: false, abgelehnt_am: new Date().toISOString() })
     .eq("id", routeId);
   revalidatePath("/moderation");
+  revalidatePath("/");
   revalidatePath("/profil");
 }
