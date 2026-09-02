@@ -3,6 +3,7 @@ import Link from "next/link";
 import { KeyRound, Lock, MapPin, Palette } from "lucide-react";
 import Header from "@/components/Header";
 import VisibilitySettings from "@/components/VisibilitySettings";
+import { DEFAULT_PRIVACY_RADIUS_M } from "@/lib/track";
 import ThemeToggle from "@/components/ThemeToggle";
 import DeleteProposalButton from "@/components/DeleteProposalButton";
 import DeleteAccountSection from "@/components/DeleteAccountSection";
@@ -33,7 +34,7 @@ export default async function EinstellungenPage() {
     supabase
       .from("profiles")
       .select(
-        "zeigt_fahrzeuge, zeigt_avatar, zeigt_paesse, zeigt_hoehenmeter, zeigt_distanz, zeigt_follower_liste",
+        "zeigt_fahrzeuge, zeigt_avatar, zeigt_paesse, zeigt_hoehenmeter, zeigt_distanz, zeigt_follower_liste, privatzone_radius_m",
       )
       .eq("id", user.id)
       .single(),
@@ -78,6 +79,7 @@ export default async function EinstellungenPage() {
               zeigtHoehenmeter={profile?.zeigt_hoehenmeter ?? false}
               zeigtDistanz={profile?.zeigt_distanz ?? false}
               zeigtFollowerListe={profile?.zeigt_follower_liste ?? false}
+              privatzoneRadiusM={profile?.privatzone_radius_m ?? DEFAULT_PRIVACY_RADIUS_M}
             />
           </section>
 

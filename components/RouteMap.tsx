@@ -23,6 +23,12 @@ const TRAFFIC_LINE_LAYER = "traffic-segments-line";
 const HIGHLIGHT_SOURCE = "route-highlight";
 const HIGHLIGHT_HALO_LAYER = "route-highlight-halo";
 const HIGHLIGHT_LINE_LAYER = "route-highlight-line";
+// Aufgezeichneter GPS-Track einer Fahrt (freie Fahrt oder Detailkarte einer
+// Aufzeichnung) — unabhängig von den kuratierten Strecken, die über
+// ROUTES_SOURCE laufen.
+const TRACK_SOURCE = "ride-track";
+const TRACK_LINE_LAYER = "ride-track-line";
+const TRACK_COLOR = "#3D5AFE";
 const TERRAIN_SOURCE = "mapbox-dem";
 const SKY_LAYER = "sky";
 const TERRAIN_EXAGGERATION = 1.4;
@@ -211,6 +217,22 @@ function createLocationMarkerElement() {
   return { wrapper, accuracyEl, headingEl, dotEl };
 }
 
+function toTrackFeatureCollection(trail: [number, number][]): GeoJSON.FeatureCollection {
+  return {
+    type: "FeatureCollection",
+    features:
+      trail.length > 1
+        ? [
+            {
+              type: "Feature",
+              geometry: { type: "LineString", coordinates: trail },
+              properties: {},
+            },
+          ]
+        : [],
+  };
+}
+
 function fitToRoutes(map: mapboxgl.Map, routes: RouteGeoJSON[], animate: boolean) {
   if (routes.length === 0) return;
   const bounds = new mapboxgl.LngLatBounds();
@@ -219,6 +241,13 @@ function fitToRoutes(map: mapboxgl.Map, routes: RouteGeoJSON[], animate: boolean
       bounds.extend(coord as [number, number]);
     }
   }
+  map.fitBounds(bounds, { padding: 48, duration: animate ? 500 : 0 });
+}
+
+function fitToTrail(map: mapboxgl.Map, trail: [number, number][], animate: boolean) {
+  if (trail.length < 2) return;
+  const bounds = new mapboxgl.LngLatBounds();
+  for (const coord of trail) bounds.extend(coord);
   map.fitBounds(bounds, { padding: 48, duration: animate ? 500 : 0 });
 }
 
@@ -233,6 +262,9 @@ export default function RouteMap({
   colors,
   hoveredRouteId = null,
   trafficSegments = [],
+  trail = [],
+  fitTrail = false,
+  centerOnFirstLocation = false,
 }: {
   routes: RouteGeoJSON[];
   userLocation?: [number, number] | null;
@@ -247,6 +279,17 @@ export default function RouteMap({
   colors?: Map<string, string>;
   hoveredRouteId?: string | null;
   trafficSegments?: { coords: [number, number][]; color: string }[];
+  // Aufgezeichneter GPS-Track: live wachsend während einer Aufzeichnung
+  // (FreeRideForm) oder fertig auf der Fahrt-Detailseite (CompletionMap).
+  trail?: [number, number][];
+  // Kartenausschnitt auf den Track legen. Für einen fertigen Track gedacht —
+  // während einer laufenden Aufzeichnung würde das den Ausschnitt bei jedem
+  // GPS-Fix neu setzen und gegen jedes manuelle Verschieben arbeiten.
+  fitTrail?: boolean;
+  // Einmalig auf den ersten ermittelten Standort zentrieren. Für die
+  // Aufzeichnung einer freien Fahrt, wo es keine Strecke gibt, auf die sich
+  // die Karte beim Aufbau legen könnte.
+  centerOnFirstLocation?: boolean;
 }) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -259,6 +302,8 @@ export default function RouteMap({
   const [isReady, setIsReady] = useState(false);
   const routesRef = useRef(routes);
   const colorsRef = useRef(colors);
+  const trailRef = useRef(trail);
+  const hasCenteredOnLocationRef = useRef(false);
   const locationMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const locationElementsRef = useRef<ReturnType<typeof createLocationMarkerElement> | null>(null);
 
@@ -269,6 +314,10 @@ export default function RouteMap({
   useEffect(() => {
     colorsRef.current = colors;
   }, [colors]);
+
+  useEffect(() => {
+    trailRef.current = trail;
+  }, [trail]);
 
   const trafficSegmentsRef = useRef(trafficSegments);
   useEffect(() => {
@@ -368,6 +417,24 @@ export default function RouteMap({
             "line-color": "#000000",
             "line-opacity": 0,
             "line-width": ["interpolate", ["linear"], ["zoom"], 8, 20, 14, 28],
+          },
+        },
+        firstSymbolId,
+      );
+
+      map.addSource(TRACK_SOURCE, {
+        type: "geojson",
+        data: toTrackFeatureCollection(trailRef.current),
+      });
+      map.addLayer(
+        {
+          id: TRACK_LINE_LAYER,
+          type: "line",
+          source: TRACK_SOURCE,
+          layout: { "line-join": "round", "line-cap": "round" },
+          paint: {
+            "line-color": TRACK_COLOR,
+            "line-width": ["interpolate", ["linear"], ["zoom"], 8, 2.5, 14, 4.5],
           },
         },
         firstSymbolId,
@@ -519,7 +586,11 @@ export default function RouteMap({
       // späteren Themenwechsel (erneutes "style.load") soll die aktuelle
       // Kartenansicht der Nutzerin erhalten bleiben statt zurückzuspringen.
       if (!hasFitBounds) {
-        fitToRoutes(map, routesRef.current, false);
+        if (routesRef.current.length > 0) {
+          fitToRoutes(map, routesRef.current, false);
+        } else {
+          fitToTrail(map, trailRef.current, false);
+        }
         hasFitBounds = true;
       }
 
@@ -625,6 +696,17 @@ export default function RouteMap({
     );
   }, [hoveredRouteId, routes]);
 
+  // Hält die gezeichnete Track-Linie aktuell — während einer Aufzeichnung
+  // bei jedem neuen GPS-Punkt, auf der Detailseite einmalig.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !styleLoadedRef.current) return;
+    const source = map.getSource(TRACK_SOURCE) as mapboxgl.GeoJSONSource | undefined;
+    if (!source) return;
+    source.setData(toTrackFeatureCollection(trail));
+    if (fitTrail) fitToTrail(map, trail, true);
+  }, [trail, fitTrail]);
+
   // Aktualisiert die eingefärbten Stau-Abschnitte, sobald RouteDetailMap eine
   // neue Verkehrsabfrage abgeschlossen hat.
   useEffect(() => {
@@ -710,6 +792,11 @@ export default function RouteMap({
       }
     }
 
+    if (centerOnFirstLocation && !hasCenteredOnLocationRef.current) {
+      hasCenteredOnLocationRef.current = true;
+      map.easeTo({ center: userLocation, zoom: 14, duration: 0 });
+    }
+
     if (locationMarkerRef.current) {
       locationMarkerRef.current.setLngLat(userLocation);
     } else {
@@ -727,7 +814,7 @@ export default function RouteMap({
       map.off("zoom", applyVisuals);
       map.off("rotate", applyVisuals);
     };
-  }, [userLocation, userAccuracyM, userHeadingDeg]);
+  }, [userLocation, userAccuracyM, userHeadingDeg, centerOnFirstLocation]);
 
   if (!MAPBOX_TOKEN) {
     return (

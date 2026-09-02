@@ -1,20 +1,31 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Bike, Car, Clock, Gauge, Mountain, Route as RouteIcon, Ruler } from "lucide-react";
+import {
+  Bike,
+  Car,
+  Clock,
+  Gauge,
+  MapPin,
+  Mountain,
+  Route as RouteIcon,
+  Ruler,
+} from "lucide-react";
 import Header from "@/components/Header";
 import Avatar from "@/components/Avatar";
 import KudosButton from "@/components/KudosButton";
 import ShareRideButton from "@/components/ShareRideButton";
 import CompletionActionsMenu from "@/components/CompletionActionsMenu";
+import CompletionReportButton from "@/components/CompletionReportButton";
 import ElevationProfile from "@/components/ElevationProfile";
 import CompletionMap from "@/components/CompletionMap";
 import CompletionPhotoGallery from "@/components/CompletionPhotoGallery";
-import { getCompletionDetail } from "@/lib/completions";
+import { freieFahrtTitel, getCompletionDetail } from "@/lib/completions";
 import { getRoute } from "@/lib/routes";
 import { getKudosForCompletions } from "@/lib/kudos";
 import { createClient } from "@/lib/supabase/server";
 import { formatDuration } from "@/lib/format";
+import { publicationBlockReason } from "@/lib/track";
 import Card from "@/components/ui/Card";
 
 export async function generateMetadata({
@@ -30,8 +41,13 @@ export async function generateMetadata({
   const completion = await getCompletionDetail(id, user?.id ?? null);
   if (!completion) return { title: "Fahrt – Cornice" };
 
-  const route = await getRoute(completion.routeId);
-  return { title: route ? `${route.name} – Fahrt von ${completion.displayName ?? "Fahrer"} – Cornice` : "Fahrt – Cornice" };
+  const fahrer = completion.displayName ?? "Fahrer";
+  if (completion.art === "frei") {
+    return { title: `${freieFahrtTitel(completion.titel, completion.startOrt)} – Fahrt von ${fahrer} – Cornice` };
+  }
+
+  const route = completion.routeId ? await getRoute(completion.routeId) : null;
+  return { title: route ? `${route.name} – Fahrt von ${fahrer} – Cornice` : "Fahrt – Cornice" };
 }
 
 // Custom Detailseite pro Aufzeichnung (Strava-artig: Strecke + Stats +
@@ -39,6 +55,10 @@ export async function generateMetadata({
 // Profil sichtbar. Zugriff: öffentliche Fahrten sind für jeden Betrachter
 // (auch anonym) offen, private nur für den Besitzer selbst — siehe
 // getCompletionDetail (lib/completions.ts) für die zwei Zugriffspfade.
+//
+// Seit 0044_freie_fahrten.sql zwei Ausprägungen: eine Streckenfahrt zeigt
+// Strecke, Deckungsgrad und Streckenhöhenprofil, eine freie Fahrt den
+// aufgezeichneten Track, ihren Ortsbezug und den summierten Anstieg.
 export default async function FahrtDetailPage({
   params,
 }: {
@@ -53,19 +73,37 @@ export default async function FahrtDetailPage({
   const completion = await getCompletionDetail(id, user?.id ?? null);
   if (!completion) notFound();
 
-  const route = await getRoute(completion.routeId);
-  if (!route) notFound();
+  const istFreieFahrt = completion.art === "frei";
+  const route = completion.routeId ? await getRoute(completion.routeId) : null;
+  // Eine Streckenfahrt ohne auffindbare Strecke gibt es nicht — eine freie
+  // Fahrt dagegen hat per Definition keine.
+  if (!istFreieFahrt && !route) notFound();
 
   const kudosByCompletion = completion.istOeffentlich
     ? await getKudosForCompletions([completion.id], user?.id ?? null)
     : null;
   const kudos = kudosByCompletion?.get(completion.id) ?? null;
 
+  // Bei einer freien Fahrt zählt die Bewegtzeit — eine Ausfahrt mit
+  // Kaffeestopp hätte über die verstrichene Zeit ein sinnlos niedriges
+  // Durchschnittstempo. Bei einer Streckenfahrt bleibt es bei der
+  // verstrichenen Zeit, die auch die Bestenliste verwendet.
+  const tempoSekunden = istFreieFahrt
+    ? (completion.bewegteZeitSekunden ?? completion.dauerSekunden)
+    : completion.dauerSekunden;
   const avgKmh =
-    completion.dauerSekunden && completion.dauerSekunden > 0 && completion.distanzKm
-      ? completion.distanzKm / (completion.dauerSekunden / 3600)
+    tempoSekunden && tempoSekunden > 0 && completion.distanzKm
+      ? completion.distanzKm / (tempoSekunden / 3600)
       : null;
 
+  // Nur zeigen, wenn sich die beiden Zeiten spürbar unterscheiden — sonst
+  // steht dieselbe Zahl zweimal da.
+  const zeigtBewegtzeit =
+    completion.bewegteZeitSekunden !== null &&
+    completion.dauerSekunden !== null &&
+    completion.dauerSekunden - completion.bewegteZeitSekunden > 60;
+
+  const hoehenprofil = istFreieFahrt ? completion.hoehenprofil : (route?.hoehenprofil ?? null);
   const VehicleIcon = completion.vehicle?.typ === "motorrad" ? Bike : Car;
 
   return (
@@ -101,17 +139,40 @@ export default async function FahrtDetailPage({
                   initialGiven={kudos?.givenByMe ?? false}
                 />
               )}
-              <ShareRideButton
-                routeId={route.id}
-                distanceKm={completion.distanzKm ?? route.laenge_km}
-                durationSeconds={completion.dauerSekunden}
-                date={completion.datum}
-              />
+              {/* Eine freie Fahrt kann nur geteilt werden, wenn sie selbst
+                  öffentlich ist — nur dann existiert der gekappte Track, aus
+                  dem das Bild seine Linie zeichnet. Streckenfahrten nehmen
+                  wie bisher die Streckengeometrie. */}
+              {(route || (istFreieFahrt && completion.istOeffentlich && completion.track)) && (
+                <ShareRideButton
+                  routeId={route?.id ?? null}
+                  completionId={completion.id}
+                  title={istFreieFahrt ? freieFahrtTitel(completion.titel, completion.startOrt) : (route?.name ?? "")}
+                  region={completion.region ?? route?.region ?? null}
+                  elevationM={istFreieFahrt ? completion.hoehenmeterAufstieg : (route?.hoehe_m ?? null)}
+                  distanceKm={completion.distanzKm ?? route?.laenge_km ?? 0}
+                  durationSeconds={completion.dauerSekunden}
+                  date={completion.datum}
+                />
+              )}
+              {/* Melden nur für andere und nur bei einer geteilten Fahrt —
+                  private Fahrten sieht ohnehin niemand sonst. */}
+              {!completion.isOwner && user && completion.istOeffentlich && (
+                <CompletionReportButton completionId={completion.id} />
+              )}
               {completion.isOwner && (
                 <CompletionActionsMenu
                   completionId={completion.id}
                   isPublic={completion.istOeffentlich}
                   coveragePercent={completion.abdeckungProzent}
+                  blockedReason={
+                    istFreieFahrt
+                      ? publicationBlockReason(
+                          completion.distanzKm ?? 0,
+                          completion.bewegteZeitSekunden ?? completion.dauerSekunden ?? 0,
+                        )
+                      : null
+                  }
                   notiz={completion.notiz}
                 />
               )}
@@ -119,19 +180,39 @@ export default async function FahrtDetailPage({
           </div>
 
           <div>
-            <p className="text-sm text-muted">{route.region}</p>
-            <Link href={`/strecken/${route.id}`} className="group inline-flex items-baseline gap-1.5">
-              <h1 className="text-display font-semibold tracking-tight group-hover:text-accent">
-                {route.name}
+            <p className="text-sm text-muted">{istFreieFahrt ? completion.region : route!.region}</p>
+            {istFreieFahrt ? (
+              <h1 className="text-display font-semibold tracking-tight">
+                {freieFahrtTitel(completion.titel, completion.startOrt)}
               </h1>
-            </Link>
-            <p className="mt-1 text-sm text-muted">
-              {route.ist_rundfahrt ? `Start/Ziel: ${route.start_ort}` : `${route.start_ort} → ${route.ziel_ort}`}
+            ) : (
+              <Link
+                href={`/strecken/${route!.id}`}
+                className="group inline-flex items-baseline gap-1.5"
+              >
+                <h1 className="text-display font-semibold tracking-tight group-hover:text-accent">
+                  {route!.name}
+                </h1>
+              </Link>
+            )}
+            <p className="mt-1 flex items-center gap-1.5 text-sm text-muted">
+              {istFreieFahrt ? (
+                completion.startOrt && (
+                  <>
+                    <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+                    Start: {completion.startOrt}
+                  </>
+                )
+              ) : route!.ist_rundfahrt ? (
+                `Start/Ziel: ${route!.start_ort}`
+              ) : (
+                `${route!.start_ort} → ${route!.ziel_ort}`
+              )}
             </p>
           </div>
 
           <Card className="h-64 overflow-hidden sm:h-80">
-            <CompletionMap route={route} />
+            <CompletionMap route={route} track={completion.track} />
           </Card>
 
           {(completion.vehicle || completion.abdeckungProzent !== null || completion.notiz) && (
@@ -187,7 +268,7 @@ export default async function FahrtDetailPage({
                 Distanz
               </dt>
               <dd className="text-title font-mono font-semibold tabular-nums">
-                {(completion.distanzKm ?? route.laenge_km).toFixed(1)} km
+                {(completion.distanzKm ?? route?.laenge_km ?? 0).toFixed(1)} km
               </dd>
             </Card>
             <Card surface className="flex flex-col justify-between gap-1 p-4">
@@ -198,26 +279,39 @@ export default async function FahrtDetailPage({
               <dd className="text-title font-mono font-semibold tabular-nums">
                 {completion.dauerSekunden !== null ? formatDuration(completion.dauerSekunden) : "—"}
               </dd>
+              {zeigtBewegtzeit && (
+                <dd className="font-mono text-xs tabular-nums text-muted">
+                  {formatDuration(completion.bewegteZeitSekunden!)} in Bewegung
+                </dd>
+              )}
             </Card>
             <Card surface className="flex flex-col justify-between gap-1 p-4">
               <dt className="flex items-center gap-1.5 text-sm text-muted">
                 <Gauge className="h-3.5 w-3.5" aria-hidden="true" />
                 Ø Tempo
               </dt>
-              <dd className="font-mono tabular-nums">{avgKmh !== null ? `${avgKmh.toFixed(0)} km/h` : "—"}</dd>
+              <dd className="font-mono tabular-nums">
+                {avgKmh !== null ? `${avgKmh.toFixed(0)} km/h` : "—"}
+              </dd>
             </Card>
             <Card surface className="flex flex-col justify-between gap-1 p-4">
               <dt className="flex items-center gap-1.5 text-sm text-muted">
                 <Mountain className="h-3.5 w-3.5" aria-hidden="true" />
-                Höhe
+                {istFreieFahrt ? "Aufstieg" : "Höhe"}
               </dt>
-              <dd className="font-mono tabular-nums">{route.hoehe_m !== null ? `${route.hoehe_m} m` : "—"}</dd>
+              <dd className="font-mono tabular-nums">
+                {istFreieFahrt
+                  ? completion.hoehenmeterAufstieg !== null
+                    ? `${completion.hoehenmeterAufstieg} m`
+                    : "—"
+                  : route!.hoehe_m !== null
+                    ? `${route!.hoehe_m} m`
+                    : "—"}
+              </dd>
             </Card>
           </dl>
 
-          {route.hoehenprofil && route.hoehenprofil.length > 1 && (
-            <ElevationProfile punkte={route.hoehenprofil} />
-          )}
+          {hoehenprofil && hoehenprofil.length > 1 && <ElevationProfile punkte={hoehenprofil} />}
         </main>
       </div>
     </div>

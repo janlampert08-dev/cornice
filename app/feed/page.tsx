@@ -5,6 +5,7 @@ import Avatar from "@/components/Avatar";
 import KudosButton from "@/components/KudosButton";
 import ProfileSearch from "@/components/ProfileSearch";
 import { getFeed, type FeedScope } from "@/lib/feed";
+import { freieFahrtTitel } from "@/lib/completions";
 import { createClient } from "@/lib/supabase/server";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
@@ -109,12 +110,27 @@ export default async function FeedPage({
                     href={`/fahrten/${item.completion_id}`}
                     className="flex items-baseline justify-between gap-2 transition-colors duration-fast hover:text-accent"
                   >
-                    <span className="min-w-0 truncate font-medium">{item.route_name}</span>
+                    <span className="min-w-0 truncate font-medium">
+                      {item.art === "frei"
+                        ? freieFahrtTitel(item.titel, item.start_ort)
+                        : item.route_name}
+                    </span>
                     <span className="shrink-0 font-mono text-sm tabular-nums text-muted">
-                      {(item.distanz_km ?? item.laenge_km).toFixed(1)} km
+                      {(item.distanz_km ?? item.laenge_km ?? 0).toFixed(1)} km
                     </span>
                   </Link>
-                  <p className="text-xs text-muted">{item.region}</p>
+                  {/* Freie Fahrten sind als solche gekennzeichnet: sie
+                      führen über keine geprüfte Strecke, und der Unterschied
+                      soll in der Liste sichtbar sein statt nur im Titel
+                      mitschwingen. */}
+                  <p className="flex items-center gap-1.5 text-xs text-muted">
+                    {item.art === "frei" && (
+                      <span className="rounded-full border border-border px-1.5 py-0.5">
+                        Freie Fahrt
+                      </span>
+                    )}
+                    {item.region}
+                  </p>
 
                   {user && (
                     <div className="flex justify-end">

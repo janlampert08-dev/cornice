@@ -4,15 +4,31 @@ import { useState, useTransition } from "react";
 import {
   dismissRouteReport,
   dismissRatingReport,
+  dismissCompletionReport,
   deleteReportedRoute,
   deleteReportedRating,
+  unpublishReportedCompletion,
 } from "@/lib/actions/moderation";
 import Button from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/Dialog";
 
-// Zwei Varianten (Strecke/Kommentar) in einer Komponente statt zweier
-// Kopien — "Ignorieren" und "Löschen" sind für beide identisch, nur die
-// aufgerufenen Server Actions unterscheiden sich.
+// Drei Varianten in einer Komponente statt dreier Kopien — "Ignorieren" ist
+// überall dasselbe, nur die aufgerufenen Server Actions und die Beschriftung
+// der zweiten Schaltfläche unterscheiden sich.
+//
+// Bei einer gemeldeten Fahrt ist diese zweite Aktion bewusst kein Löschen,
+// sondern das Entöffentlichen: eine persönliche Aufzeichnung soll dem Fahrer
+// erhalten bleiben, sie muss nur aus der Öffentlichkeit verschwinden.
+const ACTIONS = {
+  route: { dismiss: dismissRouteReport, act: deleteReportedRoute, label: "Strecke löschen" },
+  rating: { dismiss: dismissRatingReport, act: deleteReportedRating, label: "Kommentar löschen" },
+  completion: {
+    dismiss: dismissCompletionReport,
+    act: unpublishReportedCompletion,
+    label: "Fahrt verbergen",
+  },
+} as const;
+
 export default function ReportedContentActions({
   reportId,
   targetId,
@@ -21,14 +37,13 @@ export default function ReportedContentActions({
 }: {
   reportId: string;
   targetId: string;
-  type: "route" | "rating";
+  type: keyof typeof ACTIONS;
   deleteConfirmDescription: string;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  const dismiss = type === "route" ? dismissRouteReport : dismissRatingReport;
-  const remove = type === "route" ? deleteReportedRoute : deleteReportedRating;
+  const { dismiss, act: remove, label } = ACTIONS[type];
 
   return (
     <div className="flex gap-2">
@@ -41,13 +56,13 @@ export default function ReportedContentActions({
         Ignorieren
       </Button>
       <Button variant="danger" size="sm" onClick={() => setConfirmOpen(true)} disabled={pending}>
-        {type === "route" ? "Strecke löschen" : "Kommentar löschen"}
+        {label}
       </Button>
       <ConfirmDialog
         open={confirmOpen}
-        title={type === "route" ? "Strecke löschen" : "Kommentar löschen"}
+        title={label}
         description={deleteConfirmDescription}
-        confirmLabel="Löschen"
+        confirmLabel={type === "completion" ? "Verbergen" : "Löschen"}
         variant="danger"
         pending={pending}
         onCancel={() => setConfirmOpen(false)}

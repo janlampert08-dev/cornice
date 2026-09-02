@@ -1,6 +1,23 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
-import type { CompletionPhoto, PublicCompletionPhoto, PublicFahrt } from "@/types/database";
+import type {
+  CompletionPhoto,
+  FahrtArt,
+  FahrtTrack,
+  GeoLineString,
+  HoehenprofilPunkt,
+  PublicCompletionPhoto,
+  PublicFahrt,
+  PublicFahrtTrack,
+} from "@/types/database";
+
+// Anzeigename einer freien Fahrt: der selbst vergebene Titel, sonst der
+// per Reverse-Geocoding ermittelte Startort, sonst ein neutraler Fallback.
+// Eine Streckenfahrt trägt stattdessen immer den Streckennamen.
+export function freieFahrtTitel(titel: string | null, startOrt: string | null): string {
+  if (titel) return titel;
+  return startOrt ? `Fahrt ab ${startOrt}` : "Freie Fahrt";
+}
 
 export interface CompletionPhotoItem {
   id: string;
@@ -29,7 +46,9 @@ export async function getPersonalBestSeconds(
 
 export interface CompletionDetail {
   id: string;
-  routeId: string;
+  art: FahrtArt;
+  // null bei einer freien Fahrt (art === "frei").
+  routeId: string | null;
   userId: string;
   datum: string;
   dauerSekunden: number | null;
@@ -48,6 +67,20 @@ export interface CompletionDetail {
   // fotoUrl-Feld, in Anzeigereihenfolge (position).
   photos: CompletionPhotoItem[];
   isOwner: boolean;
+  // Ab 0044_freie_fahrten.sql, nur bei freien Fahrten gesetzt: eigener
+  // Titel, Ortsbezug, Anstieg und Höhenprofil treten an die Stelle dessen,
+  // was bei einer Streckenfahrt aus der Strecke selbst kommt.
+  titel: string | null;
+  startOrt: string | null;
+  region: string | null;
+  bewegteZeitSekunden: number | null;
+  hoehenmeterAufstieg: number | null;
+  hoehenprofil: HoehenprofilPunkt[] | null;
+  // Der aufgezeichnete GPS-Track — nur für den Besitzer und vorerst nur bei
+  // freien Fahrten geladen (fahrt_tracks läuft mit den Rechten des
+  // Aufrufers, liefert also ohnehin nur eigene Fahrten). Bei Streckenfahrten
+  // zeigt die Detailkarte weiterhin die Streckengeometrie.
+  track: GeoLineString | null;
 }
 
 // Für die Fahrt-Detailseite (app/fahrten/[id]/page.tsx) — zwei Pfade, je
@@ -76,14 +109,49 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
   if (publicRow) {
     const row = publicRow as PublicFahrt;
 
-    const { data: photoRows } = await supabase
-      .from("public_completion_photos")
-      .select("id, foto_url")
-      .eq("completion_id", row.completion_id)
-      .order("position", { ascending: true });
+    const [{ data: photoRows }, { data: trackRow }] = await Promise.all([
+      supabase
+        .from("public_completion_photos")
+        .select("id, foto_url")
+        .eq("completion_id", row.completion_id)
+        .order("position", { ascending: true }),
+      // Nur die gekappte Fassung (0045) — der rohe Track ist selbst für den
+      // Besitzer nur über den Pfad unten erreichbar.
+      supabase
+        .from("public_fahrt_tracks")
+        .select("track_geojson")
+        .eq("completion_id", row.completion_id)
+        .maybeSingle<Pick<PublicFahrtTrack, "track_geojson">>(),
+    ]);
+
+    // Für den Fahrer selbst zwei Dinge nachladen, die die öffentliche View
+    // bewusst nicht enthält: sein Höhenprofil (siehe unten) und seinen
+    // vollständigen, ungekappten Track. Die Privatzone schützt die Fahrt vor
+    // anderen — die eigene Ansicht bleibt vollständig, so wie es die
+    // Einstellung zusagt.
+    let ownHoehenprofil: HoehenprofilPunkt[] | null = null;
+    let ownTrack: GeoLineString | null = null;
+    if (viewerId === row.user_id) {
+      const [{ data: own }, { data: ownTrackRow }] = await Promise.all([
+        supabase
+          .from("route_completions")
+          .select("hoehenprofil")
+          .eq("id", row.completion_id)
+          .eq("user_id", viewerId)
+          .maybeSingle<{ hoehenprofil: HoehenprofilPunkt[] | null }>(),
+        supabase
+          .from("fahrt_tracks")
+          .select("track_geojson")
+          .eq("completion_id", row.completion_id)
+          .maybeSingle<Pick<FahrtTrack, "track_geojson">>(),
+      ]);
+      ownHoehenprofil = own?.hoehenprofil ?? null;
+      ownTrack = ownTrackRow?.track_geojson ?? null;
+    }
 
     return {
       id: row.completion_id,
+      art: row.art,
       routeId: row.route_id,
       userId: row.user_id,
       datum: row.datum,
@@ -105,6 +173,19 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
         fotoUrl: p.foto_url,
       })),
       isOwner: viewerId === row.user_id,
+      titel: row.titel,
+      startOrt: row.start_ort,
+      region: row.region,
+      bewegteZeitSekunden: row.bewegte_zeit_sekunden,
+      hoehenmeterAufstieg: row.hoehenmeter_aufstieg,
+      // Das Höhenprofil steht bewusst nicht in public_fahrten — ein ~80
+      // Punkte grosses JSON-Feld, das Feed und Profil bei ihrem select("*")
+      // jedes Mal mitzögen. Für den Besitzer wird es einzeln nachgeladen,
+      // damit er es nicht verliert, sobald er seine Fahrt teilt (derselbe
+      // Fehler, den 0035_public_fahrten_notiz.sql für Notiz und Fahrzeug
+      // korrigiert hat).
+      hoehenprofil: ownHoehenprofil,
+      track: ownTrack ?? trackRow?.track_geojson ?? null,
     };
   }
 
@@ -113,20 +194,27 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
   const { data: own } = await supabase
     .from("route_completions")
     .select(
-      "id, route_id, user_id, datum, dauer_sekunden, distanz_km, ist_oeffentlich, abdeckung_prozent, notiz, vehicles(typ, marke, modell)",
+      "id, art, route_id, user_id, datum, dauer_sekunden, distanz_km, ist_oeffentlich, abdeckung_prozent, notiz, titel, start_ort, region, bewegte_zeit_sekunden, hoehenmeter_aufstieg, hoehenprofil, vehicles(typ, marke, modell)",
     )
     .eq("id", id)
     .eq("user_id", viewerId)
     .maybeSingle<{
       id: string;
-      route_id: string;
+      art: FahrtArt;
+      route_id: string | null;
       user_id: string;
       datum: string;
       dauer_sekunden: number | null;
       distanz_km: number | null;
       ist_oeffentlich: boolean;
-      abdeckung_prozent: number;
+      abdeckung_prozent: number | null;
       notiz: string | null;
+      titel: string | null;
+      start_ort: string | null;
+      region: string | null;
+      bewegte_zeit_sekunden: number | null;
+      hoehenmeter_aufstieg: number | null;
+      hoehenprofil: HoehenprofilPunkt[] | null;
       vehicles: { typ: string; marke: string; modell: string } | null;
     }>();
 
@@ -142,8 +230,21 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
       .order("position", { ascending: true }),
   ]);
 
+  // Nur bei freien Fahrten nötig: die Detailkarte einer Streckenfahrt zeigt
+  // weiterhin die Streckengeometrie, dafür braucht es keinen zweiten Zugriff.
+  let track: GeoLineString | null = null;
+  if (own.art === "frei") {
+    const { data: trackRow } = await supabase
+      .from("fahrt_tracks")
+      .select("track_geojson")
+      .eq("completion_id", id)
+      .maybeSingle<Pick<FahrtTrack, "track_geojson">>();
+    track = trackRow?.track_geojson ?? null;
+  }
+
   return {
     id: own.id,
+    art: own.art,
     routeId: own.route_id,
     userId: own.user_id,
     datum: own.datum,
@@ -160,5 +261,12 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
       fotoUrl: p.foto_url,
     })),
     isOwner: true,
+    titel: own.titel,
+    startOrt: own.start_ort,
+    region: own.region,
+    bewegteZeitSekunden: own.bewegte_zeit_sekunden,
+    hoehenmeterAufstieg: own.hoehenmeter_aufstieg,
+    hoehenprofil: own.hoehenprofil,
+    track,
   };
 });

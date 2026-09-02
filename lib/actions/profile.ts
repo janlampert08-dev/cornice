@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { recomputePublicTracks } from "@/lib/publicTrack";
+import { DEFAULT_PRIVACY_RADIUS_M, PRIVACY_RADIUS_OPTIONS } from "@/lib/track";
 
 export interface ProfileActionState {
   error: string | null;
@@ -54,9 +56,25 @@ export async function updateVisibilitySettings(
 
   if (!user) return { error: "Bitte melde dich zuerst an." };
 
+  // Der Privatzonen-Radius kommt aus derselben Maske wie die übrigen
+  // Sichtbarkeits-Schalter. Nur die angebotenen Werte sind zulässig, alles
+  // andere fällt auf den Standard zurück.
+  //
+  // Der Feldwert wird bewusst erst als Text geprüft: Number(null) und
+  // Number("") ergeben 0, und 0 ist ein gültiger Radius ("Privatzone aus").
+  // Ein Formular ohne dieses Feld würde die Privatzone also stillschweigend
+  // abschalten — bei einer Datenschutz-Einstellung genau die falsche
+  // Richtung.
+  const radiusRaw = formData.get("privatzone_radius_m");
+  const radius = typeof radiusRaw === "string" && radiusRaw.trim() !== "" ? Number(radiusRaw) : NaN;
+  const privatzoneRadiusM = (PRIVACY_RADIUS_OPTIONS as readonly number[]).includes(radius)
+    ? radius
+    : DEFAULT_PRIVACY_RADIUS_M;
+
   const { error } = await supabase
     .from("profiles")
     .update({
+      privatzone_radius_m: privatzoneRadiusM,
       zeigt_fahrzeuge: formData.get("zeigt_fahrzeuge") === "true",
       zeigt_avatar: formData.get("zeigt_avatar") === "true",
       zeigt_paesse: formData.get("zeigt_paesse") === "true",
@@ -70,9 +88,23 @@ export async function updateVisibilitySettings(
 
   if (error) return { error: "Einstellungen konnten nicht gespeichert werden." };
 
+  // Ein geänderter Radius muss auch für bereits geteilte Fahrten gelten —
+  // sonst wirkte die strengere Einstellung nur in die Zukunft, und genau
+  // die alten Fahrten wären das Problem. Schlägt das für eine Fahrt fehl,
+  // bleibt dort der bisherige, weitere Track öffentlich: das darf nicht als
+  // "Gespeichert." durchgehen.
+  const recomputed = await recomputePublicTracks(supabase, user.id, privatzoneRadiusM);
+  if (!recomputed) {
+    return {
+      error:
+        "Die Einstellungen wurden gespeichert, aber nicht alle bereits geteilten Fahrten konnten neu zugeschnitten werden. Bitte versuche es noch einmal.",
+    };
+  }
+
   revalidatePath("/profil");
   revalidatePath("/profil/einstellungen");
   revalidatePath(`/fahrer/${user.id}`);
+  revalidatePath("/feed");
   revalidatePath("/leaderboards");
   return { error: null, success: true };
 }

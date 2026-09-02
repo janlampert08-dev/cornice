@@ -5,6 +5,8 @@ import { updateVisibilitySettings, type ProfileActionState } from "@/lib/actions
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Switch from "@/components/ui/Switch";
+import { fieldClassName } from "@/components/ui/Input";
+import { PRIVACY_RADIUS_OPTIONS } from "@/lib/track";
 
 const initialState: ProfileActionState = { error: null };
 
@@ -16,6 +18,17 @@ export interface VisibilityFlags {
   zeigtDistanz: boolean;
   zeigtFollowerListe: boolean;
 }
+
+export interface VisibilitySettingsProps extends VisibilityFlags {
+  privatzoneRadiusM: number;
+}
+
+const PRIVACY_RADIUS_LABELS: Record<number, string> = {
+  0: "Aus — vollständiger Track sichtbar",
+  100: "100 m um Start und Ziel",
+  200: "200 m um Start und Ziel",
+  500: "500 m um Start und Ziel",
+};
 
 const FIELDS: {
   name: keyof VisibilityFlags;
@@ -42,7 +55,10 @@ const FIELDS: {
 // Bereich). Jeder Switch bleibt technisch eine unkontrollierte Checkbox
 // (name/value/defaultChecked), submitted also weiterhin gesammelt über den
 // einen "Speichern"-Button unten statt pro Zeile automatisch zu sichern.
-export default function VisibilitySettings(flags: VisibilityFlags) {
+export default function VisibilitySettings({
+  privatzoneRadiusM,
+  ...flags
+}: VisibilitySettingsProps) {
   const [state, formAction, pending] = useActionState(updateVisibilitySettings, initialState);
 
   return (
@@ -58,6 +74,35 @@ export default function VisibilitySettings(flags: VisibilityFlags) {
             description={field.description}
           />
         ))}
+      </Card>
+
+      {/* Privatzone: kein Schalter, sondern eine Auswahl — und bewusst
+          nicht in der Schalterliste oben, weil sie etwas anderes tut. Die
+          übrigen Einstellungen entscheiden, ob eine Zahl sichtbar ist; diese
+          entscheidet, wie viel einer geteilten Fahrt am Anfang und Ende
+          abgeschnitten wird, bevor sie überhaupt jemand sieht. */}
+      <Card className="flex flex-col gap-2 p-4">
+        <label htmlFor="privatzone" className="text-sm font-medium">
+          Privatzone auf geteilten Karten
+        </label>
+        <select
+          id="privatzone"
+          name="privatzone_radius_m"
+          defaultValue={String(privatzoneRadiusM)}
+          className={fieldClassName()}
+        >
+          {PRIVACY_RADIUS_OPTIONS.map((radius) => (
+            <option key={radius} value={radius}>
+              {PRIVACY_RADIUS_LABELS[radius]}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-muted">
+          Der Anfang und das Ende jeder geteilten Fahrt werden in diesem Umkreis von der
+          öffentlichen Karte entfernt — sonst beginnt und endet die Spur vor deiner Haustür. Eine
+          Änderung gilt auch für deine bereits geteilten Fahrten. Deine eigene Ansicht bleibt
+          vollständig.
+        </p>
       </Card>
 
       {/* Premium-Symbol-Einstellung vorerst deaktiviert, siehe

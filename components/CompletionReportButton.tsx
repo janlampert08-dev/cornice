@@ -1,0 +1,35 @@
+"use client";
+
+import { useState } from "react";
+import { Flag } from "lucide-react";
+import ReportDialog from "@/components/ReportDialog";
+import { reportCompletion } from "@/lib/actions/reports";
+
+// Melde-Knopf auf der Fahrt-Detailseite, für alle ausser dem Fahrer selbst.
+// Eine geteilte Fahrt trägt frei gewählten Titel, Notiz und Fotos — bis
+// 0046_fahrt_meldungen.sql gab es dafür keinen Meldeweg, obwohl Strecken und
+// Kommentare längst einen hatten.
+export default function CompletionReportButton({ completionId }: { completionId: string }) {
+  const [open, setOpen] = useState(false);
+  const action = reportCompletion.bind(null, completionId);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        title="Fahrt melden"
+        aria-label="Fahrt melden"
+        className="shrink-0 text-muted transition-colors duration-fast hover:text-danger"
+      >
+        <Flag className="h-4 w-4" aria-hidden="true" />
+      </button>
+      <ReportDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Fahrt melden"
+        action={action}
+      />
+    </>
+  );
+}

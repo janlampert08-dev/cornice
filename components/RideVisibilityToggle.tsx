@@ -10,15 +10,22 @@ export default function RideVisibilityToggle({
   completionId,
   isPublic,
   coveragePercent,
+  blockedReason = null,
 }: {
   completionId: string;
   isPublic: boolean;
-  coveragePercent: number;
+  // Nur bei Streckenfahrten gesetzt — dort entscheidet der Deckungsgrad.
+  coveragePercent: number | null;
+  // Bei freien Fahrten steht hier der Grund, warum sie nicht geteilt werden
+  // kann (zu kurz), statt des Deckungsgrads — siehe publicationBlockReason
+  // in lib/track.ts.
+  blockedReason?: string | null;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const belowThreshold = coveragePercent < COVERAGE_THRESHOLD_PERCENT;
-  const blocked = !isPublic && belowThreshold;
+  const belowThreshold =
+    coveragePercent !== null && coveragePercent < COVERAGE_THRESHOLD_PERCENT;
+  const blocked = !isPublic && (belowThreshold || blockedReason !== null);
 
   return (
     <div className="relative shrink-0">
@@ -28,7 +35,8 @@ export default function RideVisibilityToggle({
           isPublic
             ? "Öffentlich — auf Bestenlisten/Profil sichtbar. Klicken um privat zu machen."
             : blocked
-              ? `Kann nicht öffentlich gemacht werden — deckt nur ${Math.round(coveragePercent)}% der Strecke ab.`
+              ? (blockedReason ??
+                `Kann nicht öffentlich gemacht werden — deckt nur ${Math.round(coveragePercent ?? 0)}% der Strecke ab.`)
               : "Privat — nur für dich sichtbar. Klicken um öffentlich zu machen."
         }
         disabled={pending || blocked}

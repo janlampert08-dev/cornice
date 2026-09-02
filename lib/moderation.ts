@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { freieFahrtTitel } from "@/lib/completions";
 import type { Route } from "@/types/database";
 
 export async function isModerator(userId: string): Promise<boolean> {
@@ -108,5 +109,77 @@ export async function getOpenRatingReports(): Promise<RatingReportWithContext[]>
       kommentar: r.kommentar,
       erstelltAm: r.erstellt_am,
     };
+  });
+}
+
+export interface CompletionReportWithContext {
+  id: string;
+  completionId: string;
+  // Anzeigetitel der Fahrt: Streckenname oder der selbst vergebene Titel
+  // einer freien Fahrt.
+  fahrtTitel: string;
+  istFreieFahrt: boolean;
+  fahrtNotiz: string | null;
+  grund: string;
+  kommentar: string | null;
+  erstelltAm: string;
+}
+
+// Wie getOpenRouteReports/getOpenRatingReports: getrennte Folgeabfragen
+// statt eines embedded Selects, um nicht auf PostgREST-Relationship-Inferenz
+// angewiesen zu sein.
+export async function getOpenCompletionReports(): Promise<CompletionReportWithContext[]> {
+  const supabase = await createClient();
+  const { data: reports } = await supabase
+    .from("completion_reports")
+    .select("id, completion_id, grund, kommentar, erstellt_am")
+    .eq("status", "offen")
+    .order("erstellt_am", { ascending: true });
+
+  if (!reports || reports.length === 0) return [];
+
+  const completionIds = [...new Set(reports.map((r) => r.completion_id))];
+  // Über public_fahrten statt route_completions: die Tabelle selbst ist per
+  // RLS auf den Besitzer beschränkt, und ein Moderator ist das nicht. Die
+  // View zeigt genau die öffentlichen Fahrten — und nur die können gemeldet
+  // werden (Insert-Policy in 0046).
+  const { data: fahrten } = await supabase
+    .from("public_fahrten")
+    .select("completion_id, art, titel, start_ort, route_name, notiz")
+    .in("completion_id", completionIds)
+    .returns<
+      {
+        completion_id: string;
+        art: "strecke" | "frei";
+        titel: string | null;
+        start_ort: string | null;
+        route_name: string | null;
+        notiz: string | null;
+      }[]
+    >();
+
+  const fahrtById = new Map((fahrten ?? []).map((f) => [f.completion_id, f]));
+
+  return reports.flatMap((r) => {
+    const fahrt = fahrtById.get(r.completion_id);
+    // Eine Fahrt, die inzwischen wieder privat ist (vom Fahrer selbst oder
+    // durch eine frühere Moderation), taucht in der View nicht mehr auf —
+    // die Meldung hat sich damit erledigt und gehört nicht in die Liste.
+    if (!fahrt) return [];
+    return [
+      {
+        id: r.id,
+        completionId: r.completion_id,
+        fahrtTitel:
+          fahrt.art === "frei"
+            ? freieFahrtTitel(fahrt.titel, fahrt.start_ort)
+            : (fahrt.route_name ?? "Unbekannte Strecke"),
+        istFreieFahrt: fahrt.art === "frei",
+        fahrtNotiz: fahrt.notiz,
+        grund: r.grund,
+        kommentar: r.kommentar,
+        erstelltAm: r.erstellt_am,
+      },
+    ];
   });
 }

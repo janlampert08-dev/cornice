@@ -55,18 +55,23 @@ export const getPublicProfile = cache(async function getPublicProfile(
   ]);
 
   const fahrten = (fahrtenResult.data as PublicFahrt[]) ?? [];
-  const passCount = new Set(fahrten.map((f) => f.route_id)).size;
+  // Pässe und Höhenmeter zählen nur Streckenfahrten: seit
+  // 0044_freie_fahrten.sql kann route_id null sein, und ohne diesen Filter
+  // liefe null als eigener "Pass" in die Menge bzw. als null in die
+  // routes-Abfrage. Die Distanzsumme dagegen umfasst bewusst jede Fahrt.
+  const streckenFahrten = fahrten.filter((f) => f.route_id !== null);
+  const passCount = new Set(streckenFahrten.map((f) => f.route_id)).size;
   const distanzKm = fahrten.reduce((sum, f) => sum + (f.distanz_km ?? 0), 0);
 
   let hoehenmeter = 0;
-  if (fahrten.length > 0) {
-    const routeIds = [...new Set(fahrten.map((f) => f.route_id))];
+  if (streckenFahrten.length > 0) {
+    const routeIds = [...new Set(streckenFahrten.map((f) => f.route_id))];
     const { data: routes } = await supabase
       .from("routes")
       .select("id, hoehe_m")
       .in("id", routeIds);
     const hoeheById = new Map((routes ?? []).map((r) => [r.id, r.hoehe_m ?? 0]));
-    hoehenmeter = fahrten.reduce((sum, f) => sum + (hoeheById.get(f.route_id) ?? 0), 0);
+    hoehenmeter = streckenFahrten.reduce((sum, f) => sum + (hoeheById.get(f.route_id!) ?? 0), 0);
   }
 
   return {

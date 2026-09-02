@@ -121,3 +121,53 @@ export async function deleteReportedRating(ratingId: string) {
   revalidatePath("/moderation");
   if (rating) revalidatePath(`/strecken/${rating.route_id}`);
 }
+
+export async function dismissCompletionReport(reportId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user || !(await isModerator(user.id))) return;
+
+  await supabase
+    .from("completion_reports")
+    .update({ status: "erledigt", bearbeitet_am: new Date().toISOString(), bearbeitet_von: user.id })
+    .eq("id", reportId);
+  revalidatePath("/moderation");
+}
+
+// Nimmt eine gemeldete Fahrt aus der Öffentlichkeit, statt sie zu löschen —
+// das mildeste wirksame Mittel: der Fahrer behält seine Aufzeichnung, sie
+// verschwindet nur aus Feed und öffentlichem Profil. Der gekappte
+// öffentliche Track wird dabei mit entfernt, damit keine Geometrie einer
+// nicht mehr sichtbaren Fahrt zurückbleibt (siehe 0045).
+//
+// Möglich wird das über die Moderator-Policy aus 0046_fahrt_meldungen.sql;
+// die Spalten-Grants derselben Migration begrenzen, was dabei überhaupt
+// geändert werden kann.
+export async function unpublishReportedCompletion(completionId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user || !(await isModerator(user.id))) return;
+
+  await supabase
+    .from("route_completions")
+    .update({ ist_oeffentlich: false, track_oeffentlich: null })
+    .eq("id", completionId);
+
+  // Offene Meldungen zu dieser Fahrt sind damit erledigt — sonst bliebe die
+  // Warteschlange voll mit Fahrten, um die sich schon jemand gekümmert hat.
+  await supabase
+    .from("completion_reports")
+    .update({ status: "erledigt", bearbeitet_am: new Date().toISOString(), bearbeitet_von: user.id })
+    .eq("completion_id", completionId)
+    .eq("status", "offen");
+
+  revalidatePath("/moderation");
+  revalidatePath("/feed");
+  revalidatePath(`/fahrten/${completionId}`);
+}

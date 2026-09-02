@@ -87,3 +87,39 @@ export async function reportRating(
 
   return { error: null, success: true };
 }
+
+// Melden einer geteilten Fahrt (0046_fahrt_meldungen.sql). Anders als bei
+// Strecke und Kommentar geht es hier um Titel, Notiz, Fotos und Track einer
+// persönlichen Aufzeichnung — die Moderation nimmt eine gemeldete Fahrt aus
+// der Öffentlichkeit, statt sie zu löschen.
+export async function reportCompletion(
+  completionId: string,
+  _prevState: ReportState,
+  formData: FormData,
+): Promise<ReportState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Bitte melde dich zuerst an." };
+
+  const grund = String(formData.get("grund") ?? "");
+  if (!isValidReason(grund)) {
+    return { error: "Bitte einen Grund auswählen." };
+  }
+  const kommentar = String(formData.get("kommentar") ?? "").trim() || null;
+
+  const { error } = await supabase
+    .from("completion_reports")
+    .insert({ completion_id: completionId, reporter_id: user.id, grund, kommentar });
+
+  if (error) {
+    if (error.code === "23505") {
+      return { error: "Du hast diese Fahrt bereits gemeldet." };
+    }
+    return { error: "Meldung konnte nicht gesendet werden." };
+  }
+
+  return { error: null, success: true };
+}

@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { MoreHorizontal } from "lucide-react";
-import { toggleCompletionVisibility, updateCompletionNotiz } from "@/lib/actions/completions";
+import { useRouter } from "next/navigation";
+import { MoreHorizontal, Trash2 } from "lucide-react";
+import {
+  deleteCompletion,
+  toggleCompletionVisibility,
+  updateCompletionNotiz,
+} from "@/lib/actions/completions";
 import { GlobeIcon, LockIcon } from "@/components/VisibilityIcons";
 import { COVERAGE_THRESHOLD_PERCENT } from "@/lib/routeCoverage";
 import Card from "@/components/ui/Card";
@@ -22,24 +27,31 @@ export default function CompletionActionsMenu({
   completionId,
   isPublic,
   coveragePercent,
+  blockedReason = null,
   notiz,
 }: {
   completionId: string;
   isPublic: boolean;
   coveragePercent: number | null;
+  blockedReason?: string | null;
   notiz: string | null;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [notizDraft, setNotizDraft] = useState(notiz ?? "");
   const [toggling, startToggle] = useTransition();
   const [saving, startSave] = useTransition();
+  const [deleting, startDelete] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const belowThreshold =
     coveragePercent !== null && coveragePercent < COVERAGE_THRESHOLD_PERCENT;
-  const toggleBlocked = !isPublic && belowThreshold;
+  // Gesperrt wird je nach Fahrtart über den Deckungsgrad (Strecke) oder die
+  // Mindestwerte fürs Teilen (freie Fahrt, siehe publicationBlockReason).
+  const toggleBlocked = !isPublic && (belowThreshold || blockedReason !== null);
 
   useEffect(() => {
     if (!open) return;
@@ -57,6 +69,19 @@ export default function CompletionActionsMenu({
     startToggle(async () => {
       const result = await toggleCompletionVisibility(completionId);
       setError(result.error);
+    });
+  }
+
+  function handleDelete() {
+    setError(null);
+    startDelete(async () => {
+      const result = await deleteCompletion(completionId);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      setDeleteOpen(false);
+      router.push("/profil");
     });
   }
 
@@ -90,7 +115,8 @@ export default function CompletionActionsMenu({
             disabled={toggling || toggleBlocked}
             title={
               toggleBlocked
-                ? `Kann nicht öffentlich gemacht werden — deckt nur ${Math.round(coveragePercent ?? 0)}% der Strecke ab.`
+                ? (blockedReason ??
+                  `Kann nicht öffentlich gemacht werden — deckt nur ${Math.round(coveragePercent ?? 0)}% der Strecke ab.`)
                 : undefined
             }
             className={`${ITEM_CLASS} flex items-center gap-1.5`}
@@ -117,6 +143,17 @@ export default function CompletionActionsMenu({
           >
             Beschreibung bearbeiten
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              setDeleteOpen(true);
+            }}
+            className={`${ITEM_CLASS} flex items-center gap-1.5 text-danger`}
+          >
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            Fahrt löschen
+          </button>
         </Card>
       )}
       {error && (
@@ -127,6 +164,32 @@ export default function CompletionActionsMenu({
           {error}
         </Card>
       )}
+
+      <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)} title="Fahrt löschen">
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-muted">
+            Die Aufzeichnung wird mit allen Fotos, Kudos und dem gespeicherten GPS-Track
+            endgültig gelöscht. Das lässt sich nicht rückgängig machen.
+          </p>
+          {/* Der Fehlertext muss hier stehen und nicht in der Card unten:
+              der Dialog ist ein natives <dialog> mit showModal() und liegt
+              damit im Top-Layer über allem anderen — eine Meldung ausserhalb
+              wäre unsichtbar, während der Dialog offen bleibt. */}
+          {error && (
+            <p role="alert" className="text-sm text-danger">
+              {error}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={() => setDeleteOpen(false)}>
+              Abbrechen
+            </Button>
+            <Button type="button" variant="danger" size="sm" disabled={deleting} onClick={handleDelete}>
+              {deleting ? "Löschen…" : "Endgültig löschen"}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
 
       <Dialog open={editOpen} onClose={() => setEditOpen(false)} title="Beschreibung bearbeiten">
         <div className="flex flex-col gap-2">

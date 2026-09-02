@@ -5,6 +5,20 @@ import { createClient } from "@/lib/supabase/server";
 import { isRateLimited } from "@/lib/rateLimit";
 import { computeRouteCoverage, COVERAGE_THRESHOLD_PERCENT } from "@/lib/routeCoverage";
 import { computeTrailStats, type TrailPoint } from "@/lib/geo";
+import {
+  MAX_JUMP_KM,
+  MAX_RIDE_SECONDS,
+  MAX_TRAIL_POINTS,
+  maxJumpKm,
+  movingSeconds,
+  publicationBlockReason,
+  simplifyTrack,
+  toCoordinates,
+  toEwktLineString,
+} from "@/lib/track";
+import { publicTrackEwkt } from "@/lib/publicTrack";
+import { buildHoehenprofil, computeAscentM, fetchElevationProfile } from "@/lib/elevation";
+import { reverseGeocode } from "@/lib/geocoding";
 import { getRoute } from "@/lib/routes";
 import { todayInZurich } from "@/lib/format";
 
@@ -16,6 +30,8 @@ const ROUTE_PHOTOS_BUCKET = "route-photos";
 const MAX_FOTO_BYTES = 8 * 1024 * 1024;
 const COMPLETION_COOLDOWN_MS = 5000;
 const MAX_NOTIZ_LENGTH = 280;
+// Gleiche Grenze wie der CHECK auf route_completions.titel (0044).
+const MAX_TITEL_LENGTH = 80;
 const MIN_TRAIL_POINTS = 5;
 // Grosszügig genug für eine echte Fahrt (mehrere Stopps unterwegs), aber
 // begrenzt genug um Storage-Missbrauch über ein einzelnes Formular zu
@@ -27,6 +43,63 @@ const MAX_PHOTOS_PER_COMPLETION = 6;
 // Trails (z.B. wenige, weit auseinanderliegende Punkte) ab, ohne echte
 // GPS-Ungenauigkeit zu bestrafen.
 const MAX_PLAUSIBLE_KMH = 200;
+
+// Rohdaten des Clients: der aufgezeichnete GPS-Trail. Alle Kennzahlen einer
+// Fahrt werden ausschliesslich hieraus abgeleitet — vom Client mitgeschickte
+// Distanzen/Zeiten/Deckungsgrade wären beliebig fälschbar.
+function parseTrail(formData: FormData): { trail: TrailPoint[] } | { error: string } {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(String(formData.get("trail") ?? "[]"));
+  } catch {
+    return { error: "Ungültige Tracking-Daten." };
+  }
+
+  if (
+    !Array.isArray(parsed) ||
+    !parsed.every(
+      (p) =>
+        p && typeof p.lng === "number" && typeof p.lat === "number" && typeof p.t === "number",
+    )
+  ) {
+    return { error: "Ungültige Tracking-Daten." };
+  }
+
+  // Zu wenige Punkte heisst in aller Regel: die Aufzeichnung wurde nach
+  // wenigen Sekunden beendet. Das ist kein Fehler des Nutzers und verdient
+  // eine Erklärung statt "ungültige Daten".
+  if (parsed.length < MIN_TRAIL_POINTS) {
+    return { error: "Die Aufzeichnung ist zu kurz, um gespeichert zu werden." };
+  }
+  if (parsed.length > MAX_TRAIL_POINTS) {
+    return { error: "Die Aufzeichnung enthält zu viele Punkte." };
+  }
+
+  return { trail: parsed as TrailPoint[] };
+}
+
+// Plausibilitätsprüfungen, die für jede Aufzeichnung gelten — unabhängig
+// davon, ob sie zu einer Strecke gehört. Bei Streckenfahrten kommt der
+// Deckungsgrad als zusätzlicher Anker dazu (computeRouteCoverage); eine
+// freie Fahrt hat keinen solchen Anker, für sie sind diese Regeln die
+// einzige Prüfung.
+function implausibilityReason(
+  trail: TrailPoint[],
+  distanzKm: number,
+  dauerSekunden: number,
+): string | null {
+  if (!(distanzKm > 0) || dauerSekunden <= 0) return "Ungültige Tracking-Daten.";
+  if (distanzKm / (dauerSekunden / 3600) > MAX_PLAUSIBLE_KMH) {
+    return "Unrealistische Durchschnittsgeschwindigkeit erkannt.";
+  }
+  if (dauerSekunden > MAX_RIDE_SECONDS) {
+    return "Diese Aufzeichnung ist unrealistisch lang — wurde sie vielleicht nicht beendet?";
+  }
+  if (maxJumpKm(trail) > MAX_JUMP_KM) {
+    return "Die Aufzeichnung enthält eine zu grosse Lücke zwischen zwei Punkten.";
+  }
+  return null;
+}
 
 async function uploadFoto(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -66,6 +139,50 @@ async function removeUploadedFotos(
   if (paths.length > 0) {
     await supabase.storage.from(ROUTE_PHOTOS_BUCKET).remove(paths);
   }
+}
+
+// Lädt alle Fotos eines Formulars hoch, bevor die Fahrt selbst gespeichert
+// wird: schlägt eine Datei fehl (Format/Grösse), soll gar keine halbe Fahrt
+// ohne ihre Fotos entstehen. Bereits hochgeladene Dateien dieses Versuchs
+// werden dabei wieder entfernt statt verwaist im Bucket liegen zu bleiben.
+async function uploadFotos(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  fotos: File[],
+): Promise<{ urls: string[] } | { error: string }> {
+  const urls: string[] = [];
+  for (const foto of fotos) {
+    const result = await uploadFoto(supabase, userId, foto);
+    if ("error" in result) {
+      await removeUploadedFotos(supabase, urls);
+      return { error: result.error };
+    }
+    urls.push(result.url);
+  }
+  return { urls };
+}
+
+// Verknüpft hochgeladene Fotos mit der bereits gespeicherten Fahrt. Ein
+// Fehler hier führt bewusst NICHT zu einem Fehler-Return beim Aufrufer (das
+// würde den Nutzer zu einem erneuten Absenden verleiten und eine doppelte
+// Fahrt anlegen). Best effort: die hochgeladenen Dateien ohne
+// referenzierende Zeile wieder entfernen.
+async function attachPhotos(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  completionId: string,
+  userId: string,
+  urls: string[],
+): Promise<void> {
+  if (urls.length === 0) return;
+  const { error } = await supabase.from("completion_photos").insert(
+    urls.map((foto_url, position) => ({
+      completion_id: completionId,
+      user_id: userId,
+      foto_url,
+      position,
+    })),
+  );
+  if (error) await removeUploadedFotos(supabase, urls);
 }
 
 // Speichert eine per Live-GPS-Tracking erfasste Fahrt — der einzige Weg,
@@ -115,27 +232,9 @@ export async function logTrackedCompletion(
   // dem rohen GPS-Trail neu berechnet, denselben Algorithmen wie im Client
   // (für sofortiges UI-Feedback im Fazit-Screen), aber hier als einzige
   // massgebliche Quelle für Bestenlisten/Statistiken.
-  let trail: TrailPoint[];
-  try {
-    const parsed = JSON.parse(String(formData.get("trail") ?? "[]"));
-    if (
-      !Array.isArray(parsed) ||
-      !parsed.every(
-        (p) =>
-          p &&
-          typeof p.lng === "number" &&
-          typeof p.lat === "number" &&
-          typeof p.t === "number",
-      )
-    ) {
-      return { error: "Ungültige Tracking-Daten." };
-    }
-    trail = parsed as TrailPoint[];
-  } catch {
-    return { error: "Ungültige Tracking-Daten." };
-  }
-
-  if (trail.length < MIN_TRAIL_POINTS) return { error: "Ungültige Tracking-Daten." };
+  const parsedTrail = parseTrail(formData);
+  if ("error" in parsedTrail) return { error: parsedTrail.error };
+  const trail = parsedTrail.trail;
 
   const route = await getRoute(routeId);
   if (!route) return { error: "Strecke nicht gefunden." };
@@ -146,31 +245,19 @@ export async function logTrackedCompletion(
     trail.map((p) => [p.lng, p.lat] as [number, number]),
   );
 
-  if (!(distanzKm > 0) || dauerSekunden <= 0) return { error: "Ungültige Tracking-Daten." };
-
-  const avgKmh = distanzKm / (dauerSekunden / 3600);
-  if (avgKmh > MAX_PLAUSIBLE_KMH) {
-    return { error: "Unrealistische Durchschnittsgeschwindigkeit erkannt." };
-  }
+  const implausible = implausibilityReason(trail, distanzKm, dauerSekunden);
+  if (implausible) return { error: implausible };
 
   // Serverseitig erzwungen, nicht nur im UI verhindert: unabhängig davon, was
   // das Formular schickt, kann eine Fahrt unterhalb des Deckungsgrad-
   // Schwellenwerts nicht öffentlich sein (siehe lib/routeCoverage.ts).
   const istOeffentlich = requestedOeffentlich && abdeckungProzent >= COVERAGE_THRESHOLD_PERCENT;
 
-  // Fotos werden vor der Fahrt selbst hochgeladen: schlägt eine Datei fehl
-  // (Format/Grösse), soll gar keine halbe Fahrt ohne ihre Fotos entstehen.
-  // Bereits hochgeladene Dateien dieses Versuchs werden dabei wieder entfernt
-  // statt verwaist im Bucket liegen zu bleiben.
-  const uploadedUrls: string[] = [];
-  for (const foto of fotos) {
-    const result = await uploadFoto(supabase, user.id, foto);
-    if ("error" in result) {
-      await removeUploadedFotos(supabase, uploadedUrls);
-      return { error: result.error };
-    }
-    uploadedUrls.push(result.url);
-  }
+  const streckenKoordinaten = toCoordinates(simplifyTrack(trail));
+
+  const uploaded = await uploadFotos(supabase, user.id, fotos);
+  if ("error" in uploaded) return { error: uploaded.error };
+  const uploadedUrls = uploaded.urls;
 
   const { data: inserted, error } = await supabase
     .from("route_completions")
@@ -184,9 +271,24 @@ export async function logTrackedCompletion(
       datum: todayInZurich(),
       distanz_km: distanzKm,
       dauer_sekunden: dauerSekunden,
+      // Reine Bewegtzeit ohne Pausen — für eine Passfahrt am Stück fast
+      // identisch mit dauer_sekunden, aber dieselbe Berechnung für beide
+      // Fahrtarten (siehe 0044_freie_fahrten.sql).
+      bewegte_zeit_sekunden: movingSeconds(trail),
+      art: "strecke",
       ist_oeffentlich: istOeffentlich,
       abdeckung_prozent: abdeckungProzent,
       notiz,
+      // Ab 0044 wird der gefahrene Track gespeichert statt nach der
+      // Berechnung verworfen — vereinfacht (die Kennzahlen oben stammen
+      // weiterhin aus den Rohpunkten). Nur für den Besitzer lesbar.
+      track: toEwktLineString(streckenKoordinaten),
+      // Die gekappte Fassung entsteht nur, wenn die Fahrt auch wirklich
+      // geteilt wird (0045) — eine private Fahrt hinterlässt keine
+      // öffentliche Geometrie.
+      track_oeffentlich: istOeffentlich
+        ? await publicTrackEwkt(supabase, user.id, streckenKoordinaten)
+        : null,
     })
     .select("id")
     .single();
@@ -202,28 +304,214 @@ export async function logTrackedCompletion(
     return { error: "Fahrt konnte nicht gespeichert werden." };
   }
 
-  if (uploadedUrls.length > 0) {
-    const { error: photoError } = await supabase.from("completion_photos").insert(
-      uploadedUrls.map((foto_url, position) => ({
-        completion_id: inserted.id,
-        user_id: user.id,
-        foto_url,
-        position,
-      })),
-    );
-    // Die Fahrt selbst ist zu diesem Zeitpunkt bereits erfolgreich
-    // gespeichert — ein Fehler hier führt bewusst NICHT zu einem
-    // Fehler-Return (das würde den Nutzer zu einem erneuten Absenden
-    // verleiten und eine doppelte Fahrt anlegen). Best effort: die
-    // hochgeladenen Dateien ohne referenzierende Zeile wieder entfernen,
-    // statt sie verwaist im Bucket zu belassen.
-    if (photoError) {
-      await removeUploadedFotos(supabase, uploadedUrls);
-    }
-  }
+  await attachPhotos(supabase, inserted.id, user.id, uploadedUrls);
 
   revalidatePath(`/strecken/${routeId}`);
   revalidatePath("/profil");
+  revalidatePath("/leaderboards");
+  return { error: null };
+}
+
+export interface FreeRideFormState {
+  error: string | null;
+  // Bei Erfolg die ID der neu angelegten Fahrt, damit der Client direkt auf
+  // ihre Detailseite wechseln kann (anders als bei einer Streckenfahrt gibt
+  // es keine Streckenseite, zu der man zurückkehren könnte).
+  completionId?: string;
+}
+
+// Höhenprofil und Anstieg einer freien Fahrt, best effort: der swisstopo-
+// Dienst kennt nur Schweizer Koordinaten und kann ausfallen. Beides ist
+// Beiwerk — eine Fahrt darf daran nicht scheitern, deshalb ausdrücklich
+// abgefangen statt den Speichervorgang mitzureissen.
+async function deriveElevation(
+  coordinates: [number, number][],
+): Promise<{ hoehenmeter_aufstieg: number | null; hoehenprofil: { km: number; m: number }[] | null }> {
+  try {
+    const profile = await fetchElevationProfile(coordinates);
+    if (!profile || profile.length < 2) {
+      return { hoehenmeter_aufstieg: null, hoehenprofil: null };
+    }
+    return {
+      hoehenmeter_aufstieg: computeAscentM(profile),
+      hoehenprofil: buildHoehenprofil(profile),
+    };
+  } catch {
+    return { hoehenmeter_aufstieg: null, hoehenprofil: null };
+  }
+}
+
+// Speichert eine freie Fahrt: dieselbe Aufzeichnung wie bei einer Strecke,
+// nur ohne Streckenbezug (siehe 0044_freie_fahrten.sql). Es gibt damit auch
+// keinen Deckungsgrad als Echtheitsanker — an seine Stelle treten die
+// Plausibilitätsregeln in implausibilityReason().
+//
+// Ob die Fahrt geteilt wird, entscheidet der Nutzer im Fazit-Screen. An die
+// Stelle des Deckungsgrads tritt dabei publicationBlockReason() — dieselbe
+// Funktion, mit der das Formular die Auswahl ausgraut, hier serverseitig
+// erzwungen: unabhängig davon, was das Formular schickt, wird eine zu kurze
+// Fahrt nur privat gespeichert.
+export async function logFreeRide(
+  _prevState: FreeRideFormState,
+  formData: FormData,
+): Promise<FreeRideFormState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Bitte melde dich zuerst an." };
+
+  if (
+    await isRateLimited(
+      supabase,
+      "route_completions",
+      "created_at",
+      "user_id",
+      user.id,
+      COMPLETION_COOLDOWN_MS,
+    )
+  ) {
+    return { error: "Bitte warte einen Moment, bevor du erneut einträgst." };
+  }
+
+  const parsedTrail = parseTrail(formData);
+  if ("error" in parsedTrail) return { error: parsedTrail.error };
+  const trail = parsedTrail.trail;
+
+  const { distanceKm: distanzKm, durationSeconds: dauerSekunden } = computeTrailStats(trail);
+  const implausible = implausibilityReason(trail, distanzKm, dauerSekunden);
+  if (implausible) return { error: implausible };
+
+  const bewegteSekunden = movingSeconds(trail);
+  const istOeffentlich =
+    formData.get("ist_oeffentlich") === "true" &&
+    publicationBlockReason(distanzKm, bewegteSekunden) === null;
+
+  const fahrzeugId = String(formData.get("fahrzeug_id") ?? "") || null;
+  const titelRaw = String(formData.get("titel") ?? "").trim();
+  const titel = titelRaw ? titelRaw.slice(0, MAX_TITEL_LENGTH) : null;
+  const notizRaw = String(formData.get("notiz") ?? "").trim();
+  const notiz = notizRaw ? notizRaw.slice(0, MAX_NOTIZ_LENGTH) : null;
+  const fotos = formData
+    .getAll("foto")
+    .filter((f): f is File => f instanceof File && f.size > 0)
+    .slice(0, MAX_PHOTOS_PER_COMPLETION);
+
+  const coordinates = toCoordinates(simplifyTrack(trail));
+  const track = toEwktLineString(coordinates);
+  if (!track) return { error: "Ungültige Tracking-Daten." };
+
+  // Ortsbezug und Höhendaten parallel — beide sind externe Aufrufe, die die
+  // Antwortzeit sonst nacheinander verlängern würden.
+  const [ort, elevation] = await Promise.all([
+    reverseGeocode(coordinates[0]).catch(() => null),
+    deriveElevation(coordinates),
+  ]);
+
+  const uploaded = await uploadFotos(supabase, user.id, fotos);
+  if ("error" in uploaded) return { error: uploaded.error };
+
+  const { data: inserted, error } = await supabase
+    .from("route_completions")
+    .insert({
+      user_id: user.id,
+      art: "frei",
+      route_id: null,
+      abdeckung_prozent: null,
+      fahrzeug_id: fahrzeugId,
+      datum: todayInZurich(),
+      distanz_km: distanzKm,
+      dauer_sekunden: dauerSekunden,
+      bewegte_zeit_sekunden: bewegteSekunden,
+      ist_oeffentlich: istOeffentlich,
+      titel,
+      notiz,
+      start_ort: ort?.ort ?? null,
+      region: ort?.region ?? null,
+      hoehenmeter_aufstieg: elevation.hoehenmeter_aufstieg,
+      hoehenprofil: elevation.hoehenprofil,
+      track,
+      track_oeffentlich: istOeffentlich
+        ? await publicTrackEwkt(supabase, user.id, coordinates)
+        : null,
+    })
+    .select("id")
+    .single();
+
+  if (error || !inserted) {
+    await removeUploadedFotos(supabase, uploaded.urls);
+    // Race-freie Durchsetzung via DB-Trigger (0024) — der App-seitige Check
+    // oben ist nur ein schnelles Vorab-Feedback.
+    if (error?.message.includes("cooldown_active")) {
+      return { error: "Bitte warte einen Moment, bevor du erneut einträgst." };
+    }
+    return { error: "Fahrt konnte nicht gespeichert werden." };
+  }
+
+  await attachPhotos(supabase, inserted.id, user.id, uploaded.urls);
+
+  revalidatePath("/profil");
+  if (istOeffentlich) {
+    revalidatePath("/feed");
+    revalidatePath(`/fahrer/${user.id}`);
+  }
+  return { error: null, completionId: inserted.id };
+}
+
+export interface DeleteCompletionState {
+  error: string | null;
+}
+
+// Fahrt endgültig löschen. Bis hierhin liess sich eine Fahrt nur auf privat
+// stellen — bei einer freien Fahrt ist das zu wenig: wer versehentlich den
+// Arbeitsweg aufgezeichnet hat, will die Aufzeichnung (und damit den
+// gespeicherten GPS-Track) los sein, nicht nur unsichtbar.
+//
+// Die Fotozeilen (completion_photos) und Kudos verschwinden per FK-Cascade;
+// die Storage-Objekte selbst müssen ausdrücklich entfernt werden, sonst
+// bleiben sie verwaist im Bucket zurück.
+export async function deleteCompletion(completionId: string): Promise<DeleteCompletionState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Bitte melde dich zuerst an." };
+
+  const { data: existing } = await supabase
+    .from("route_completions")
+    .select("id, route_id")
+    .eq("id", completionId)
+    .eq("user_id", user.id)
+    .maybeSingle<{ id: string; route_id: string | null }>();
+
+  if (!existing) return { error: "Fahrt nicht gefunden." };
+
+  const { data: photos } = await supabase
+    .from("completion_photos")
+    .select("foto_url")
+    .eq("completion_id", completionId)
+    .eq("user_id", user.id)
+    .returns<{ foto_url: string }[]>();
+
+  const { error } = await supabase
+    .from("route_completions")
+    .delete()
+    .eq("id", completionId)
+    .eq("user_id", user.id);
+
+  if (error) return { error: "Fahrt konnte nicht gelöscht werden." };
+
+  // Erst nach dem erfolgreichen Löschen der Zeile: schlägt das Entfernen der
+  // Dateien fehl, bleiben sie zwar verwaist zurück, aber es steht keine
+  // Fahrt mehr da, deren Fotos plötzlich fehlen.
+  await removeUploadedFotos(supabase, (photos ?? []).map((p) => p.foto_url));
+
+  revalidatePath("/profil");
+  revalidatePath(`/fahrer/${user.id}`);
+  revalidatePath("/feed");
+  if (existing.route_id) revalidatePath(`/strecken/${existing.route_id}`);
   revalidatePath("/leaderboards");
   return { error: null };
 }
@@ -247,31 +535,75 @@ export async function toggleCompletionVisibility(
 
   const { data: existing } = await supabase
     .from("route_completions")
-    .select("route_id, ist_oeffentlich, abdeckung_prozent")
+    .select(
+      "route_id, art, ist_oeffentlich, abdeckung_prozent, distanz_km, dauer_sekunden, bewegte_zeit_sekunden",
+    )
     .eq("id", completionId)
     .eq("user_id", user.id)
-    .maybeSingle();
+    .maybeSingle<{
+      route_id: string | null;
+      art: "strecke" | "frei";
+      ist_oeffentlich: boolean;
+      abdeckung_prozent: number | null;
+      distanz_km: number | null;
+      dauer_sekunden: number | null;
+      bewegte_zeit_sekunden: number | null;
+    }>();
 
   if (!existing) return { error: "Fahrt nicht gefunden." };
 
   const nextOeffentlich = !existing.ist_oeffentlich;
-  if (nextOeffentlich && existing.abdeckung_prozent < COVERAGE_THRESHOLD_PERCENT) {
-    return {
-      error: `Diese Fahrt deckt nur ${Math.round(existing.abdeckung_prozent)}% der Strecke ab und kann daher nicht öffentlich gemacht werden.`,
-    };
+
+  // Dieselben zwei Anker wie beim ersten Speichern, je nach Fahrtart: der
+  // Deckungsgrad bei einer Streckenfahrt, die Mindestwerte bei einer freien
+  // Fahrt. Ohne diese Prüfung liesse sich die Regel über den nachträglichen
+  // Umschalter umgehen.
+  if (nextOeffentlich) {
+    if (existing.art === "frei") {
+      const blocked = publicationBlockReason(
+        existing.distanz_km ?? 0,
+        existing.bewegte_zeit_sekunden ?? existing.dauer_sekunden ?? 0,
+      );
+      if (blocked) return { error: blocked };
+    } else if ((existing.abdeckung_prozent ?? 0) < COVERAGE_THRESHOLD_PERCENT) {
+      return {
+        error: `Diese Fahrt deckt nur ${Math.round(existing.abdeckung_prozent ?? 0)}% der Strecke ab und kann daher nicht öffentlich gemacht werden.`,
+      };
+    }
+  }
+
+  // Die öffentliche Geometrie entsteht beim Veröffentlichen und verschwindet
+  // beim Zurücknehmen — es soll kein gekappter Track einer Fahrt liegen
+  // bleiben, die niemand mehr sehen darf.
+  let trackOeffentlich: string | null = null;
+  if (nextOeffentlich) {
+    const { data: trackRow } = await supabase
+      .from("fahrt_tracks")
+      .select("track_geojson")
+      .eq("completion_id", completionId)
+      .maybeSingle<{ track_geojson: { coordinates: [number, number][] } }>();
+    if (trackRow?.track_geojson?.coordinates) {
+      trackOeffentlich = await publicTrackEwkt(
+        supabase,
+        user.id,
+        trackRow.track_geojson.coordinates,
+      );
+    }
   }
 
   const { error } = await supabase
     .from("route_completions")
-    .update({ ist_oeffentlich: nextOeffentlich })
+    .update({ ist_oeffentlich: nextOeffentlich, track_oeffentlich: trackOeffentlich })
     .eq("id", completionId)
     .eq("user_id", user.id);
 
   if (error) return { error: "Sichtbarkeit konnte nicht geändert werden." };
 
   revalidatePath("/profil");
+  revalidatePath("/feed");
+  revalidatePath(`/fahrten/${completionId}`);
   revalidatePath(`/fahrer/${user.id}`);
-  revalidatePath(`/strecken/${existing.route_id}`);
+  if (existing.route_id) revalidatePath(`/strecken/${existing.route_id}`);
   revalidatePath("/leaderboards");
   return { error: null };
 }

@@ -23,7 +23,9 @@ import FollowCounts from "@/components/FollowCounts";
 import { createClient } from "@/lib/supabase/server";
 import { getFollowCounts, getFollowerProfiles, getFollowingProfiles } from "@/lib/follows";
 import { formatDuration, formatKm } from "@/lib/format";
-import type { Vehicle } from "@/types/database";
+import { freieFahrtTitel } from "@/lib/completions";
+import { publicationBlockReason } from "@/lib/track";
+import type { FahrtArt, Vehicle } from "@/types/database";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
 import { buttonVariants } from "@/components/ui/Button";
@@ -99,15 +101,24 @@ export default async function ProfilPage() {
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false }),
+    // Pässe und Höhenmeter sind streckenbezogene Kennzahlen: ohne den
+    // art-Filter käme seit 0044_freie_fahrten.sql für jede freie Fahrt eine
+    // Zeile mit route_id = null dazu und der Pässe-Zähler wäre um eins zu
+    // hoch (siehe hoeheProRoute unten).
     supabase
       .from("route_completions")
       .select("route_id, routes(hoehe_m)")
       .eq("user_id", user.id)
+      .eq("art", "strecke")
       .returns<{ route_id: string; routes: { hoehe_m: number | null } | null }[]>(),
+    // Beide Fahrtarten: freie Fahrten stehen in derselben Liste wie
+    // Streckenfahrten und zählen in "Km gefahren"/"Anzahl Fahrten" mit —
+    // anders als in den globalen Bestenlisten, die streckenbasiert bleiben
+    // (siehe 0044_freie_fahrten.sql).
     supabase
       .from("route_completions")
       .select(
-        "id, route_id, datum, dauer_sekunden, distanz_km, ist_oeffentlich, abdeckung_prozent, notiz, routes(name)",
+        "id, art, route_id, datum, dauer_sekunden, distanz_km, ist_oeffentlich, abdeckung_prozent, notiz, titel, start_ort, bewegte_zeit_sekunden, routes(name)",
       )
       .eq("user_id", user.id)
       .not("dauer_sekunden", "is", null)
@@ -119,13 +130,17 @@ export default async function ProfilPage() {
       .returns<
         {
           id: string;
-          route_id: string;
+          art: FahrtArt;
+          route_id: string | null;
           datum: string;
           dauer_sekunden: number;
           distanz_km: number;
           ist_oeffentlich: boolean;
-          abdeckung_prozent: number;
+          abdeckung_prozent: number | null;
           notiz: string | null;
+          titel: string | null;
+          start_ort: string | null;
+          bewegte_zeit_sekunden: number | null;
           routes: { name: string } | null;
         }[]
       >(),
@@ -313,7 +328,9 @@ export default async function ProfilPage() {
                             <div className="flex items-center justify-between gap-3 p-3">
                               <Link href={`/fahrten/${ride.id}`} className="flex min-w-0 flex-1 flex-col gap-1">
                                 <span className="min-w-0 truncate font-medium transition-colors duration-fast group-hover:text-accent">
-                                  {ride.routes?.name ?? "Strecke"}
+                                  {ride.art === "frei"
+                                    ? freieFahrtTitel(ride.titel, ride.start_ort)
+                                    : (ride.routes?.name ?? "Strecke")}
                                 </span>
                                 {/* Datum jetzt Teil derselben mono/tabular-nums-Zeile wie
                                     Dauer/Tempo statt separat rechts neben dem Titel — gleiche
@@ -332,10 +349,22 @@ export default async function ProfilPage() {
                                   <span>{avgKmh.toFixed(0)} km/h</span>
                                 </div>
                               </Link>
+                              {/* Beide Fahrtarten lassen sich hier teilen —
+                                  gesperrt wird je nach Art über den
+                                  Deckungsgrad (Strecke) oder die Mindestwerte
+                                  (freie Fahrt, siehe lib/track.ts). */}
                               <RideVisibilityToggle
                                 completionId={ride.id}
                                 isPublic={ride.ist_oeffentlich}
                                 coveragePercent={ride.abdeckung_prozent}
+                                blockedReason={
+                                  ride.art === "frei"
+                                    ? publicationBlockReason(
+                                        ride.distanz_km,
+                                        ride.bewegte_zeit_sekunden ?? ride.dauer_sekunden,
+                                      )
+                                    : null
+                                }
                               />
                             </div>
                           </li>
