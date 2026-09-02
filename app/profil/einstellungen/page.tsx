@@ -87,7 +87,7 @@ export default async function EinstellungenPage() {
             </h2>
             <Card className="flex flex-col gap-3 p-4">
               <p className="text-sm text-muted">Farbschema für die ganze App.</p>
-              <ThemeToggle variant="expanded" />
+              <ThemeToggle />
             </Card>
           </section>
 
