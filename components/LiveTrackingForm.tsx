@@ -133,6 +133,15 @@ export default function LiveTrackingForm({
             userLocation={recorder.position}
             userAccuracyM={recorder.accuracyM}
             userHeadingDeg={recorder.headingDeg}
+            // Vor dem Start bleibt die volle Streckenübersicht sichtbar (die
+            // anfängliche fitToRoutes-Ansicht), damit erkennbar ist, wo der
+            // Startpunkt relativ zum eigenen Standort liegt. Erst sobald die
+            // Zeitmessung tatsächlich läuft, springt die Karte einmalig
+            // näher heran und folgt danach laufend dem GPS-Standort — wie
+            // eine Navi-App während der Fahrt, statt der festen
+            // Streckenansicht davor.
+            centerOnFirstLocation={recorder.hasStarted}
+            followLocation={recorder.hasStarted}
           />
         </div>
         <div className="flex flex-col gap-3 border-t border-border-strong bg-background p-4 pb-[calc(1rem+var(--safe-bottom))]">
