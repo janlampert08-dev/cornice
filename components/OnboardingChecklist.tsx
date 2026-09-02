@@ -9,6 +9,14 @@ import { buttonVariants } from "@/components/ui/Button";
 const STORAGE_KEY = "cornice-onboarding-dismissed";
 const DISMISS_EVENT = "cornice-onboarding-dismiss";
 
+// Fällt zurück auf diesen In-Memory-Wert, wenn localStorage blockiert ist
+// (strikte Privatsphäre-Einstellungen, manche iFrame-Kontexte etc. werfen
+// dort einen SecurityError statt einfach nichts zu speichern) — ohne
+// diesen Fallback liesse sich die Checkliste in so einem Fall nicht einmal
+// für die laufende Sitzung schliessen. Überlebt keinen Reload, aber mehr
+// ist ohne persistenten Speicher ohnehin nicht möglich.
+let memoryDismissed = false;
+
 // Gleiches useSyncExternalStore-Muster wie ThemeToggle.tsx: liest
 // localStorage SSR-sicher (Server-Snapshot "nicht weggeklickt" fürs erste
 // Rendern, danach vom Client auf den echten Wert korrigiert), statt
@@ -16,7 +24,11 @@ const DISMISS_EVENT = "cornice-onboarding-dismiss";
 // des nativen "storage"-Events, da Letzteres im auslösenden Tab selbst
 // nicht feuert.
 function readDismissed(): boolean {
-  return localStorage.getItem(STORAGE_KEY) === "true";
+  try {
+    return localStorage.getItem(STORAGE_KEY) === "true";
+  } catch {
+    return memoryDismissed;
+  }
 }
 
 function readServerDismissed(): boolean {
@@ -115,7 +127,11 @@ export default function OnboardingChecklist({
   // versteckt, obwohl niemand sie je geschlossen hat.
   function handleDismiss() {
     if (allDone) return;
-    localStorage.setItem(STORAGE_KEY, "true");
+    try {
+      localStorage.setItem(STORAGE_KEY, "true");
+    } catch {
+      memoryDismissed = true;
+    }
     window.dispatchEvent(new Event(DISMISS_EVENT));
   }
 
