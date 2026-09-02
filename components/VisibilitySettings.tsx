@@ -3,6 +3,8 @@
 import { useActionState } from "react";
 import { updateVisibilitySettings, type ProfileActionState } from "@/lib/actions/profile";
 import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import Switch from "@/components/ui/Switch";
 
 const initialState: ProfileActionState = { error: null };
 
@@ -22,23 +24,28 @@ const FIELDS: { name: keyof VisibilityFlags; formKey: string; label: string }[] 
   { name: "zeigtDistanz", formKey: "zeigt_distanz", label: "GPS-getrackte Gesamtdistanz zeigen" },
 ];
 
+// Kachel-Liste mit iOS-artigen Switches (components/ui/Switch.tsx) statt
+// einer losen Spalte nativer Checkboxen — gleiches Card+divide-y-Muster wie
+// andere Listen der App (z. B. Streckenvorschläge im selben Einstellungen-
+// Bereich). Jeder Switch bleibt technisch eine unkontrollierte Checkbox
+// (name/value/defaultChecked), submitted also weiterhin gesammelt über den
+// einen "Speichern"-Button unten statt pro Zeile automatisch zu sichern.
 export default function VisibilitySettings(flags: VisibilityFlags) {
   const [state, formAction, pending] = useActionState(updateVisibilitySettings, initialState);
 
   return (
-    <form action={formAction} className="flex flex-col gap-3">
-      {FIELDS.map((field) => (
-        <label key={field.formKey} className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
+    <form action={formAction} className="flex flex-col gap-4">
+      <Card className="flex flex-col divide-y divide-border px-4">
+        {FIELDS.map((field) => (
+          <Switch
+            key={field.formKey}
             name={field.formKey}
             value="true"
             defaultChecked={flags[field.name]}
-            className="h-4 w-4 accent-accent"
+            label={field.label}
           />
-          {field.label}
-        </label>
-      ))}
+        ))}
+      </Card>
 
       {/* Premium-Symbol-Einstellung vorerst deaktiviert, siehe
           components/PremiumCard.tsx. */}
