@@ -8,6 +8,41 @@ export interface ProfileActionState {
   success?: boolean;
 }
 
+export interface ProfileSearchResult {
+  id: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+}
+
+// Namenssuche für die Profilsuche im Feed (components/ProfileSearch.tsx).
+// display_name/avatar_url sind bereits öffentlich lesbar (RLS "Profile sind
+// öffentlich lesbar" seit 0001_init.sql, Spalten-Grants in
+// 0034_profiles_column_grant_hardening.sql) — dieselben Daten, die z. B. in
+// Follower-Listen und Bestenlisten ohnehin für jeden sichtbar sind, hier nur
+// zusätzlich per Namenssuche auffindbar statt nur beim Durchblättern.
+export async function searchProfiles(query: string): Promise<ProfileSearchResult[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) return [];
+
+  const supabase = await createClient();
+  // ilike-Sonderzeichen im Nutzer-Input escapen, sonst könnten "%"/"_" selbst
+  // als Wildcard statt als gesuchtes Literalzeichen wirken.
+  const escaped = trimmed.replace(/[%_\\]/g, (c) => `\\${c}`);
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, display_name, avatar_url, zeigt_avatar")
+    .not("display_name", "is", null)
+    .ilike("display_name", `%${escaped}%`)
+    .order("display_name")
+    .limit(8);
+
+  return (data ?? []).map((p) => ({
+    id: p.id,
+    displayName: p.display_name,
+    avatarUrl: p.zeigt_avatar ? p.avatar_url : null,
+  }));
+}
+
 export async function updateVisibilitySettings(
   _prevState: ProfileActionState,
   formData: FormData,

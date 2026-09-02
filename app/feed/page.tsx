@@ -3,6 +3,7 @@ import { Rss } from "lucide-react";
 import Header from "@/components/Header";
 import Avatar from "@/components/Avatar";
 import KudosButton from "@/components/KudosButton";
+import ProfileSearch from "@/components/ProfileSearch";
 import { getFeed, type FeedScope } from "@/lib/feed";
 import { createClient } from "@/lib/supabase/server";
 import Card from "@/components/ui/Card";
@@ -42,6 +43,8 @@ export default async function FeedPage({
           <h1 className="text-display font-semibold">Feed</h1>
           <p className="mt-1 text-sm text-muted">Geteilte Fahrten aus der Community.</p>
         </div>
+
+        <ProfileSearch />
 
         {user && (
           <div className="flex gap-2 border-b border-border pb-3">
