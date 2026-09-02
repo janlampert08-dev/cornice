@@ -236,13 +236,13 @@ export interface Profile {
 // Detailseite (app/fahrten/[id]/page.tsx).
 export interface PublicFahrt {
   user_id: string;
-  // Nullable vorbereitet: public_fahrten führt in dieser Phase noch
-  // ausschliesslich Streckenfahrten (freie Fahrten sind immer privat), aber
-  // route_id ist auf der Tabelle seit 0044_freie_fahrten.sql nullable — die
-  // Konsumenten prüfen das bereits (siehe lib/profile.ts).
+  // Seit 0045_freie_fahrten_teilen.sql führt die View beide Fahrtarten: bei
+  // einer freien Fahrt sind route_id, route_name und laenge_km null, und
+  // region kommt aus coalesce(r.region, rc.region) — auch das kann null
+  // sein, wenn das Reverse-Geocoding beim Speichern nichts geliefert hat.
   route_id: string | null;
   route_name: string | null;
-  region: string;
+  region: string | null;
   laenge_km: number | null;
   distanz_km: number | null;
   datum: string;
