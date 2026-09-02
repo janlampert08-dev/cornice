@@ -6,15 +6,12 @@ import Header from "@/components/Header";
 import VehicleGrid from "@/components/VehicleGrid";
 import AvatarUpload from "@/components/AvatarUpload";
 import RideVisibilityToggle from "@/components/RideVisibilityToggle";
-import ShareRideButton from "@/components/ShareRideButton";
-import KudosButton from "@/components/KudosButton";
 import AchievementBadges from "@/components/AchievementBadges";
 import ActivityHeatmap from "@/components/ActivityHeatmap";
 import CountUp from "@/components/CountUp";
 import FollowCounts from "@/components/FollowCounts";
 // Premium-Feature vorerst deaktiviert, siehe components/PremiumCard.tsx.
 import { createClient } from "@/lib/supabase/server";
-import { getKudosForCompletions } from "@/lib/kudos";
 import { getFollowCounts, getFollowerProfiles, getFollowingProfiles } from "@/lib/follows";
 import { formatDuration, formatKm } from "@/lib/format";
 import type { Vehicle } from "@/types/database";
@@ -154,13 +151,6 @@ export default async function ProfilPage() {
     0,
   );
 
-  // Kudos existieren laut RLS (0029_kudos.sql) nur auf öffentlichen Fahrten
-  // — private trackedRides gar nicht erst mitgeben, statt leer zu landen.
-  const kudosByCompletion = await getKudosForCompletions(
-    (trackedRides ?? []).filter((r) => r.ist_oeffentlich).map((r) => r.id),
-    user.id,
-  );
-
   return (
     <div className="flex h-dvh flex-col">
       <Header />
@@ -198,16 +188,20 @@ export default async function ProfilPage() {
               following={following}
             />
           </div>
-          <div className="flex flex-wrap gap-2">
+          {/* grid statt flex-wrap: beide Buttons sollen gleich breit sein
+              (die halbe Zeile), unabhängig von ihrer unterschiedlich langen
+              Beschriftung — mit flex-wrap wäre jeder Button nur so breit wie
+              sein eigener Text. */}
+          <div className="grid grid-cols-2 gap-2">
             <Link
               href="/strecken/neu"
-              className={buttonVariants({ variant: "primary", size: "sm", className: "self-start" })}
+              className={buttonVariants({ variant: "primary", size: "sm", className: "w-full" })}
             >
               + Strecke vorschlagen
             </Link>
             <Link
               href={`/fahrer/${user.id}`}
-              className={buttonVariants({ variant: "secondary", size: "sm", className: "self-start" })}
+              className={buttonVariants({ variant: "secondary", size: "sm", className: "w-full" })}
             >
               Öffentliches Profil ansehen
             </Link>
@@ -307,8 +301,8 @@ export default async function ProfilPage() {
                             : 0;
                         return (
                           <li key={ride.id} className="group transition-colors duration-fast hover:bg-surface">
-                            <div className="flex flex-col gap-2 p-3">
-                              <Link href={`/fahrten/${ride.id}`} className="flex flex-col gap-1">
+                            <div className="flex items-center justify-between gap-3 p-3">
+                              <Link href={`/fahrten/${ride.id}`} className="flex min-w-0 flex-1 flex-col gap-1">
                                 <div className="flex items-baseline justify-between gap-2">
                                   <span className="min-w-0 truncate font-medium transition-colors duration-fast group-hover:text-accent">
                                     {ride.routes?.name ?? "Strecke"}
@@ -318,37 +312,16 @@ export default async function ProfilPage() {
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-2 font-mono text-xs tabular-nums text-muted">
-                                  <span>{ride.distanz_km.toFixed(1)} km</span>
-                                  <span aria-hidden="true">·</span>
                                   <span>{formatDuration(ride.dauer_sekunden)}</span>
                                   <span aria-hidden="true">·</span>
                                   <span>{avgKmh.toFixed(0)} km/h</span>
                                 </div>
                               </Link>
-                              <div className="flex items-center justify-between gap-3">
-                                <div>
-                                  {ride.ist_oeffentlich && (
-                                    <KudosButton
-                                      completionId={ride.id}
-                                      initialCount={kudosByCompletion.get(ride.id)?.count ?? 0}
-                                      initialGiven={kudosByCompletion.get(ride.id)?.givenByMe ?? false}
-                                    />
-                                  )}
-                                </div>
-                                <div className="flex shrink-0 items-center gap-3">
-                                  <ShareRideButton
-                                    routeId={ride.route_id}
-                                    distanceKm={ride.distanz_km}
-                                    durationSeconds={ride.dauer_sekunden}
-                                    date={ride.datum}
-                                  />
-                                  <RideVisibilityToggle
-                                    completionId={ride.id}
-                                    isPublic={ride.ist_oeffentlich}
-                                    coveragePercent={ride.abdeckung_prozent}
-                                  />
-                                </div>
-                              </div>
+                              <RideVisibilityToggle
+                                completionId={ride.id}
+                                isPublic={ride.ist_oeffentlich}
+                                coveragePercent={ride.abdeckung_prozent}
+                              />
                             </div>
                           </li>
                         );
