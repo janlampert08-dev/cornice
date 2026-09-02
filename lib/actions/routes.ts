@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { isModerator } from "@/lib/moderation";
+import { isRateLimited } from "@/lib/rateLimit";
 import {
   buildHoehenprofil,
   computeHoeheUndSteigung,
@@ -17,6 +18,13 @@ export interface ProposeRouteState {
   error: string | null;
 }
 
+// Grosszügiger als der Bewertungs-/Fahrten-Cooldown (3-5s) — ein Vorschlag
+// braucht ohnehin mehrere Sekunden Formular-Interaktion, das Limit soll nur
+// Skript-Missbrauch der externen Geocoding-/Höhenprofil-APIs bremsen (siehe
+// 0041_route_proposal_cooldown.sql für Details und den race-freien
+// DB-seitigen Trigger, der diesen Vorab-Check ergänzt).
+const PROPOSE_ROUTE_COOLDOWN_MS = 15_000;
+
 export async function proposeRoute(
   _prevState: ProposeRouteState,
   formData: FormData,
@@ -27,6 +35,10 @@ export async function proposeRoute(
   } = await supabase.auth.getUser();
 
   if (!user) return { error: "Bitte melde dich zuerst an." };
+
+  if (await isRateLimited(supabase, "routes", "created_at", "erstellt_von", user.id, PROPOSE_ROUTE_COOLDOWN_MS)) {
+    return { error: "Bitte warte einen Moment, bevor du eine weitere Strecke vorschlägst." };
+  }
 
   const name = String(formData.get("name") ?? "").trim();
   const laengeKm = Number(formData.get("laenge_km"));
@@ -98,6 +110,12 @@ export async function proposeRoute(
   });
 
   if (error || !data) {
+    // Race-freie Durchsetzung via DB-Trigger (0041) — der App-seitige Check
+    // oben ist nur ein schnelles Vorab-Feedback und kann bei parallelen
+    // Requests theoretisch durchrutschen.
+    if (error?.message.includes("cooldown_active")) {
+      return { error: "Bitte warte einen Moment, bevor du eine weitere Strecke vorschlägst." };
+    }
     return { error: "Strecke konnte nicht gespeichert werden." };
   }
 
