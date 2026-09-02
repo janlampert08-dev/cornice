@@ -7,6 +7,7 @@ import {
   saveTrackingSnapshot,
   loadTrackingSnapshot,
   clearTrackingSnapshot,
+  purgeLegacyTrackingSnapshots,
   type TrackingSnapshot,
 } from "@/lib/trackingStorage";
 
@@ -447,6 +448,9 @@ export function useRideRecorder({
   // Effekt-Body), damit die darin ausgelösten setState-Aufrufe nicht als
   // Render-Kaskade zählen.
   useEffect(() => {
+    // Reste aus der Zeit vor der Nutzertrennung wegräumen, bevor irgendetwas
+    // wiederhergestellt wird.
+    purgeLegacyTrackingSnapshots();
     const snapshot = loadTrackingSnapshot(userIdRef.current, storageKeyRef.current);
 
     const timeout = setTimeout(() => {

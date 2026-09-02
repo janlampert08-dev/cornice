@@ -59,10 +59,15 @@ function project(point: TrailPoint, cosRefLat: number): ProjectedPoint {
   return { x: point.lng * METERS_PER_DEG_LON * cosRefLat, y: point.lat * METERS_PER_DEG_LAT };
 }
 
-// Abstand von "point" zur Geraden durch "start" und "end" (beide bereits in
-// Metern projiziert). Fallen Start und Ende zusammen, wird auf den reinen
-// Punktabstand zurückgefallen.
-function perpendicularDistanceM(
+// Abstand von "point" zur STRECKE zwischen "start" und "end" (beide bereits in
+// Metern projiziert) — nicht zur unendlichen Geraden durch beide Punkte.
+//
+// Der Unterschied zählt bei Stichfahrten: fährt jemand über den späteren
+// Endpunkt hinaus und wieder zurück, liegt der Wendepunkt auf der Verlängerung
+// der Geraden und hätte dort den Abstand null. Er würde also weggekürzt, und
+// die gespeicherte Fahrt wäre kürzer als die gefahrene. Fallen Start und Ende
+// zusammen, bleibt es beim reinen Punktabstand.
+function segmentDistanceM(
   point: ProjectedPoint,
   start: ProjectedPoint,
   end: ProjectedPoint,
@@ -73,8 +78,12 @@ function perpendicularDistanceM(
   if (lengthSquared === 0) {
     return Math.hypot(point.x - start.x, point.y - start.y);
   }
-  const cross = Math.abs(dy * (point.x - start.x) - dx * (point.y - start.y));
-  return cross / Math.sqrt(lengthSquared);
+  // Lotfusspunkt auf die Gerade, auf die Strecke begrenzt.
+  const t = Math.max(
+    0,
+    Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared),
+  );
+  return Math.hypot(point.x - (start.x + t * dx), point.y - (start.y + t * dy));
 }
 
 // Douglas-Peucker, iterativ statt rekursiv: bei bis zu MAX_TRAIL_POINTS
@@ -105,7 +114,7 @@ export function simplifyTrack(
     let maxDistance = 0;
     let index = first;
     for (let i = first + 1; i < last; i++) {
-      const distance = perpendicularDistanceM(projected[i], projected[first], projected[last]);
+      const distance = segmentDistanceM(projected[i], projected[first], projected[last]);
       if (distance > maxDistance) {
         maxDistance = distance;
         index = i;

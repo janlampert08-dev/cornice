@@ -57,12 +57,18 @@ export async function updateVisibilitySettings(
   if (!user) return { error: "Bitte melde dich zuerst an." };
 
   // Der Privatzonen-Radius kommt aus derselben Maske wie die übrigen
-  // Sichtbarkeits-Schalter. Nur die angebotenen Werte sind zulässig —
-  // alles andere fällt auf den Standard zurück, statt einen beliebigen
-  // (womöglich 0) Radius aus dem Formular zu übernehmen.
-  const radiusRaw = Number(formData.get("privatzone_radius_m"));
-  const privatzoneRadiusM = (PRIVACY_RADIUS_OPTIONS as readonly number[]).includes(radiusRaw)
-    ? radiusRaw
+  // Sichtbarkeits-Schalter. Nur die angebotenen Werte sind zulässig, alles
+  // andere fällt auf den Standard zurück.
+  //
+  // Der Feldwert wird bewusst erst als Text geprüft: Number(null) und
+  // Number("") ergeben 0, und 0 ist ein gültiger Radius ("Privatzone aus").
+  // Ein Formular ohne dieses Feld würde die Privatzone also stillschweigend
+  // abschalten — bei einer Datenschutz-Einstellung genau die falsche
+  // Richtung.
+  const radiusRaw = formData.get("privatzone_radius_m");
+  const radius = typeof radiusRaw === "string" && radiusRaw.trim() !== "" ? Number(radiusRaw) : NaN;
+  const privatzoneRadiusM = (PRIVACY_RADIUS_OPTIONS as readonly number[]).includes(radius)
+    ? radius
     : DEFAULT_PRIVACY_RADIUS_M;
 
   const { error } = await supabase
@@ -84,8 +90,16 @@ export async function updateVisibilitySettings(
 
   // Ein geänderter Radius muss auch für bereits geteilte Fahrten gelten —
   // sonst wirkte die strengere Einstellung nur in die Zukunft, und genau
-  // die alten Fahrten wären das Problem.
-  await recomputePublicTracks(supabase, user.id, privatzoneRadiusM);
+  // die alten Fahrten wären das Problem. Schlägt das für eine Fahrt fehl,
+  // bleibt dort der bisherige, weitere Track öffentlich: das darf nicht als
+  // "Gespeichert." durchgehen.
+  const recomputed = await recomputePublicTracks(supabase, user.id, privatzoneRadiusM);
+  if (!recomputed) {
+    return {
+      error:
+        "Die Einstellungen wurden gespeichert, aber nicht alle bereits geteilten Fahrten konnten neu zugeschnitten werden. Bitte versuche es noch einmal.",
+    };
+  }
 
   revalidatePath("/profil");
   revalidatePath("/profil/einstellungen");

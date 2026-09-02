@@ -30,14 +30,22 @@ alter table public.completion_reports enable row level security;
 -- Gemeldet werden kann nur, was auch öffentlich ist. Sonst liesse sich über
 -- diesen Weg herausfinden, ob eine bestimmte (private) Fahrt existiert —
 -- dieselbe Überlegung wie bei den Kudos-Policies (0029).
+--
+-- Geprüft wird über public_fahrten, nicht direkt über route_completions:
+-- der Ausdruck einer Policy läuft mit den Rechten des Aufrufers, und die
+-- SELECT-Policy auf route_completions (0001) zeigt jedem nur die eigenen
+-- Zeilen. Eine Prüfung dort wäre für jede fremde Fahrt falsch — also genau
+-- für die, die man überhaupt melden will. public_fahrten läuft dagegen mit
+-- den Rechten des View-Owners und enthält ohnehin nur öffentliche Fahrten
+-- (und bei Streckenfahrten nur solche auf freigegebenen Strecken).
 create policy "Angemeldete Nutzer können öffentliche Fahrten melden"
   on public.completion_reports for insert
   to authenticated
   with check (
     reporter_id = (select auth.uid())
     and exists (
-      select 1 from public.route_completions rc
-      where rc.id = completion_id and rc.ist_oeffentlich = true
+      select 1 from public.public_fahrten pf
+      where pf.completion_id = completion_reports.completion_id
     )
   );
 

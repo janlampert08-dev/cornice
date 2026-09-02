@@ -56,6 +56,25 @@ describe("simplifyTrack", () => {
     expect(Math.abs(simplified - original) / original).toBeLessThan(0.01);
   });
 
+  // Regression: der Abstand wird zur Strecke zwischen den Stützpunkten
+  // gemessen, nicht zur unendlichen Geraden durch sie. Wer über den späteren
+  // Endpunkt hinausfährt und umkehrt, liegt sonst "auf der Linie" und der
+  // Wendepunkt verschwindet — die gespeicherte Fahrt wäre kürzer als die
+  // gefahrene.
+  it("keeps the turning point of an out-and-back overshoot", () => {
+    const track = [
+      point(8.5, 47.37, 0),
+      point(8.503, 47.37, 30), // rund 75 m über den Endpunkt hinaus
+      point(8.502, 47.37, 60),
+    ];
+    const simplified = simplifyTrack(track);
+    expect(simplified).toHaveLength(3);
+    expect(computeTrailStats(simplified).distanceKm).toBeCloseTo(
+      computeTrailStats(track).distanceKm,
+      3,
+    );
+  });
+
   it("does not blow the stack on a long, nearly straight track", () => {
     expect(() => simplifyTrack(straightLine(20_000, 0.00001, 1))).not.toThrow();
   });

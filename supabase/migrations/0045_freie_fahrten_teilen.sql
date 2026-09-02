@@ -116,13 +116,26 @@ comment on view public.public_fahrten is
 --    Bewusst eine eigene View statt einer weiteren Spalte in
 --    public_fahrten: lib/feed.ts liest dort mit select("*"), und der Feed
 --    soll nicht bei jedem Aufruf dreissig vollständige Geometrien laden.
+--
+--    Die Sichtbarkeitsregel ist dieselbe wie oben und muss es auch sein:
+--    ist_oeffentlich allein genügt nicht. Wer eine eigene, noch nicht
+--    freigegebene Strecke vorschlägt (status_ok = false) oder eine private
+--    Premium-Strecke fährt, kann diese Fahrt öffentlich stellen —
+--    public_fahrten verbirgt sie dann korrekt, eine View ohne dieselbe
+--    Kopplung würde ihren Track aber trotzdem an anon ausliefern.
 -- ---------------------------------------------------------------------------
 create view public.public_fahrt_tracks as
 select
   rc.id as completion_id,
   ST_AsGeoJSON(rc.track_oeffentlich)::json as track_geojson
 from public.route_completions rc
-where rc.ist_oeffentlich = true and rc.track_oeffentlich is not null;
+left join public.routes r on r.id = rc.route_id
+where rc.ist_oeffentlich = true
+  and rc.track_oeffentlich is not null
+  and (
+    (rc.art = 'frei' and rc.route_id is null)
+    or (rc.art = 'strecke' and r.status_ok = true)
+  );
 
 grant select on public.public_fahrt_tracks to anon, authenticated;
 

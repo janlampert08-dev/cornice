@@ -171,6 +171,15 @@ export default function CompletionActionsMenu({
             Die Aufzeichnung wird mit allen Fotos, Kudos und dem gespeicherten GPS-Track
             endgültig gelöscht. Das lässt sich nicht rückgängig machen.
           </p>
+          {/* Der Fehlertext muss hier stehen und nicht in der Card unten:
+              der Dialog ist ein natives <dialog> mit showModal() und liegt
+              damit im Top-Layer über allem anderen — eine Meldung ausserhalb
+              wäre unsichtbar, während der Dialog offen bleibt. */}
+          {error && (
+            <p role="alert" className="text-sm text-danger">
+              {error}
+            </p>
+          )}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" size="sm" onClick={() => setDeleteOpen(false)}>
               Abbrechen

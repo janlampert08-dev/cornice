@@ -72,6 +72,27 @@ export function loadTrackingSnapshot(
   }
 }
 
+// Entfernt Snapshots aus der Zeit vor der Nutzertrennung
+// (`cornice:tracking:<fahrt>` statt `cornice:tracking:<nutzer>:<fahrt>`).
+// Sie werden nie wieder gelesen, enthalten aber möglicherweise den GPS-Verlauf
+// einer anderen Person auf einem geteilten Gerät — sie sollen nicht dauerhaft
+// im Browser liegen bleiben. Am neuen Schlüssel erkennbar: dort steht hinter
+// dem Präfix genau ein weiterer Doppelpunkt.
+export function purgeLegacyTrackingSnapshots(): void {
+  try {
+    const prefix = "cornice:tracking:";
+    const veraltet: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const storedKey = localStorage.key(i);
+      if (!storedKey?.startsWith(prefix)) continue;
+      if (!storedKey.slice(prefix.length).includes(":")) veraltet.push(storedKey);
+    }
+    for (const storedKey of veraltet) localStorage.removeItem(storedKey);
+  } catch {
+    // Kein Zugriff auf localStorage — dann gibt es auch nichts aufzuräumen.
+  }
+}
+
 export function clearTrackingSnapshot(userId: string, storageKey: string): void {
   try {
     localStorage.removeItem(key(userId, storageKey));

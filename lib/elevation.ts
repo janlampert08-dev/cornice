@@ -21,6 +21,10 @@ function wgs84ToLv95([lon, lat]: [number, number]): [number, number] {
   return [E, N];
 }
 
+// Grosszügiger als beim Geocoding: der Dienst rechnet ein Profil über die
+// ganze Geometrie, das dauert regulär eine Sekunde oder mehr.
+const ELEVATION_TIMEOUT_MS = 8000;
+
 interface ProfilePoint {
   dist: number;
   alts: { COMB: number };
@@ -37,17 +41,28 @@ export async function fetchElevationProfile(
   const geom = JSON.stringify({ type: "LineString", coordinates: lv95 });
   const body = new URLSearchParams({ geom, sr: "2056", nb_points: "300" });
 
-  const res = await fetch("https://api3.geo.admin.ch/rest/services/profile.json", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-  });
-  if (!res.ok) return null;
+  // Mit Frist, und jeder Fehler wird zu null: das Höhenprofil ist Beiwerk.
+  // Ein stockender oder ausgefallener swisstopo-Aufruf darf weder das
+  // Speichern einer Fahrt noch einen Streckenvorschlag aufhalten — beide
+  // Aufrufer in lib/actions/ rechnen mit null und veröffentlichen dann eben
+  // ohne diese Werte. Bisher wurde nur ein "nicht ok"-Status abgefangen, ein
+  // Netzwerkfehler dagegen bis in die Server Action durchgereicht.
+  try {
+    const res = await fetch("https://api3.geo.admin.ch/rest/services/profile.json", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+      signal: AbortSignal.timeout(ELEVATION_TIMEOUT_MS),
+    });
+    if (!res.ok) return null;
 
-  const json = (await res.json()) as ProfilePoint[] | unknown;
-  if (!Array.isArray(json)) return null;
+    const json = (await res.json()) as ProfilePoint[] | unknown;
+    if (!Array.isArray(json)) return null;
 
-  return json.map((p) => ({ dist: p.dist, elevation: p.alts.COMB }));
+    return json.map((p) => ({ dist: p.dist, elevation: p.alts.COMB }));
+  } catch {
+    return null;
+  }
 }
 
 // 3-Punkt-Median unterdrückt einzelne Ausreisser (z. B. Tunnel-/Brücken-

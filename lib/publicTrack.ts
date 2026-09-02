@@ -43,21 +43,27 @@ export async function publicTrackEwkt(
 // Nutzer klein. Ein einzelnes UPDATE über alle Zeilen ginge nicht, weil die
 // Kappung pro Fahrt eine eigene Geometrie ergibt und in SQL nur
 // näherungsweise möglich wäre (siehe Migrationskommentar).
+//
+// Der Rückgabewert sagt, ob wirklich jede betroffene Fahrt neu zugeschnitten
+// wurde. Ein stillschweigend übergangener Fehler hiesse: der Nutzer stellt
+// den Radius enger, bekommt "Gespeichert." zu sehen — und der weitere Track
+// bleibt öffentlich.
 export async function recomputePublicTracks(
   supabase: ServerClient,
   userId: string,
   radiusM: number,
-): Promise<void> {
-  const { data: rides } = await supabase
+): Promise<boolean> {
+  const { data: rides, error: ridesError } = await supabase
     .from("route_completions")
     .select("id")
     .eq("user_id", userId)
     .eq("ist_oeffentlich", true)
     .returns<{ id: string }[]>();
 
-  if (!rides || rides.length === 0) return;
+  if (ridesError) return false;
+  if (!rides || rides.length === 0) return true;
 
-  const { data: tracks } = await supabase
+  const { data: tracks, error: tracksError } = await supabase
     .from("fahrt_tracks")
     .select("completion_id, track_geojson")
     .in(
@@ -66,12 +72,17 @@ export async function recomputePublicTracks(
     )
     .returns<{ completion_id: string; track_geojson: GeoLineString }[]>();
 
+  if (tracksError) return false;
+
+  let alleErfolgreich = true;
   for (const row of tracks ?? []) {
     const cropped = cropTrackEnds(row.track_geojson.coordinates, radiusM);
-    await supabase
+    const { error } = await supabase
       .from("route_completions")
       .update({ track_oeffentlich: toEwktLineString(cropped) })
       .eq("id", row.completion_id)
       .eq("user_id", userId);
+    if (error) alleErfolgreich = false;
   }
+  return alleErfolgreich;
 }

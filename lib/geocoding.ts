@@ -1,3 +1,8 @@
+// Kurze Frist für alle Geocoding-Aufrufe: sie sind überall optionales
+// Beiwerk (Ortsbezug einer Fahrt, Vorbelegung beim Streckenvorschlag) und
+// nirgends den Preis wert, eine Antwort blockieren zu lassen.
+const GEOCODE_TIMEOUT_MS = 4000;
+
 interface MapboxGeocodeFeature {
   text: string;
   place_type: string[];
@@ -44,7 +49,10 @@ export async function reverseGeocode(
 
   let json: MapboxGeocodeResponse;
   try {
-    const res = await fetch(url);
+    // Ohne Frist hängt ein stockender Mapbox-Aufruf den ganzen
+    // Speichervorgang der Fahrt (lib/actions/completions.ts) — der Ortsbezug
+    // ist Beiwerk und darf das nie aufhalten.
+    const res = await fetch(url, { signal: AbortSignal.timeout(GEOCODE_TIMEOUT_MS) });
     if (!res.ok) return null;
     json = await res.json();
   } catch {
