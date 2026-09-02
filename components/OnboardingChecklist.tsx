@@ -1,27 +1,21 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Check, Compass, Route as RouteIcon, UserPlus } from "lucide-react";
 import { Dialog } from "@/components/ui/Dialog";
 import { buttonVariants } from "@/components/ui/Button";
 
 const STORAGE_KEY = "cornice-onboarding-dismissed";
-const DISMISS_EVENT = "cornice-onboarding-dismiss";
 
 // Fällt zurück auf diesen In-Memory-Wert, wenn localStorage blockiert ist
 // (strikte Privatsphäre-Einstellungen, manche iFrame-Kontexte etc. werfen
 // dort einen SecurityError statt einfach nichts zu speichern) — ohne
 // diesen Fallback liesse sich die Checkliste in so einem Fall nicht einmal
-// für die laufende Sitzung schliessen. Überlebt keinen Reload, aber mehr
-// ist ohne persistenten Speicher ohnehin nicht möglich.
+// für die laufende Sitzung als gesehen markieren. Überlebt keinen Reload,
+// aber mehr ist ohne persistenten Speicher ohnehin nicht möglich.
 let memoryDismissed = false;
 
-// Gleiches useSyncExternalStore-Muster wie ThemeToggle.tsx: liest
-// localStorage SSR-sicher (Server-Snapshot fürs erste Rendern, danach vom
-// Client auf den echten Wert korrigiert), statt setState synchron in einem
-// Effekt aufzurufen. Ein eigenes Event statt nur des nativen "storage"-
-// Events, da Letzteres im auslösenden Tab selbst nicht feuert.
 function readDismissed(): boolean {
   try {
     return localStorage.getItem(STORAGE_KEY) === "true";
@@ -30,27 +24,12 @@ function readDismissed(): boolean {
   }
 }
 
-// "weggeklickt" statt "nicht weggeklickt" als Server-Snapshot: ein bereits
-// weggeklickter Rückkehrer (localStorage gesetzt, aber unbekannt bis der
-// Client korrigiert) sähe mit dem umgekehrten Default sonst bei jedem
-// Seitenaufruf das Overlay kurz aufblitzen, bevor die Korrektur es wieder
-// schliesst — sichtbar und störend, da (anders als ein reines Farbschema-
-// Flackern) ein ganzes Modal kurz übers Bild springt. Der Kompromiss: ein
-// echter Erstbesucher sieht die Checkliste minimal verzögert (erst nach der
-// Hydration-Korrektur) statt sofort — unauffällig, da natives <dialog> ohne
-// open-Attribut ohnehin erst per showModal() in einem Effekt erscheint,
-// nie deklarativ im Server-HTML.
-function readServerDismissed(): boolean {
-  return true;
-}
-
-function subscribe(callback: () => void) {
-  window.addEventListener("storage", callback);
-  window.addEventListener(DISMISS_EVENT, callback);
-  return () => {
-    window.removeEventListener("storage", callback);
-    window.removeEventListener(DISMISS_EVENT, callback);
-  };
+function persistDismissed(): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, "true");
+  } catch {
+    memoryDismissed = true;
+  }
 }
 
 interface Step {
@@ -72,13 +51,18 @@ interface Step {
 // statt als Karte oben in den normalen Seitenfluss eingebettet — ein neuer
 // Nutzer landet sonst direkt in der vollen Explore-Ansicht (Karte + Liste +
 // Filter) UND einer zusätzlichen Karte gleichzeitig, was auf den ersten
-// Blick überladen wirkt. Jeder Haken kommt aus echtem Serverzustand
-// (loggedIn/hasVehicle/hasTrackedRide), nicht aus dem lokalen Speicher —
-// ein Sprung auf eine andere Seite (z. B. Registrierung) und zurück lässt
-// bereits erledigte Schritte darum zuverlässig durchgestrichen stehen,
-// statt die Checkliste abzubrechen oder zurückzusetzen. Nur das explizite
-// Schliessen (Backdrop-Klick, Escape oder "Später einrichten") wird lokal
-// gemerkt.
+// Blick überladen wirkt.
+//
+// Erscheint nur einmal pro Browser: sobald der Dialog beim Laden der
+// Startseite gezeigt werden würde, gilt er ab da als gesehen (localStorage)
+// — unabhängig davon, ob und wie er geschlossen wird (Backdrop, Escape,
+// "Später einrichten", ein CTA-Klick der wegnavigiert, oder der Tab wird
+// einfach geschlossen) und unabhängig vom späteren Fortschritt der Schritte.
+// Eine frühere Version merkte sich nur ein explizites Wegklicken und liess
+// die Checkliste sonst bei jedem Besuch erneut aufblitzen, bis alle drei
+// Schritte erledigt waren — was wie ein Bug wirkte, wenn jemand die Seite
+// bloss besucht (z. B. nur eine Strecke angeschaut), ohne aktiv auf
+// Hintergrund/Escape/"Später einrichten" zu klicken.
 export default function OnboardingChecklist({
   loggedIn,
   hasVehicle,
@@ -88,8 +72,6 @@ export default function OnboardingChecklist({
   hasVehicle: boolean;
   hasTrackedRide: boolean;
 }) {
-  const dismissed = useSyncExternalStore(subscribe, readDismissed, readServerDismissed);
-
   const steps: Step[] = [
     {
       key: "konto",
@@ -122,27 +104,36 @@ export default function OnboardingChecklist({
 
   const allDone = steps.every((s) => s.done);
 
-  // Dialog.tsx ruft el.close() (und damit onClose -> handleDismiss) auch,
-  // wenn open programmatisch auf false wechselt — hier also sobald allDone
-  // true wird, nicht nur bei echtem Nutzer-Dismiss (Backdrop/Escape/
-  // "Später einrichten"). Ohne diese Guard würde der letzte erledigte
-  // Schritt fälschlich auch "weggeklickt" persistieren: würde später ein
-  // Schritt wieder offen (z. B. das einzige Fahrzeug gelöscht), bliebe die
-  // Checkliste wegen des dann unnötig gesetzten dismissed-Flags trotzdem
-  // versteckt, obwohl niemand sie je geschlossen hat.
+  // Lazy Initializer statt Effekt-getriebenem setState (vermeidet
+  // react-hooks/set-state-in-effect): reines Lesen, läuft nur einmal beim
+  // ersten Rendern dieser Komponenteninstanz. Auf dem Server ist window
+  // nicht verfügbar — dort also immer false, was unproblematisch ist, da
+  // Dialog.tsx den open-Prop ohnehin nur für showModal()/close() in einem
+  // eigenen Effekt nutzt, nie für serverseitig gerendertes Markup (kein
+  // open-Attribut im JSX unten) — es gibt also nichts, das bei der
+  // Hydration nicht übereinstimmen könnte.
+  const [open, setOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return !readDismissed() && !allDone;
+  });
+
+  // Reine Schreibaktion auf ein externes System (kein setState) — erlaubt
+  // laut react-hooks/set-state-in-effect ausdrücklich in einem Effekt.
+  // Markiert den Dialog ab dem ersten Rendern als gesehen, unabhängig
+  // davon, ob er hier überhaupt geöffnet wird (z. B. weil allDone schon
+  // beim Laden zutrifft) oder wie er später geschlossen wird — "einmal pro
+  // Browser, dann nie wieder" statt nur bei explizitem Wegklicken.
+  useEffect(() => {
+    if (!readDismissed()) persistDismissed();
+  }, []);
+
   function handleDismiss() {
-    if (allDone) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, "true");
-    } catch {
-      memoryDismissed = true;
-    }
-    window.dispatchEvent(new Event(DISMISS_EVENT));
+    setOpen(false);
   }
 
   return (
     <Dialog
-      open={!dismissed && !allDone}
+      open={open}
       onClose={handleDismiss}
       title="Willkommen bei Cornice!"
       className="flex flex-col gap-4"
