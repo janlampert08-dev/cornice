@@ -40,9 +40,11 @@ export async function submitRating(
     );
 
   if (error) {
-    // Race-freie Durchsetzung via DB-Trigger (0024) — der App-seitige Check
-    // oben ist nur ein schnelles Vorab-Feedback und kann bei parallelen
-    // Requests theoretisch durchrutschen.
+    // Race-freie Durchsetzung via DB-Trigger (0024, erweitert in 0041 auf
+    // Updates) — der App-seitige Check oben ist nur ein schnelles
+    // Vorab-Feedback und kann bei parallelen Requests oder beim Bearbeiten
+    // eines bestehenden Kommentars (upsert → UPDATE statt INSERT)
+    // theoretisch durchrutschen.
     if (error.message.includes("cooldown_active")) {
       return { error: "Bitte warte einen Moment, bevor du erneut kommentierst." };
     }
