@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Share2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { renderShareImage } from "@/lib/shareImage";
 import type { GeoLineString } from "@/types/database";
@@ -67,11 +68,12 @@ export default function ShareRideButton({
     <button
       type="button"
       title="Fahrt als Bild teilen"
+      aria-label="Fahrt als Bild teilen"
       disabled={loading}
       onClick={handleShare}
-      className="shrink-0 text-xs text-accent hover:underline disabled:opacity-50"
+      className="shrink-0 text-muted transition-colors duration-fast hover:text-accent disabled:opacity-50"
     >
-      {loading ? "…" : "Teilen"}
+      <Share2 className="h-4 w-4" aria-hidden="true" />
     </button>
   );
 }
