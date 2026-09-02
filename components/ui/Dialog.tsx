@@ -21,7 +21,22 @@ export function Dialog({ open, onClose, title, children, className }: DialogProp
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (open && !el.open) el.showModal();
+    if (open && !el.open) {
+      el.showModal();
+      // showModal() lässt den Browser sonst selbst entscheiden, was den
+      // Fokus bekommt (erstes fokussierbares Kind, sonst der Dialog
+      // selbst) — mit focusVisible=false laut Spec, was Safari für
+      // programmatischen Fokus aber nicht zuverlässig respektiert (zeigt
+      // dort denselben Ring wie bei echter Tastaturnavigation) und dabei
+      // zusätzlich versucht, das fokussierte Element in den sichtbaren
+      // Bereich zu scrollen — kollidiert auf iOS mit der eigenen
+      // Fixed-Positionierung des Dialogs (native <dialog:modal>) und kann
+      // mitten im Scroll zu sichtbar zerrissenem Rendering führen. Fokus
+      // stattdessen bewusst selbst auf den Dialog lenken (outline-none
+      // unten) statt dem Default-Ziel des Browsers zu überlassen;
+      // preventScroll unterbindet das ungewollte Scrollen dabei.
+      el.focus({ preventScroll: true });
+    }
     if (!open && el.open) el.close();
   }, [open]);
 
@@ -30,7 +45,7 @@ export function Dialog({ open, onClose, title, children, className }: DialogProp
       ref={ref}
       onClose={onClose}
       className={cn(
-        "m-auto w-[min(28rem,calc(100vw-2rem))] rounded-lg border border-border bg-background p-5 shadow-elevated outline-none backdrop:bg-foreground/30",
+        "m-auto w-[min(28rem,calc(100vw-2rem))] rounded-lg border border-border bg-background p-5 text-foreground shadow-elevated outline-none backdrop:bg-foreground/30",
         className,
       )}
       onClick={(event) => {
