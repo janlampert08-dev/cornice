@@ -72,17 +72,41 @@ export async function addVehicleInline(formData: FormData): Promise<InsertVehicl
   return insertVehicleFromFormData(formData);
 }
 
-export async function deleteVehicle(vehicleId: string) {
+export interface DeleteVehicleState {
+  error: string | null;
+}
+
+export async function deleteVehicle(vehicleId: string): Promise<DeleteVehicleState> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return;
+  if (!user) return { error: "Bitte melde dich zuerst an." };
 
   // Explizit auf den eigenen Nutzer filtern statt allein auf RLS zu
   // vertrauen (Defense-in-Depth — siehe app/profil/page.tsx für den gleichen
-  // Grundsatz bei der Fahrzeug-Abfrage).
-  await supabase.from("vehicles").delete().eq("id", vehicleId).eq("user_id", user.id);
+  // Grundsatz bei der Fahrzeug-Abfrage). Vorab-Check wie in completions.ts
+  // (z.B. removeCompletionPhoto): ohne ihn würde ein durch RLS/den
+  // user_id-Filter blockierter Löschversuch (0 betroffene Zeilen, kein
+  // Supabase-Error) fälschlich als Erfolg durchgehen.
+  const { data: existing } = await supabase
+    .from("vehicles")
+    .select("id")
+    .eq("id", vehicleId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!existing) return { error: "Fahrzeug nicht gefunden." };
+
+  const { error } = await supabase
+    .from("vehicles")
+    .delete()
+    .eq("id", vehicleId)
+    .eq("user_id", user.id);
+
+  if (error) return { error: "Fahrzeug konnte nicht entfernt werden." };
+
   revalidatePath("/profil");
+  return { error: null };
 }

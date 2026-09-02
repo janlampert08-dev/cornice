@@ -43,7 +43,7 @@ export default function AvatarUpload({
           <span className="sr-only">{pending ? "Wird hochgeladen…" : "Profilbild ändern"}</span>
         </label>
       </div>
-      {state.error && <p className="text-xs text-red-600">{state.error}</p>}
+      {state.error && <p className="text-xs text-danger">{state.error}</p>}
     </form>
   );
 }

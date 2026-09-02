@@ -136,14 +136,41 @@ export async function publishPrivateRoute(routeId: string) {
   revalidatePath("/moderation");
 }
 
+export interface DeleteRouteState {
+  error: string | null;
+}
+
 // Verlässt sich auf die RLS-Policy "Nutzer können eigene abgelehnte
 // Vorschläge löschen" (siehe 0012_eigene_abgelehnte_loeschen.sql) — ein
 // Versuch auf eine fremde, bewilligte oder noch ausstehende Strecke betrifft
-// schlicht 0 Zeilen betroffen statt einen Fehler zu werfen.
-export async function deleteOwnRejectedRoute(routeId: string) {
+// schlicht 0 Zeilen betroffen statt einen Fehler zu werfen. Vorab-Check wie
+// in completions.ts (z.B. removeCompletionPhoto), der dieselbe Bedingung wie
+// die RLS-Policy spiegelt: ohne ihn würde ein solcher Zero-Row-Löschversuch
+// fälschlich als Erfolg durchgehen statt dem Nutzer gemeldet zu werden.
+export async function deleteOwnRejectedRoute(routeId: string): Promise<DeleteRouteState> {
   const supabase = await createClient();
-  await supabase.from("routes").delete().eq("id", routeId);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Bitte melde dich zuerst an." };
+
+  const { data: existing } = await supabase
+    .from("routes")
+    .select("id")
+    .eq("id", routeId)
+    .eq("erstellt_von", user.id)
+    .not("abgelehnt_am", "is", null)
+    .maybeSingle();
+
+  if (!existing) return { error: "Vorschlag nicht gefunden." };
+
+  const { error } = await supabase.from("routes").delete().eq("id", routeId);
+
+  if (error) return { error: "Vorschlag konnte nicht gelöscht werden." };
+
   revalidatePath("/profil");
+  return { error: null };
 }
 
 export interface UpdateRouteState {

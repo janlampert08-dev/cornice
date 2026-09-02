@@ -7,17 +7,23 @@ import { ConfirmDialog } from "@/components/ui/Dialog";
 export default function DeleteProposalButton({ routeId }: { routeId: string }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   return (
-    <>
+    <div className="flex shrink-0 flex-col items-end gap-1">
       <button
         type="button"
         onClick={() => setOpen(true)}
         disabled={pending}
-        className="shrink-0 text-xs text-muted transition-colors duration-fast hover:text-danger disabled:opacity-50"
+        className="rounded-md px-3 py-2 text-xs text-muted transition-colors duration-fast hover:text-danger disabled:opacity-50"
       >
-        Löschen
+        {pending ? "Wird gelöscht…" : "Löschen"}
       </button>
+      {error && (
+        <p role="alert" className="text-xs text-danger">
+          {error}
+        </p>
+      )}
       <ConfirmDialog
         open={open}
         title="Vorschlag löschen"
@@ -28,9 +34,13 @@ export default function DeleteProposalButton({ routeId }: { routeId: string }) {
         onCancel={() => setOpen(false)}
         onConfirm={() => {
           setOpen(false);
-          startTransition(() => deleteOwnRejectedRoute(routeId));
+          setError(null);
+          startTransition(async () => {
+            const result = await deleteOwnRejectedRoute(routeId);
+            if (result.error) setError(result.error);
+          });
         }}
       />
-    </>
+    </div>
   );
 }
