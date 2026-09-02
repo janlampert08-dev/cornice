@@ -10,7 +10,6 @@ import { withAlpha, type RouteSignature, type SignatureKey } from "@/lib/signatu
 import type { AdvancedFilters } from "@/lib/exploreFilters";
 import type { Kategorie, RouteGeoJSON } from "@/types/database";
 import { fieldClassName } from "@/components/ui/Input";
-import { buttonVariants } from "@/components/ui/Button";
 import AdvancedFiltersPanel from "@/components/AdvancedFiltersPanel";
 import EmptyState from "@/components/ui/EmptyState";
 
@@ -86,10 +85,14 @@ export default function ExploreSidebar({
       />
 
       <div className="flex flex-col items-start gap-2 border-b border-border pb-6">
+        {/* Gleiche Grösse wie die Kategorie-Chips darunter (rounded-full,
+            px-3 py-1.5, text-sm) statt buttonVariants' secondary/sm
+            (rounded-lg, text-xs) — vorher wirkte dieser Button trotz
+            identischem Zweck sichtlich kleiner/anders als die Filter-Chips. */}
         <button
           onClick={onRequestLocation}
           disabled={locating}
-          className={buttonVariants({ variant: "secondary", size: "sm" })}
+          className="shrink-0 whitespace-nowrap rounded-full border border-border px-3 py-1.5 text-sm font-medium text-foreground transition-colors duration-fast hover:border-border-strong active:scale-95 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           {locating
             ? "Suche Standort…"
