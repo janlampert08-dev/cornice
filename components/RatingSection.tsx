@@ -1,11 +1,14 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
+import { Flag } from "lucide-react";
 import { submitRating, type RatingFormState } from "@/lib/actions/ratings";
+import { reportRating } from "@/lib/actions/reports";
 import type { RatingWithAuthor } from "@/lib/ratings";
 import { Textarea } from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
+import ReportDialog from "@/components/ReportDialog";
 
 const initialState: RatingFormState = { error: null };
 
@@ -14,14 +17,17 @@ export default function RatingSection({
   ratings,
   ownRating,
   canRate,
+  currentUserId,
 }: {
   routeId: string;
   ratings: RatingWithAuthor[];
   ownRating: { kommentar: string | null } | null;
   canRate: boolean;
+  currentUserId?: string | null;
 }) {
   const action = submitRating.bind(null, routeId);
   const [state, formAction, pending] = useActionState(action, initialState);
+  const [reportRatingId, setReportRatingId] = useState<string | null>(null);
 
   return (
     <section className="flex flex-col gap-4 border-t border-border pt-6">
@@ -60,18 +66,44 @@ export default function RatingSection({
       ) : (
         <ul className="flex flex-col gap-3">
           {ratings.map((r) => (
-            <li key={r.id} className="text-sm">
-              <Link
-                href={`/fahrer/${r.user_id}`}
-                className="font-medium transition-colors duration-fast hover:text-accent"
-              >
-                {r.display_name ?? "Anonym"}
-              </Link>
-              {r.kommentar && <p className="mt-0.5 text-muted">{r.kommentar}</p>}
+            <li key={r.id} className="flex items-start justify-between gap-2 text-sm">
+              <div>
+                <Link
+                  href={`/fahrer/${r.user_id}`}
+                  className="font-medium transition-colors duration-fast hover:text-accent"
+                >
+                  {r.display_name ?? "Anonym"}
+                </Link>
+                {r.kommentar && <p className="mt-0.5 text-muted">{r.kommentar}</p>}
+              </div>
+              {currentUserId && currentUserId !== r.user_id && (
+                <button
+                  type="button"
+                  onClick={() => setReportRatingId(r.id)}
+                  aria-label="Kommentar melden"
+                  className="shrink-0 text-muted transition-colors duration-fast hover:text-danger"
+                >
+                  <Flag className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              )}
             </li>
           ))}
         </ul>
       )}
+
+      {/* key erzwingt einen Remount pro gemeldetem Kommentar, statt eine
+          einzelne useActionState-Instanz (in ReportDialog) mit wechselnd
+          gebundener Server Action wiederzuverwenden — sonst bestünde das
+          Risiko, dass ein Formular-Submit noch die vorherige Bindung
+          erwischt, falls React eine geänderte action-Prop nicht sofort für
+          den nächsten Submit übernimmt. */}
+      <ReportDialog
+        key={reportRatingId ?? "closed"}
+        open={reportRatingId !== null}
+        onClose={() => setReportRatingId(null)}
+        title="Kommentar melden"
+        action={reportRating.bind(null, reportRatingId ?? "")}
+      />
     </section>
   );
 }
