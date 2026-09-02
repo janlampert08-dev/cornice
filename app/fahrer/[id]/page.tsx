@@ -35,28 +35,37 @@ export default async function FahrerPage({
 
   // getPublicProfile() und auth.getUser() sind voneinander unabhängig
   // (das Profil selbst braucht den Betrachter nicht) — parallel gestartet.
+  // Follower-/Following-LISTEN (nicht die Zahlen) folgen erst danach, weil
+  // ob sie überhaupt geladen werden von profile.zeigtFollowerListe abhängt.
   const [profile, {
     data: { user: viewer },
-  }, followCounts, followers, following] = await Promise.all([
+  }, followCounts] = await Promise.all([
     getPublicProfile(id),
     supabase.auth.getUser(),
     getFollowCounts(id),
-    getFollowerProfiles(id),
-    getFollowingProfiles(id),
   ]);
 
   if (!profile) notFound();
 
-  const kudosByCompletion = await getKudosForCompletions(
-    profile.fahrten.map((f) => f.completion_id),
-    viewer?.id ?? null,
-  );
+  // Die Zahlen bleiben immer sichtbar (0037_public_follows.sql) — nur die
+  // Namen-Listen respektieren zeigt_follower_liste, ausser für den
+  // Profil-Besitzer selbst, der seine eigenen Listen immer vollständig sieht.
+  const isOwnProfile = viewer?.id === id;
+  const showFollowLists = isOwnProfile || profile.zeigtFollowerListe;
+
+  const [kudosByCompletion, followers, following] = await Promise.all([
+    getKudosForCompletions(
+      profile.fahrten.map((f) => f.completion_id),
+      viewer?.id ?? null,
+    ),
+    showFollowLists ? getFollowerProfiles(id) : Promise.resolve([]),
+    showFollowLists ? getFollowingProfiles(id) : Promise.resolve([]),
+  ]);
 
   // Kein Folgen-Button auf dem eigenen Profil, und nur für eingeloggte
   // Betrachter — dieselbe Bedingung wie beim Kudos-Button oben.
-  const showFollow = !!viewer && viewer.id !== id;
-  const alreadyFollowing =
-    viewer && viewer.id !== id ? await isFollowing(viewer.id, id) : false;
+  const showFollow = !!viewer && !isOwnProfile;
+  const alreadyFollowing = viewer && !isOwnProfile ? await isFollowing(viewer.id, id) : false;
 
   const zeigtStatistiken = profile.zeigtPaesse || profile.zeigtHoehenmeter || profile.zeigtDistanz;
   const istPrivat =
@@ -81,6 +90,7 @@ export default async function FahrerPage({
                 followingCount={followCounts.following}
                 followers={followers}
                 following={following}
+                listsHidden={!showFollowLists}
               />
             </div>
           </div>
