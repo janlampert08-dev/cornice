@@ -30,31 +30,21 @@ export interface FollowProfile {
   avatarUrl: string | null;
 }
 
-// Ab 0037_public_follows.sql — läuft über die public_follows-View (bewusster
-// Bypass von follows' eigener RLS, die Dritten sonst keine Zeile zeigt),
-// damit Zahlen/Listen auch auf einem fremden öffentlichen Profil sichtbar
-// sind, nicht nur auf dem eigenen.
+// Ab 0037_public_follows.sql, gehärtet in 0040_follower_liste_view_lockdown.sql:
+// public_follows selbst ist nicht mehr direkt an anon/authenticated gegrantet
+// (wäre sonst per PostgREST direkt abfragbar und würde zeigt_follower_liste
+// aus 0039 komplett umgehen) — Zahlen und Listen laufen jetzt über
+// SECURITY-DEFINER-Funktionen, die die Sichtbarkeitsregel serverseitig
+// durchsetzen statt sie dem Aufrufer (dieser Seite) zu überlassen.
 export async function getFollowCounts(userId: string): Promise<FollowCounts> {
   const supabase = await createClient();
-  const [followers, following] = await Promise.all([
-    supabase
-      .from("public_follows")
-      .select("follower_id", { count: "exact", head: true })
-      .eq("followed_id", userId),
-    supabase
-      .from("public_follows")
-      .select("followed_id", { count: "exact", head: true })
-      .eq("follower_id", userId),
-  ]);
-  return { followers: followers.count ?? 0, following: following.count ?? 0 };
+  const { data } = await supabase.rpc("get_follow_counts", { p_user_id: userId }).single();
+  return { followers: data?.followers ?? 0, following: data?.following ?? 0 };
 }
 
 export async function getFollowerProfiles(userId: string): Promise<FollowProfile[]> {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("public_follows")
-    .select("follower_id, follower_display_name, follower_avatar_url")
-    .eq("followed_id", userId);
+  const { data } = await supabase.rpc("get_follower_list", { p_user_id: userId });
   return (data ?? []).map((r) => ({
     id: r.follower_id,
     displayName: r.follower_display_name,
@@ -64,10 +54,7 @@ export async function getFollowerProfiles(userId: string): Promise<FollowProfile
 
 export async function getFollowingProfiles(userId: string): Promise<FollowProfile[]> {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("public_follows")
-    .select("followed_id, followed_display_name, followed_avatar_url")
-    .eq("follower_id", userId);
+  const { data } = await supabase.rpc("get_following_list", { p_user_id: userId });
   return (data ?? []).map((r) => ({
     id: r.followed_id,
     displayName: r.followed_display_name,
