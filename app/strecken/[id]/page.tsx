@@ -136,6 +136,7 @@ export default async function StreckeDetailPage({
             route={route}
             moderator={moderator}
             isOwner={!moderator && user?.id === route.erstellt_von && !route.status_ok}
+            canReport={!!user && user.id !== route.erstellt_von}
           />
           {!moderator && user?.id === route.erstellt_von && !route.status_ok && (
             <Link
@@ -259,6 +260,7 @@ export default async function StreckeDetailPage({
           ratings={ratings}
           ownRating={ownRating}
           canRate={!!user}
+          currentUserId={user?.id ?? null}
         />
       </RouteDetailLayout>
     </div>

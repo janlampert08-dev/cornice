@@ -2,10 +2,18 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import Header from "@/components/Header";
 import ModerationActions from "@/components/ModerationActions";
+import ReportedContentActions from "@/components/ReportedContentActions";
 import { createClient } from "@/lib/supabase/server";
-import { isModerator, getPendingRoutes } from "@/lib/moderation";
+import { isModerator, getPendingRoutes, getOpenRouteReports, getOpenRatingReports } from "@/lib/moderation";
 import { formatKm } from "@/lib/format";
 import Card from "@/components/ui/Card";
+
+const REPORT_REASON_LABEL: Record<string, string> = {
+  unangemessen: "Unangemessener Inhalt",
+  spam: "Spam",
+  falsche_angaben: "Falsche Angaben",
+  sonstiges: "Sonstiges",
+};
 
 export default async function ModerationPage() {
   const supabase = await createClient();
@@ -16,7 +24,11 @@ export default async function ModerationPage() {
   if (!user) redirect("/anmelden");
   if (!(await isModerator(user.id))) redirect("/");
 
-  const routes = await getPendingRoutes();
+  const [routes, routeReports, ratingReports] = await Promise.all([
+    getPendingRoutes(),
+    getOpenRouteReports(),
+    getOpenRatingReports(),
+  ]);
 
   return (
     <div className="flex h-dvh flex-col">
@@ -57,6 +69,72 @@ export default async function ModerationPage() {
                   <p className="text-sm text-foreground">{route.charakter_text}</p>
                 )}
                 <ModerationActions routeId={route.id} />
+              </Card>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-4">
+          <h2 className="text-display font-semibold">Gemeldete Inhalte</h2>
+          <p className="text-sm text-muted">
+            {routeReports.length + ratingReports.length}{" "}
+            {routeReports.length + ratingReports.length === 1 ? "offene Meldung" : "offene Meldungen"}
+          </p>
+        </div>
+
+        {routeReports.length === 0 && ratingReports.length === 0 ? (
+          <p className="text-sm text-muted">Keine offenen Meldungen.</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {routeReports.map((report) => (
+              <Card key={report.id} className="flex flex-col gap-3 p-4">
+                <div>
+                  <p className="text-xs font-semibold tracking-wide text-muted uppercase">
+                    Strecke gemeldet · {REPORT_REASON_LABEL[report.grund] ?? report.grund}
+                  </p>
+                  <Link
+                    href={`/strecken/${report.routeId}`}
+                    className="font-medium transition-colors duration-fast hover:text-accent"
+                  >
+                    {report.routeName}
+                  </Link>
+                  {report.kommentar && (
+                    <p className="mt-1 text-sm text-foreground">„{report.kommentar}“</p>
+                  )}
+                </div>
+                <ReportedContentActions
+                  reportId={report.id}
+                  targetId={report.routeId}
+                  type="route"
+                  deleteConfirmDescription={`"${report.routeName}" wird endgültig gelöscht. Das kann nicht rückgängig gemacht werden.`}
+                />
+              </Card>
+            ))}
+            {ratingReports.map((report) => (
+              <Card key={report.id} className="flex flex-col gap-3 p-4">
+                <div>
+                  <p className="text-xs font-semibold tracking-wide text-muted uppercase">
+                    Kommentar gemeldet · {REPORT_REASON_LABEL[report.grund] ?? report.grund}
+                  </p>
+                  <Link
+                    href={`/strecken/${report.routeId}`}
+                    className="font-medium transition-colors duration-fast hover:text-accent"
+                  >
+                    {report.routeName}
+                  </Link>
+                  {report.ratingKommentar && (
+                    <p className="mt-1 text-sm text-foreground">„{report.ratingKommentar}“</p>
+                  )}
+                  {report.kommentar && (
+                    <p className="mt-1 text-sm text-muted">Meldungsgrund: „{report.kommentar}“</p>
+                  )}
+                </div>
+                <ReportedContentActions
+                  reportId={report.id}
+                  targetId={report.ratingId}
+                  type="rating"
+                  deleteConfirmDescription="Der Kommentar wird endgültig gelöscht. Das kann nicht rückgängig gemacht werden."
+                />
               </Card>
             ))}
           </div>

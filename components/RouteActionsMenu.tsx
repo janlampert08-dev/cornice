@@ -5,9 +5,11 @@ import Link from "next/link";
 import { buildGoogleMapsUrl } from "@/lib/googleMaps";
 import { buildGpx, gpxFileName } from "@/lib/gpx";
 import { deleteRouteAsModerator } from "@/lib/actions/routes";
+import { reportRoute } from "@/lib/actions/reports";
 import type { RouteGeoJSON } from "@/types/database";
 import Card from "@/components/ui/Card";
 import { ConfirmDialog } from "@/components/ui/Dialog";
+import ReportDialog from "@/components/ReportDialog";
 
 // Siehe components/PassStatusButton.tsx (Vorgänger dieser Komponente) für
 // die Begründung: TCS pflegt eigene Seiten pro Pass, aber die genauen
@@ -23,16 +25,21 @@ export default function RouteActionsMenu({
   route,
   moderator = false,
   isOwner = false,
+  canReport = false,
 }: {
   route: RouteGeoJSON;
   moderator?: boolean;
   isOwner?: boolean;
+  /** Angemeldet und nicht der Ersteller selbst — siehe app/strecken/[id]/page.tsx. */
+  canReport?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [deleting, startDelete] = useTransition();
   const containerRef = useRef<HTMLDivElement>(null);
+  const reportAction = reportRoute.bind(null, route.id);
 
   useEffect(() => {
     if (!open) return;
@@ -129,6 +136,18 @@ export default function RouteActionsMenu({
               Bearbeiten
             </Link>
           )}
+          {canReport && (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setReportOpen(true);
+              }}
+              className={`${ITEM_CLASS} text-danger`}
+            >
+              Melden
+            </button>
+          )}
           {moderator && (
             <>
               <Link
@@ -165,6 +184,12 @@ export default function RouteActionsMenu({
           setDeleteConfirmOpen(false);
           startDelete(() => deleteRouteAsModerator(route.id));
         }}
+      />
+      <ReportDialog
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        title="Strecke melden"
+        action={reportAction}
       />
     </div>
   );

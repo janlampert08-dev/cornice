@@ -115,6 +115,35 @@ export interface RouteRating {
   erstellt_am: string;
 }
 
+// Siehe 0043_content_reports.sql. "grund" ist app-seitig auf REPORT_REASONS
+// (lib/actions/reports.ts) beschränkt, hier als string statt Union, da der
+// DB-Check-Constraint bereits die eigentliche Durchsetzung übernimmt.
+export type ReportStatus = "offen" | "erledigt";
+
+export interface RouteReport {
+  id: string;
+  route_id: string;
+  reporter_id: string;
+  grund: string;
+  kommentar: string | null;
+  status: ReportStatus;
+  erstellt_am: string;
+  bearbeitet_am: string | null;
+  bearbeitet_von: string | null;
+}
+
+export interface RatingReport {
+  id: string;
+  rating_id: string;
+  reporter_id: string;
+  grund: string;
+  kommentar: string | null;
+  status: ReportStatus;
+  erstellt_am: string;
+  bearbeitet_am: string | null;
+  bearbeitet_von: string | null;
+}
+
 export interface Favorite {
   user_id: string;
   route_id: string;
