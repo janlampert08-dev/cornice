@@ -27,6 +27,7 @@ export async function updateVisibilitySettings(
       zeigt_paesse: formData.get("zeigt_paesse") === "true",
       zeigt_hoehenmeter: formData.get("zeigt_hoehenmeter") === "true",
       zeigt_distanz: formData.get("zeigt_distanz") === "true",
+      zeigt_follower_liste: formData.get("zeigt_follower_liste") === "true",
       // Premium-Feature (Gold-Badge) vorerst deaktiviert — bleibt aus.
       zeigt_premium_badge: false,
     })

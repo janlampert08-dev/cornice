@@ -4,7 +4,7 @@ import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import { Dialog } from "@/components/ui/Dialog";
 import EmptyState from "@/components/ui/EmptyState";
-import { Users } from "lucide-react";
+import { Lock, Users } from "lucide-react";
 import type { FollowProfile } from "@/lib/follows";
 
 // Popup für die Follower/Following-Zahlen auf Profilseiten (eigenes und
@@ -15,15 +15,24 @@ export default function FollowListModal({
   onClose,
   title,
   profiles,
+  hidden = false,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   profiles: FollowProfile[];
+  // true wenn der Profil-Besitzer zeigt_follower_liste ausgeschaltet hat und
+  // dieser Betrachter nicht der Besitzer selbst ist — profiles ist dann
+  // ohnehin leer (die aufrufende Seite lädt die echten Daten für Dritte gar
+  // nicht erst), zeigt aber eine erklärende Meldung statt "Noch niemand.",
+  // damit niemand fälschlich denkt, es folge wirklich niemand.
+  hidden?: boolean;
 }) {
   return (
     <Dialog open={open} onClose={onClose} title={title} className="max-h-[70vh] overflow-y-auto">
-      {profiles.length === 0 ? (
+      {hidden ? (
+        <EmptyState icon={Lock} title="Diese Liste ist privat." />
+      ) : profiles.length === 0 ? (
         <EmptyState icon={Users} title="Noch niemand." />
       ) : (
         <ul className="flex flex-col divide-y divide-border">

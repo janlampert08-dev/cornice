@@ -13,11 +13,17 @@ export default function FollowCounts({
   followingCount,
   followers,
   following,
+  listsHidden = false,
 }: {
   followersCount: number;
   followingCount: number;
   followers: FollowProfile[];
   following: FollowProfile[];
+  // true auf einem fremden öffentlichen Profil, dessen Besitzer
+  // zeigt_follower_liste ausgeschaltet hat — die Zahlen bleiben trotzdem
+  // sichtbar (0037_public_follows.sql, bewusst unverändert), nur die beiden
+  // Listen-Dialoge zeigen dann "Diese Liste ist privat." statt Namen.
+  listsHidden?: boolean;
 }) {
   const [openList, setOpenList] = useState<"followers" | "following" | null>(null);
 
@@ -45,12 +51,14 @@ export default function FollowCounts({
         onClose={() => setOpenList(null)}
         title="Follower"
         profiles={followers}
+        hidden={listsHidden}
       />
       <FollowListModal
         open={openList === "following"}
         onClose={() => setOpenList(null)}
         title="Gefolgt"
         profiles={following}
+        hidden={listsHidden}
       />
     </div>
   );

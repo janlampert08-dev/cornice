@@ -31,7 +31,9 @@ export default async function EinstellungenPage() {
   const [{ data: profile }, { data: ownRoutes }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("zeigt_fahrzeuge, zeigt_avatar, zeigt_paesse, zeigt_hoehenmeter, zeigt_distanz")
+      .select(
+        "zeigt_fahrzeuge, zeigt_avatar, zeigt_paesse, zeigt_hoehenmeter, zeigt_distanz, zeigt_follower_liste",
+      )
       .eq("id", user.id)
       .single(),
     supabase
@@ -74,6 +76,7 @@ export default async function EinstellungenPage() {
               zeigtPaesse={profile?.zeigt_paesse ?? false}
               zeigtHoehenmeter={profile?.zeigt_hoehenmeter ?? false}
               zeigtDistanz={profile?.zeigt_distanz ?? false}
+              zeigtFollowerListe={profile?.zeigt_follower_liste ?? false}
             />
           </section>
 

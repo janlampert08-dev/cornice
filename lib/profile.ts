@@ -11,6 +11,7 @@ export interface PublicProfile {
   zeigtPaesse: boolean;
   zeigtHoehenmeter: boolean;
   zeigtDistanz: boolean;
+  zeigtFollowerListe: boolean;
   // true nur wenn beides zutrifft: ist_premium UND das eigene Opt-in
   // zeigt_premium_badge — siehe 0021_premium_und_private_strecken.sql.
   zeigtPremiumBadge: boolean;
@@ -39,7 +40,7 @@ export const getPublicProfile = cache(async function getPublicProfile(
   const { data: profile } = await supabase
     .from("profiles")
     .select(
-      "id, display_name, avatar_url, zeigt_fahrzeuge, zeigt_avatar, zeigt_paesse, zeigt_hoehenmeter, zeigt_distanz, ist_premium, zeigt_premium_badge",
+      "id, display_name, avatar_url, zeigt_fahrzeuge, zeigt_avatar, zeigt_paesse, zeigt_hoehenmeter, zeigt_distanz, zeigt_follower_liste, ist_premium, zeigt_premium_badge",
     )
     .eq("id", userId)
     .maybeSingle();
@@ -77,6 +78,7 @@ export const getPublicProfile = cache(async function getPublicProfile(
     zeigtPaesse: profile.zeigt_paesse,
     zeigtHoehenmeter: profile.zeigt_hoehenmeter,
     zeigtDistanz: profile.zeigt_distanz,
+    zeigtFollowerListe: profile.zeigt_follower_liste,
     // Premium-Feature (Gold-Badge) vorerst deaktiviert.
     zeigtPremiumBadge: false,
     vehicles: (vehiclesResult.data as Vehicle[]) ?? [],

@@ -14,14 +14,26 @@ export interface VisibilityFlags {
   zeigtPaesse: boolean;
   zeigtHoehenmeter: boolean;
   zeigtDistanz: boolean;
+  zeigtFollowerListe: boolean;
 }
 
-const FIELDS: { name: keyof VisibilityFlags; formKey: string; label: string }[] = [
+const FIELDS: {
+  name: keyof VisibilityFlags;
+  formKey: string;
+  label: string;
+  description?: string;
+}[] = [
   { name: "zeigtAvatar", formKey: "zeigt_avatar", label: "Profilbild zeigen" },
   { name: "zeigtFahrzeuge", formKey: "zeigt_fahrzeuge", label: "Fahrzeuge zeigen" },
   { name: "zeigtPaesse", formKey: "zeigt_paesse", label: "Anzahl befahrener Pässe zeigen" },
   { name: "zeigtHoehenmeter", formKey: "zeigt_hoehenmeter", label: "Gesammelte Höhenmeter zeigen" },
   { name: "zeigtDistanz", formKey: "zeigt_distanz", label: "GPS-getrackte Gesamtdistanz zeigen" },
+  {
+    name: "zeigtFollowerListe",
+    formKey: "zeigt_follower_liste",
+    label: "Follower-/Gefolgt-Liste zeigen",
+    description: "Die Anzahl bleibt für andere immer sichtbar, unabhängig von dieser Einstellung.",
+  },
 ];
 
 // Kachel-Liste mit iOS-artigen Switches (components/ui/Switch.tsx) statt
@@ -43,6 +55,7 @@ export default function VisibilitySettings(flags: VisibilityFlags) {
             value="true"
             defaultChecked={flags[field.name]}
             label={field.label}
+            description={field.description}
           />
         ))}
       </Card>
