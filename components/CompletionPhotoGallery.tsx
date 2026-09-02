@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
 import Image from "next/image";
 import { X } from "lucide-react";
+import { Dialog } from "@/components/ui/Dialog";
 import { removeCompletionPhoto } from "@/lib/actions/completions";
 import type { CompletionPhotoItem } from "@/lib/completions";
 
@@ -41,23 +42,21 @@ export default function CompletionPhotoGallery({
     [items.length],
   );
 
+  // Nur noch die Pfeiltasten-Navigation zwischen Fotos — Galerie-spezifisch
+  // und kein Teil der generischen Dialog-API. Escape zum Schliessen,
+  // Fokus-Trap/-Rückgabe und Scroll-Sperre liefert das native <dialog> in
+  // Dialog.tsx bereits kostenlos, siehe dort.
   useEffect(() => {
     if (openIndex === null) return;
 
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") close();
       if (e.key === "ArrowLeft") showPrev();
       if (e.key === "ArrowRight") showNext();
     }
 
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [openIndex, close, showPrev, showNext]);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [openIndex, showPrev, showNext]);
 
   // Nur wenn die Fahrt selbst nie Fotos hatte nichts rendern — nicht wenn
   // `items` durch eine optimistische Entfernung vorübergehend leer ist,
@@ -116,65 +115,67 @@ export default function CompletionPhotoGallery({
         ))}
       </div>
 
-      {openPhoto && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Fotoansicht"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/90 p-4"
-          onClick={close}
-        >
-          <button
-            type="button"
+      {/* Dialog bleibt immer im Baum (wie bei den übrigen Dialog.tsx-Nutzern),
+          nur der Inhalt hängt von openPhoto ab — showModal()/close() steuert
+          Dialog.tsx selbst über die open-Prop, inkl. Fokus-Trap und Escape. */}
+      <Dialog open={openIndex !== null} onClose={close} ariaLabel="Fotoansicht">
+        {openPhoto && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/90 p-4"
             onClick={close}
-            aria-label="Schliessen"
-            className="absolute top-4 right-4 border border-background/40 bg-transparent px-3 py-1.5 text-sm text-background hover:bg-background hover:text-foreground"
           >
-            Schliessen
-          </button>
+            <button
+              type="button"
+              onClick={close}
+              aria-label="Schliessen"
+              className="absolute top-4 right-4 border border-background/40 bg-transparent px-3 py-1.5 text-sm text-background hover:bg-background hover:text-foreground"
+            >
+              Schliessen
+            </button>
 
-          {items.length > 1 && (
-            <>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  showPrev();
-                }}
-                aria-label="Vorheriges Foto"
-                className="absolute top-1/2 left-4 -translate-y-1/2 border border-background/40 bg-transparent px-3 py-2 text-lg text-background hover:bg-background hover:text-foreground"
-              >
-                ‹
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  showNext();
-                }}
-                aria-label="Nächstes Foto"
-                className="absolute top-1/2 right-4 -translate-y-1/2 border border-background/40 bg-transparent px-3 py-2 text-lg text-background hover:bg-background hover:text-foreground"
-              >
-                ›
-              </button>
-            </>
-          )}
+            {items.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    showPrev();
+                  }}
+                  aria-label="Vorheriges Foto"
+                  className="absolute top-1/2 left-4 -translate-y-1/2 border border-background/40 bg-transparent px-3 py-2 text-lg text-background hover:bg-background hover:text-foreground"
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    showNext();
+                  }}
+                  aria-label="Nächstes Foto"
+                  className="absolute top-1/2 right-4 -translate-y-1/2 border border-background/40 bg-transparent px-3 py-2 text-lg text-background hover:bg-background hover:text-foreground"
+                >
+                  ›
+                </button>
+              </>
+            )}
 
-          <figure className="flex max-h-full max-w-full flex-col items-center gap-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={openPhoto.fotoUrl}
-              alt={caption}
-              className="max-h-[80vh] max-w-[90vw] object-contain"
-              onClick={(e) => e.stopPropagation()}
-            />
-            <figcaption className="text-sm text-background/70">
-              {caption}
-              {items.length > 1 && ` · ${openIndex! + 1}/${items.length}`}
-            </figcaption>
-          </figure>
-        </div>
-      )}
+            <figure className="flex max-h-full max-w-full flex-col items-center gap-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={openPhoto.fotoUrl}
+                alt={caption}
+                className="max-h-[80vh] max-w-[90vw] object-contain"
+                onClick={(e) => e.stopPropagation()}
+              />
+              <figcaption className="text-sm text-background/70">
+                {caption}
+                {items.length > 1 && ` · ${openIndex! + 1}/${items.length}`}
+              </figcaption>
+            </figure>
+          </div>
+        )}
+      </Dialog>
     </section>
   );
 }

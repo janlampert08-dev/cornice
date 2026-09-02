@@ -8,6 +8,12 @@ interface DialogProps {
   open: boolean;
   onClose: () => void;
   title?: string;
+  /**
+   * Zugänglicher Name für das Dialog-Element selbst, falls kein sichtbares
+   * `title` gesetzt ist (z. B. eine Foto-Lightbox, wo eine Überschrift das
+   * Layout sprengen würde). Wird ignoriert, sobald `title` vorhanden ist.
+   */
+  ariaLabel?: string;
   children: ReactNode;
   className?: string;
 }
@@ -15,7 +21,7 @@ interface DialogProps {
 // Natives <dialog> statt einer eigenen Modal-Implementierung oder
 // Bibliothek — Fokus-Trap und "inert" für den Hintergrund kommen dadurch
 // kostenlos vom Browser (Baseline-unterstützt), siehe Plan §3.
-export function Dialog({ open, onClose, title, children, className }: DialogProps) {
+export function Dialog({ open, onClose, title, ariaLabel, children, className }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -44,6 +50,7 @@ export function Dialog({ open, onClose, title, children, className }: DialogProp
     <dialog
       ref={ref}
       onClose={onClose}
+      aria-label={!title ? ariaLabel : undefined}
       className={cn(
         "m-auto w-[min(28rem,calc(100vw-2rem))] rounded-lg border border-border bg-background p-5 text-foreground shadow-elevated outline-none backdrop:bg-foreground/30",
         className,
