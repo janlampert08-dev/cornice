@@ -98,6 +98,34 @@ export function computeHoeheUndSteigung(profile: { dist: number; elevation: numb
   return { hoeheM, maxSteigungProzent };
 }
 
+// Summierter Anstieg über das gesamte Profil (die Zahl, die bei einer freien
+// Fahrt an die Stelle der Scheitelhöhe einer Strecke tritt — dort ist
+// routes.hoehe_m gemeint, das ist bewusst eine andere Grösse und wird
+// nirgends mit dieser vermischt).
+//
+// Gerechnet wird auf dem geglätteten Profil und erst ab einer Mindest-
+// Höhendifferenz: rohe Höhendaten schwanken auch auf ebener Strecke um
+// wenige Meter, und ohne Schwelle summierten sich diese Schwankungen über
+// eine lange Fahrt zu hunderten frei erfundener Höhenmeter.
+const MIN_ASCENT_STEP_M = 3;
+
+export function computeAscentM(profile: { dist: number; elevation: number }[]): number {
+  if (profile.length < 2) return 0;
+  const smoothed = medianSmooth(profile.map((p) => p.elevation));
+  let ascent = 0;
+  let reference = smoothed[0];
+  for (const elevation of smoothed) {
+    const delta = elevation - reference;
+    if (delta >= MIN_ASCENT_STEP_M) {
+      ascent += delta;
+      reference = elevation;
+    } else if (delta < 0) {
+      reference = elevation;
+    }
+  }
+  return Math.round(ascent);
+}
+
 // Downsampled Höhenprofil fürs Diagramm (ca. 80 Punkte reichen für eine
 // glatte Linie, spart Speicher/Payload gegenüber den vollen 300 Rohpunkten).
 export function buildHoehenprofil(

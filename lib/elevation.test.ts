@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildHoehenprofil,
+  computeAscentM,
   computeHoeheUndSteigung,
   countKehren,
   interpolateElevation,
@@ -107,5 +108,41 @@ describe("interpolateElevation", () => {
 
   it("returns the exact value at a known point", () => {
     expect(interpolateElevation(profil, 5)).toBe(1000);
+  });
+});
+
+describe("computeAscentM", () => {
+  it("sums the climb of a single ascent", () => {
+    const profile = Array.from({ length: 11 }, (_, i) => ({ dist: i * 100, elevation: 400 + i * 20 }));
+    expect(computeAscentM(profile)).toBe(200);
+  });
+
+  it("counts both climbs of a ride over two hills, not the descents", () => {
+    const up = (from: number, to: number) =>
+      Array.from({ length: (to - from) / 20 }, (_, i) => from + i * 20);
+    const down = (from: number, to: number) =>
+      Array.from({ length: (from - to) / 20 }, (_, i) => from - i * 20);
+    const elevations = [...up(400, 600), ...down(600, 400), ...up(400, 700), 700];
+    const profile = elevations.map((elevation, i) => ({ dist: i * 100, elevation }));
+    // Rechnerisch 500 m (200 + 300); die Median-Glättung kappt den scharfen
+    // Gipfel und die scharfe Talsohle um je einen Schritt, daher die Spanne.
+    // Entscheidend ist, dass der Abstieg nicht mitzählt (sonst ~700).
+    expect(computeAscentM(profile)).toBeGreaterThan(440);
+    expect(computeAscentM(profile)).toBeLessThan(510);
+  });
+
+  it("ignores noise below the minimum step on flat ground", () => {
+    // Rauschen von ±2 m um dieselbe Höhe — ohne Schwelle ergäbe das über
+    // hundert frei erfundene Höhenmeter.
+    const profile = Array.from({ length: 100 }, (_, i) => ({
+      dist: i * 100,
+      elevation: 400 + (i % 2 === 0 ? 0 : 2),
+    }));
+    expect(computeAscentM(profile)).toBe(0);
+  });
+
+  it("returns 0 for a profile that is too short to say anything", () => {
+    expect(computeAscentM([])).toBe(0);
+    expect(computeAscentM([{ dist: 0, elevation: 400 }])).toBe(0);
   });
 });

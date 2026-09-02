@@ -111,7 +111,7 @@ export default async function FeedPage({
                   >
                     <span className="min-w-0 truncate font-medium">{item.route_name}</span>
                     <span className="shrink-0 font-mono text-sm tabular-nums text-muted">
-                      {(item.distanz_km ?? item.laenge_km).toFixed(1)} km
+                      {(item.distanz_km ?? item.laenge_km ?? 0).toFixed(1)} km
                     </span>
                   </Link>
                   <p className="text-xs text-muted">{item.region}</p>

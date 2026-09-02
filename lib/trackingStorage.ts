@@ -15,25 +15,30 @@ export interface TrackingSnapshot {
   seconds: number | null;
 }
 
-function key(routeId: string): string {
-  return `cornice:tracking:${routeId}`;
+// Schlüssel je Aufzeichnung: bei einer Streckenfahrt die Strecken-ID, bei
+// einer freien Fahrt der feste Wert FREE_RIDE_STORAGE_KEY — so überschreiben
+// sich die beiden Arten nicht gegenseitig.
+export const FREE_RIDE_STORAGE_KEY = "frei";
+
+function key(storageKey: string): string {
+  return `cornice:tracking:${storageKey}`;
 }
 
 // Absichtlich fehlertolerant statt die Aufzeichnung daran scheitern zu
 // lassen: localStorage kann in Private-Browsing-Kontexten oder bei vollem
 // Speicher werfen — Tracking soll auch dann weiterlaufen, nur ohne
 // Crash-Wiederherstellung.
-export function saveTrackingSnapshot(routeId: string, snapshot: TrackingSnapshot): void {
+export function saveTrackingSnapshot(storageKey: string, snapshot: TrackingSnapshot): void {
   try {
-    localStorage.setItem(key(routeId), JSON.stringify(snapshot));
+    localStorage.setItem(key(storageKey), JSON.stringify(snapshot));
   } catch {
     // Speichern übersprungen — Aufzeichnung läuft im Speicher trotzdem weiter.
   }
 }
 
-export function loadTrackingSnapshot(routeId: string): TrackingSnapshot | null {
+export function loadTrackingSnapshot(storageKey: string): TrackingSnapshot | null {
   try {
-    const raw = localStorage.getItem(key(routeId));
+    const raw = localStorage.getItem(key(storageKey));
     if (!raw) return null;
     return JSON.parse(raw) as TrackingSnapshot;
   } catch {
@@ -41,9 +46,9 @@ export function loadTrackingSnapshot(routeId: string): TrackingSnapshot | null {
   }
 }
 
-export function clearTrackingSnapshot(routeId: string): void {
+export function clearTrackingSnapshot(storageKey: string): void {
   try {
-    localStorage.removeItem(key(routeId));
+    localStorage.removeItem(key(storageKey));
   } catch {
     // Nichts zu tun — beim nächsten Start wird ein veralteter Snapshot
     // ohnehin durch einen neuen überschrieben.

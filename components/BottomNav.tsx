@@ -16,7 +16,7 @@ export default function BottomNav({
   moderator: boolean;
 }) {
   const pathname = usePathname();
-  const tabs = getNavItems({ loggedIn, moderator });
+  const tabs = getNavItems({ loggedIn, moderator, surface: "bottom" });
 
   return (
     <nav

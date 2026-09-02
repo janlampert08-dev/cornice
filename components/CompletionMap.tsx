@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Skeleton from "@/components/ui/Skeleton";
-import type { RouteGeoJSON } from "@/types/database";
+import type { GeoLineString, RouteGeoJSON } from "@/types/database";
 
 // Siehe ExploreView.tsx für die Begründung des dynamischen Imports.
 // Eigene kleine Client-Wrapper-Komponente, da app/fahrten/[id]/page.tsx
@@ -12,6 +12,24 @@ const RouteMap = dynamic(() => import("@/components/RouteMap"), {
   loading: () => <Skeleton className="h-full w-full" />,
 });
 
-export default function CompletionMap({ route }: { route: RouteGeoJSON }) {
-  return <RouteMap routes={[route]} />;
+const NO_ROUTES: never[] = [];
+
+// Zwei Fälle: eine Streckenfahrt zeigt die Streckengeometrie, eine freie
+// Fahrt den aufgezeichneten GPS-Track (die einzige Geometrie, die sie hat).
+export default function CompletionMap({
+  route,
+  track,
+}: {
+  route?: RouteGeoJSON | null;
+  track?: GeoLineString | null;
+}) {
+  if (route) return <RouteMap routes={[route]} />;
+
+  return (
+    <RouteMap
+      routes={NO_ROUTES}
+      trail={(track?.coordinates as [number, number][]) ?? []}
+      fitTrail
+    />
+  );
 }

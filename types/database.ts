@@ -150,10 +150,18 @@ export interface Favorite {
   erstellt_am: string;
 }
 
+// Zwei Arten von Fahrt seit 0044_freie_fahrten.sql: die Befahrung einer
+// kuratierten Strecke und die freie Fahrt ohne Streckenbezug. Streckenbezogene
+// Abfragen (Bestenlisten, Streckenseite, Pässe-/Höhenmeterzähler) müssen
+// ausdrücklich auf "strecke" filtern — route_id ist seither nullable.
+export type FahrtArt = "strecke" | "frei";
+
 export interface RouteCompletion {
   id: string;
   user_id: string;
-  route_id: string;
+  art: FahrtArt;
+  // null bei art = "frei" (DB-seitig per CHECK an art gekoppelt).
+  route_id: string | null;
   fahrzeug_id: string | null;
   datum: string;
   foto_url: string | null;
@@ -168,11 +176,35 @@ export interface RouteCompletion {
   // Deckungsgrad (0-100) ggü. der offiziellen Streckengeometrie, siehe
   // 0019_streckenabdeckung.sql. Unterhalb von COVERAGE_THRESHOLD_PERCENT
   // (lib/routeCoverage.ts) kann ist_oeffentlich nicht true sein.
-  abdeckung_prozent: number;
+  // null bei freien Fahrten — es gibt keine Sollgeometrie, gegen die sich
+  // decken liesse (siehe 0044_freie_fahrten.sql).
+  abdeckung_prozent: number | null;
   // Optionale persönliche Notiz (max. 280 Zeichen), rein privat, siehe
   // 0020_fahrt_notiz.sql.
   notiz: string | null;
+  // Ab 0044_freie_fahrten.sql, alle nur bei art = "frei" gesetzt: frei
+  // getippter Titel (max. 80 Zeichen) und der per Reverse-Geocoding
+  // ermittelte Ortsbezug.
+  titel: string | null;
+  start_ort: string | null;
+  region: string | null;
+  // Reine Bewegtzeit ohne Pausen (siehe movingSeconds in lib/track.ts);
+  // dauer_sekunden bleibt die verstrichene Gesamtzeit.
+  bewegte_zeit_sekunden: number | null;
+  // Summierter Anstieg in Metern, best effort aus dem swisstopo-Höhenprofil.
+  // Bewusst nicht dasselbe wie routes.hoehe_m (Scheitelhöhe einer Strecke).
+  hoehenmeter_aufstieg: number | null;
+  hoehenprofil: HoehenprofilPunkt[] | null;
   created_at: string;
+}
+
+// Zeilenform von public.fahrt_tracks (0044_freie_fahrten.sql) — der eigene
+// GPS-Track als GeoJSON. Die View läuft mit den Rechten des Aufrufers, RLS
+// liefert also ausschliesslich eigene Fahrten.
+export interface FahrtTrack {
+  completion_id: string;
+  user_id: string;
+  track_geojson: GeoLineString;
 }
 
 export interface Profile {
@@ -201,10 +233,14 @@ export interface Profile {
 // Detailseite (app/fahrten/[id]/page.tsx).
 export interface PublicFahrt {
   user_id: string;
-  route_id: string;
-  route_name: string;
+  // Nullable vorbereitet: public_fahrten führt in dieser Phase noch
+  // ausschliesslich Streckenfahrten (freie Fahrten sind immer privat), aber
+  // route_id ist auf der Tabelle seit 0044_freie_fahrten.sql nullable — die
+  // Konsumenten prüfen das bereits (siehe lib/profile.ts).
+  route_id: string | null;
+  route_name: string | null;
   region: string;
-  laenge_km: number;
+  laenge_km: number | null;
   distanz_km: number | null;
   datum: string;
   completion_id: string;
