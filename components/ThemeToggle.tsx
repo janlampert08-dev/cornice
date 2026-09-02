@@ -51,7 +51,7 @@ function applyTheme(pref: ThemePreference) {
 // für den ersten Client-Render übernommen, React korrigiert danach in
 // einem eigenen, dafür vorgesehenen Mechanismus auf den echten Wert, ohne
 // dass hier manuell setState im Effekt aufgerufen werden muss.
-export default function ThemeToggle() {
+export default function ThemeToggle({ variant = "compact" }: { variant?: "compact" | "expanded" }) {
   const preference = useSyncExternalStore(subscribe, readPreference, readServerPreference);
 
   function choose(pref: ThemePreference) {
@@ -62,6 +62,37 @@ export default function ThemeToggle() {
     }
     applyTheme(pref);
     window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
+  }
+
+  // "expanded": grössere Buttons mit sichtbarem Label statt nur Icon +
+  // sr-only-Text — gleiche Segmented-Control-Optik (aktiv: dunkel gefüllt;
+  // inaktiv: nur Rahmen) wie der Privat/Öffentlich-Umschalter in
+  // LiveTrackingForm/NeueStreckeForm, für die Einstellungsseite, wo mehr
+  // Platz ist und der native Checkbox-Charme der kompakten Header-Pille
+  // fehl am Platz wirkt. "compact" bleibt exakt die bisherige kleine Pille
+  // im Header (dort ist wenig Platz).
+  if (variant === "expanded") {
+    return (
+      <div role="radiogroup" aria-label="Farbschema" className="flex items-center gap-2">
+        {OPTIONS.map(({ value, label, icon: Icon }) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={preference === value}
+            onClick={() => choose(value)}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+              preference === value
+                ? "border-foreground bg-foreground text-background"
+                : "border-border text-muted hover:border-border-strong"
+            }`}
+          >
+            <Icon className="h-4 w-4" aria-hidden="true" />
+            {label}
+          </button>
+        ))}
+      </div>
+    );
   }
 
   return (
