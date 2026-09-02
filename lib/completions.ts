@@ -124,15 +124,29 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
         .maybeSingle<Pick<PublicFahrtTrack, "track_geojson">>(),
     ]);
 
+    // Für den Fahrer selbst zwei Dinge nachladen, die die öffentliche View
+    // bewusst nicht enthält: sein Höhenprofil (siehe unten) und seinen
+    // vollständigen, ungekappten Track. Die Privatzone schützt die Fahrt vor
+    // anderen — die eigene Ansicht bleibt vollständig, so wie es die
+    // Einstellung zusagt.
     let ownHoehenprofil: HoehenprofilPunkt[] | null = null;
+    let ownTrack: GeoLineString | null = null;
     if (viewerId === row.user_id) {
-      const { data: own } = await supabase
-        .from("route_completions")
-        .select("hoehenprofil")
-        .eq("id", row.completion_id)
-        .eq("user_id", viewerId)
-        .maybeSingle<{ hoehenprofil: HoehenprofilPunkt[] | null }>();
+      const [{ data: own }, { data: ownTrackRow }] = await Promise.all([
+        supabase
+          .from("route_completions")
+          .select("hoehenprofil")
+          .eq("id", row.completion_id)
+          .eq("user_id", viewerId)
+          .maybeSingle<{ hoehenprofil: HoehenprofilPunkt[] | null }>(),
+        supabase
+          .from("fahrt_tracks")
+          .select("track_geojson")
+          .eq("completion_id", row.completion_id)
+          .maybeSingle<Pick<FahrtTrack, "track_geojson">>(),
+      ]);
       ownHoehenprofil = own?.hoehenprofil ?? null;
+      ownTrack = ownTrackRow?.track_geojson ?? null;
     }
 
     return {
@@ -171,7 +185,7 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
       // Fehler, den 0035_public_fahrten_notiz.sql für Notiz und Fahrzeug
       // korrigiert hat).
       hoehenprofil: ownHoehenprofil,
-      track: trackRow?.track_geojson ?? null,
+      track: ownTrack ?? trackRow?.track_geojson ?? null,
     };
   }
 
