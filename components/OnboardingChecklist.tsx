@@ -105,7 +105,16 @@ export default function OnboardingChecklist({
   // akzeptierter Trade-off wie beim Farbschema in ThemeToggle.tsx.
   const allDone = steps.every((s) => s.done);
 
+  // Dialog.tsx ruft el.close() (und damit onClose -> handleDismiss) auch,
+  // wenn open programmatisch auf false wechselt — hier also sobald allDone
+  // true wird, nicht nur bei echtem Nutzer-Dismiss (Backdrop/Escape/
+  // "Später einrichten"). Ohne diese Guard würde der letzte erledigte
+  // Schritt fälschlich auch "weggeklickt" persistieren: würde später ein
+  // Schritt wieder offen (z. B. das einzige Fahrzeug gelöscht), bliebe die
+  // Checkliste wegen des dann unnötig gesetzten dismissed-Flags trotzdem
+  // versteckt, obwohl niemand sie je geschlossen hat.
   function handleDismiss() {
+    if (allDone) return;
     localStorage.setItem(STORAGE_KEY, "true");
     window.dispatchEvent(new Event(DISMISS_EVENT));
   }
