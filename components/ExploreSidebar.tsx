@@ -37,6 +37,7 @@ export default function ExploreSidebar({
   onHoverRoute,
   selectedKategorien,
   onToggleKategorie,
+  onResetKategorien,
   advancedFilters,
   onAdvancedFiltersChange,
 }: {
@@ -52,6 +53,7 @@ export default function ExploreSidebar({
   onHoverRoute: (id: string | null) => void;
   selectedKategorien: Kategorie[];
   onToggleKategorie: (kategorie: Kategorie) => void;
+  onResetKategorien: () => void;
   advancedFilters: AdvancedFilters;
   onAdvancedFiltersChange: (filters: AdvancedFilters) => void;
 }) {
@@ -108,25 +110,45 @@ export default function ExploreSidebar({
           Bewusst kein horizontales Scrollen: bei nur 4 Kategorien zeigt
           Umbrechen alle Optionen sofort, statt einen Teil ohne erkennbaren
           Scroll-Hinweis ausserhalb des sichtbaren Bereichs zu verstecken. */}
-      <div className="flex flex-wrap gap-2">
-        {KATEGORIEN.map((k) => {
-          const active = selectedKategorien.includes(k.value);
-          return (
-            <button
-              key={k.value}
-              type="button"
-              onClick={() => onToggleKategorie(k.value)}
-              aria-pressed={active}
-              className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-medium transition-colors duration-fast active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
-                active
-                  ? "border-accent bg-accent text-background"
-                  : "border-border text-foreground hover:border-border-strong"
-              }`}
-            >
-              {k.label}
-            </button>
-          );
-        })}
+      <div className="flex flex-col items-start gap-2">
+        <div className="flex flex-wrap gap-2">
+          {KATEGORIEN.map((k) => {
+            const active = selectedKategorien.includes(k.value);
+            return (
+              <button
+                key={k.value}
+                type="button"
+                onClick={() => onToggleKategorie(k.value)}
+                aria-pressed={active}
+                className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-medium transition-colors duration-fast active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                  active
+                    ? "border-accent bg-accent text-background"
+                    : "border-border text-foreground hover:border-border-strong"
+                }`}
+              >
+                {k.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Nur sichtbar, wenn es tatsächlich etwas zurückzusetzen gibt (kein
+            totes UI-Element bei leerer Auswahl) — bewusst nur die
+            Kategorie-Chips betreffend, analog zum eigenen "Filter
+            zurücksetzen" von AdvancedFiltersPanel weiter unten, das nur
+            dessen Felder zurücksetzt. Zwei separate Buttons, die jeweils nur
+            ihre eigene Filtergruppe zurücksetzen, statt eines globalen
+            Resets, der Nutzer:innen überraschen könnte, wenn er auch
+            unbeteiligte Filter mitlöscht. */}
+        {selectedKategorien.length > 0 && (
+          <button
+            type="button"
+            onClick={onResetKategorien}
+            className="text-sm font-medium text-accent hover:underline"
+          >
+            Kategorien zurücksetzen
+          </button>
+        )}
       </div>
 
       <AdvancedFiltersPanel filters={advancedFilters} onChange={onAdvancedFiltersChange} />
