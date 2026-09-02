@@ -13,7 +13,10 @@ import {
 
 // GPS-Punkte oberhalb dieser Ungenauigkeit fliessen nicht in Distanz/Trail
 // ein (der Standort-Marker auf der Karte wird trotzdem aktualisiert).
-const MIN_ACCURACY_M = 50;
+// Exportiert, da RouteMap.tsx dieselbe Schwelle fürs Kamera-Nachführen
+// (followLocation) anwendet — ein ungenauer Fix soll die Ansicht ebenso
+// wenig verschieben wie er in Distanz/Trail einfliesst.
+export const MIN_ACCURACY_M = 50;
 // Verhindert, dass GPS-Zittern im Stillstand als zurückgelegte Distanz
 // gezählt wird — gleiche Schwelle wie in computeTrailStats (lib/geo.ts).
 const MIN_SEGMENT_KM = 0.005;

@@ -7,6 +7,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { ZURICH_CENTER, DEFAULT_ZOOM } from "@/lib/constants";
 import { sliceRouteBySpeed, speedColor } from "@/lib/speed";
 import { isDarkTheme, subscribeToThemeChange } from "@/lib/theme";
+import { MIN_ACCURACY_M } from "@/components/useRideRecorder";
 import type { RouteGeoJSON, TempolimitSegment } from "@/types/database";
 import Skeleton from "@/components/ui/Skeleton";
 
@@ -812,13 +813,23 @@ export default function RouteMap({
       }
     }
 
+    // Ungenaue Fixe (> MIN_ACCURACY_M) aktualisieren weiterhin Marker/Ring
+    // unten, verschieben aber nicht die Kamera — dieselbe Schwelle, mit der
+    // useRideRecorder dieselben Fixe von Distanz/Trail ausschliesst. Ohne
+    // diesen Gate würde ein einzelner schlechter Fix (Tunnel, dichte
+    // Bebauung) die Ansicht kurzzeitig vom tatsächlichen Standort wegreissen.
+    const accuracyOk = userAccuracyM == null || userAccuracyM <= MIN_ACCURACY_M;
+
     if (centerOnFirstLocation && !hasCenteredOnLocationRef.current) {
       hasCenteredOnLocationRef.current = true;
       map.easeTo({ center: userLocation, zoom: 14, duration: 0 });
-    } else if (followLocation && hasCenteredOnLocationRef.current && !isDraggingRef.current) {
+    } else if (followLocation && !isDraggingRef.current && accuracyOk) {
       // Nur der Kartenmittelpunkt wandert mit — Zoom/Pitch/Bearing bleiben,
       // wie die Nutzerin sie zuletzt eingestellt hat. Kurze Animation statt
       // eines harten Sprungs, da GPS-Fixes alle paar Sekunden eintreffen.
+      // Unabhängig von centerOnFirstLocation/hasCenteredOnLocationRef: ein
+      // Aufrufer, der nur followLocation setzt (keine initiale Zentrierung),
+      // soll trotzdem ab dem ersten Fix nachgeführt werden.
       map.easeTo({ center: userLocation, duration: 800 });
     }
 
