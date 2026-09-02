@@ -120,10 +120,6 @@ export default function OnboardingChecklist({
     },
   ];
 
-  // Server-Snapshot ist immer "nicht weggeklickt" — ein bereits
-  // weggeklickter Rückkehrer sieht das Overlay darum kurz aufblitzen, bevor
-  // der Client auf den echten Wert korrigiert; gleicher, bereits
-  // akzeptierter Trade-off wie beim Farbschema in ThemeToggle.tsx.
   const allDone = steps.every((s) => s.done);
 
   // Dialog.tsx ruft el.close() (und damit onClose -> handleDismiss) auch,
