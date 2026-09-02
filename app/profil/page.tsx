@@ -1,7 +1,16 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { ComponentType } from "react";
-import { Award, Bookmark, Car, CalendarDays, ChevronDown, Route as RouteIcon, Settings } from "lucide-react";
+import {
+  Award,
+  Bookmark,
+  Car,
+  CalendarDays,
+  ChevronDown,
+  Route as RouteIcon,
+  Settings,
+  Timer,
+} from "lucide-react";
 import Header from "@/components/Header";
 import VehicleGrid from "@/components/VehicleGrid";
 import AvatarUpload from "@/components/AvatarUpload";
@@ -312,7 +321,13 @@ export default async function ProfilPage() {
                                 <div className="flex items-center gap-2 font-mono text-xs tabular-nums text-muted">
                                   <span>{new Date(ride.datum).toLocaleDateString("de-CH")}</span>
                                   <span aria-hidden="true">·</span>
-                                  <span>{formatDuration(ride.dauer_sekunden)}</span>
+                                  {/* Stoppuhr-Icon davor, damit "06:26" nicht als Uhrzeit
+                                      gelesen wird — es ist die gestoppte Fahrtdauer. Gleiche
+                                      Farbe wie der Text (kein Akzent), bewusst unauffällig. */}
+                                  <span className="flex items-center gap-1">
+                                    <Timer className="h-3 w-3" aria-hidden="true" />
+                                    {formatDuration(ride.dauer_sekunden)}
+                                  </span>
                                   <span aria-hidden="true">·</span>
                                   <span>{avgKmh.toFixed(0)} km/h</span>
                                 </div>
