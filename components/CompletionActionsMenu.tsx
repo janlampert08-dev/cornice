@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { MoreHorizontal } from "lucide-react";
 import { toggleCompletionVisibility, updateCompletionNotiz } from "@/lib/actions/completions";
+import { GlobeIcon, LockIcon } from "@/components/VisibilityIcons";
 import { COVERAGE_THRESHOLD_PERCENT } from "@/lib/routeCoverage";
 import Card from "@/components/ui/Card";
 import { Dialog } from "@/components/ui/Dialog";
@@ -92,8 +93,17 @@ export default function CompletionActionsMenu({
                 ? `Kann nicht öffentlich gemacht werden — deckt nur ${Math.round(coveragePercent ?? 0)}% der Strecke ab.`
                 : undefined
             }
-            className={ITEM_CLASS}
+            className={`${ITEM_CLASS} flex items-center gap-1.5`}
           >
+            {/* Icon zeigt den aktuellen Sichtbarkeitsstatus — dieselbe
+                Globus/Schloss-Zuordnung wie RideVisibilityToggle,
+                LiveTrackingForm und NeueStreckeForm, statt hier eine reine
+                Textzeile ohne visuellen Anker zu bleiben. */}
+            {isPublic ? (
+              <GlobeIcon className="h-4 w-4 text-muted" aria-hidden="true" />
+            ) : (
+              <LockIcon className="h-4 w-4 text-muted" aria-hidden="true" />
+            )}
             {isPublic ? "Privat machen" : "Öffentlich teilen"}
           </button>
           <button
