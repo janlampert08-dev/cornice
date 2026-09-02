@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getOrigin } from "@/lib/utils/url";
 
 export interface AuthFormState {
@@ -162,4 +163,69 @@ export async function updatePassword(
   if (error) return { error: "Passwort konnte nicht geändert werden." };
 
   redirect("/profil");
+}
+
+export interface DeleteAccountState {
+  error: string | null;
+}
+
+// Löscht kein auth.users-Zeile (siehe 0042_account_deletion.sql für die
+// ausführliche Begründung — würde per Cascade Fahrten/Bewertungen/Kudos/
+// Follows mitreissen), sondern anonymisiert das Profil und entwertet die
+// Zugangsdaten, sodass sich niemand mehr mit dem alten Passwort anmelden
+// kann. Verlangt eine erneute Passwort-Eingabe direkt vor der irreversiblen
+// Aktion — anders als bei den übrigen destruktiven Aktionen dieser App
+// (ConfirmDialog reicht dort), da eine unbeaufsichtigt offene Sitzung
+// (geteiltes Gerät, vergessene Abmeldung) sonst mit einem einzigen Klick
+// das ganze Konto unwiderruflich deaktivieren könnte.
+export async function deleteAccount(
+  _prevState: DeleteAccountState,
+  formData: FormData,
+): Promise<DeleteAccountState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user || !user.email) return { error: "Bitte melde dich zuerst an." };
+
+  const password = String(formData.get("password") ?? "");
+  if (!password) return { error: "Bitte gib dein Passwort zur Bestätigung ein." };
+
+  const { error: reauthError } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password,
+  });
+  if (reauthError) return { error: "Passwort ist falsch." };
+
+  // Anonymisiert das eigene Profil und löscht eigene Fahrzeuge — läuft über
+  // die normale, session-gebundene Verbindung (kein user.id-Parameter
+  // nötig/möglich, anonymize_own_account() bindet sich selbst über
+  // auth.uid()), siehe 0042 für die Details.
+  const { error: anonymizeError } = await supabase.rpc("anonymize_own_account");
+  if (anonymizeError) return { error: "Konto konnte nicht gelöscht werden." };
+
+  // Zugangsdaten entwerten: nur über den Admin-Client möglich (Supabase Auth
+  // ist kein per-RLS steuerbares Postgres-Schema). Gerechtfertigt trotz
+  // Service-Role-RLS-Bypass, weil user.id direkt aus der oben verifizierten,
+  // gerade erst per Passwort re-authentifizierten Session stammt — nicht aus
+  // einem client-gesteuerten Parameter (siehe AGENTS.md, admin.ts). Die
+  // synthetische E-Mail gibt die ursprüngliche Adresse für eine künftige
+  // Neu-Registrierung frei und entfernt sie als personenbezogenes Datum aus
+  // auth.users; das zufällige Passwort macht die alten Zugangsdaten nutzlos.
+  const admin = createAdminClient();
+  const { error: revokeError } = await admin.auth.admin.updateUserById(user.id, {
+    email: `geloescht-${user.id}@geloescht.cornice.invalid`,
+    password: crypto.randomUUID() + crypto.randomUUID(),
+    email_confirm: true,
+  });
+  if (revokeError) {
+    // Profil ist bereits anonymisiert (oben) — dieser Schritt lässt sich
+    // gefahrlos erneut versuchen (anonymize_own_account ist idempotent),
+    // daher hier abbrechen statt mit ungültigen Zugangsdaten weiterzumachen.
+    return { error: "Konto konnte nicht vollständig gelöscht werden. Bitte versuche es erneut." };
+  }
+
+  await supabase.auth.signOut();
+  redirect("/");
 }
