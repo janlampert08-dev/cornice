@@ -18,11 +18,10 @@ const DISMISS_EVENT = "cornice-onboarding-dismiss";
 let memoryDismissed = false;
 
 // Gleiches useSyncExternalStore-Muster wie ThemeToggle.tsx: liest
-// localStorage SSR-sicher (Server-Snapshot "nicht weggeklickt" fürs erste
-// Rendern, danach vom Client auf den echten Wert korrigiert), statt
-// setState synchron in einem Effekt aufzurufen. Ein eigenes Event statt nur
-// des nativen "storage"-Events, da Letzteres im auslösenden Tab selbst
-// nicht feuert.
+// localStorage SSR-sicher (Server-Snapshot fürs erste Rendern, danach vom
+// Client auf den echten Wert korrigiert), statt setState synchron in einem
+// Effekt aufzurufen. Ein eigenes Event statt nur des nativen "storage"-
+// Events, da Letzteres im auslösenden Tab selbst nicht feuert.
 function readDismissed(): boolean {
   try {
     return localStorage.getItem(STORAGE_KEY) === "true";
@@ -31,8 +30,18 @@ function readDismissed(): boolean {
   }
 }
 
+// "weggeklickt" statt "nicht weggeklickt" als Server-Snapshot: ein bereits
+// weggeklickter Rückkehrer (localStorage gesetzt, aber unbekannt bis der
+// Client korrigiert) sähe mit dem umgekehrten Default sonst bei jedem
+// Seitenaufruf das Overlay kurz aufblitzen, bevor die Korrektur es wieder
+// schliesst — sichtbar und störend, da (anders als ein reines Farbschema-
+// Flackern) ein ganzes Modal kurz übers Bild springt. Der Kompromiss: ein
+// echter Erstbesucher sieht die Checkliste minimal verzögert (erst nach der
+// Hydration-Korrektur) statt sofort — unauffällig, da natives <dialog> ohne
+// open-Attribut ohnehin erst per showModal() in einem Effekt erscheint,
+// nie deklarativ im Server-HTML.
 function readServerDismissed(): boolean {
-  return false;
+  return true;
 }
 
 function subscribe(callback: () => void) {
@@ -111,10 +120,6 @@ export default function OnboardingChecklist({
     },
   ];
 
-  // Server-Snapshot ist immer "nicht weggeklickt" — ein bereits
-  // weggeklickter Rückkehrer sieht das Overlay darum kurz aufblitzen, bevor
-  // der Client auf den echten Wert korrigiert; gleicher, bereits
-  // akzeptierter Trade-off wie beim Farbschema in ThemeToggle.tsx.
   const allDone = steps.every((s) => s.done);
 
   // Dialog.tsx ruft el.close() (und damit onClose -> handleDismiss) auch,
