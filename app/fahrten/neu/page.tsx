@@ -25,5 +25,5 @@ export default async function NeueFahrtPage() {
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
-  return <FreeRideForm vehicles={(vehicles as Vehicle[]) ?? []} />;
+  return <FreeRideForm userId={user.id} vehicles={(vehicles as Vehicle[]) ?? []} />;
 }

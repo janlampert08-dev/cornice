@@ -79,9 +79,14 @@ export interface RideRecorder {
 // mit Gate) und FreeRideForm (freie Fahrt, ohne Gate) unterscheiden sich
 // nur noch in der Oberfläche und im Speichern.
 export function useRideRecorder({
+  userId,
   storageKey,
   gate = null,
 }: {
+  // Teil des localStorage-Schlüssels: eine abgebrochene Aufzeichnung darf
+  // auf einem geteilten Gerät nicht dem nächsten angemeldeten Nutzer
+  // angeboten werden (siehe lib/trackingStorage.ts).
+  userId: string;
   storageKey: string;
   gate?: RideGate | null;
 }): RideRecorder {
@@ -123,6 +128,7 @@ export function useRideRecorder({
   // einen Effekt statt direkt im Render-Durchlauf.
   const gateRef = useRef(gate);
   const storageKeyRef = useRef(storageKey);
+  const userIdRef = useRef(userId);
 
   useEffect(() => {
     gateRef.current = gate;
@@ -131,6 +137,10 @@ export function useRideRecorder({
   useEffect(() => {
     storageKeyRef.current = storageKey;
   }, [storageKey]);
+
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
 
   const publishLiveTrail = useCallback((now: number, force = false) => {
     if (!force && now - lastLiveTrailAtRef.current < LIVE_TRAIL_INTERVAL_MS) return;
@@ -141,7 +151,7 @@ export function useRideRecorder({
   const writeSnapshot = useCallback((snapshot: TrackingSnapshot, force = false) => {
     if (!force && snapshot.savedAt - lastSnapshotAtRef.current < SNAPSHOT_INTERVAL_MS) return;
     lastSnapshotAtRef.current = snapshot.savedAt;
-    saveTrackingSnapshot(storageKeyRef.current, snapshot);
+    saveTrackingSnapshot(userIdRef.current, storageKeyRef.current, snapshot);
   }, []);
 
   // Verhindert, dass der Bildschirm während der Aufzeichnung automatisch
@@ -420,11 +430,11 @@ export function useRideRecorder({
 
   const discard = useCallback(() => {
     releaseTracking();
-    clearTrackingSnapshot(storageKeyRef.current);
+    clearTrackingSnapshot(userIdRef.current, storageKeyRef.current);
   }, [releaseTracking]);
 
   const clearSnapshot = useCallback(() => {
-    clearTrackingSnapshot(storageKeyRef.current);
+    clearTrackingSnapshot(userIdRef.current, storageKeyRef.current);
   }, []);
 
   // Beim Mount zuerst prüfen, ob für diesen Schlüssel noch eine
@@ -437,7 +447,7 @@ export function useRideRecorder({
   // Effekt-Body), damit die darin ausgelösten setState-Aufrufe nicht als
   // Render-Kaskade zählen.
   useEffect(() => {
-    const snapshot = loadTrackingSnapshot(storageKeyRef.current);
+    const snapshot = loadTrackingSnapshot(userIdRef.current, storageKeyRef.current);
 
     const timeout = setTimeout(() => {
       if (snapshot?.phase === "finished") {

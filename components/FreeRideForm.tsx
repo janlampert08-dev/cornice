@@ -31,10 +31,18 @@ const EMPTY_ROUTES: never[] = [];
 // kein Deckungsgrad. Gestartet wird mit dem ersten GPS-Fix, beendet von
 // Hand. GPS-Mechanik (useRideRecorder) und Fazit-Formular
 // (RideSummaryForm) teilt sich diese Ansicht mit LiveTrackingForm.
-export default function FreeRideForm({ vehicles }: { vehicles: Vehicle[] }) {
+export default function FreeRideForm({
+  userId,
+  vehicles,
+}: {
+  // Nur für den localStorage-Schlüssel der Wiederherstellung — die Fahrt
+  // selbst wird serverseitig dem angemeldeten Nutzer zugeordnet.
+  userId: string;
+  vehicles: Vehicle[];
+}) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(logFreeRide, initialState);
-  const recorder = useRideRecorder({ storageKey: FREE_RIDE_STORAGE_KEY });
+  const recorder = useRideRecorder({ userId, storageKey: FREE_RIDE_STORAGE_KEY });
   const { phase, result, clearSnapshot, discard } = recorder;
 
   const [titel, setTitel] = useState("");

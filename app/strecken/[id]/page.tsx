@@ -151,6 +151,7 @@ export default async function StreckeDetailPage({
         {user ? (
           <GefahrenSection
             route={route}
+            userId={user.id}
             vehicles={vehicles}
             personalBestSeconds={personalBestSeconds}
           />

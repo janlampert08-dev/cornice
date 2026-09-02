@@ -27,11 +27,15 @@ const initialState: CompletionFormState = { error: null };
 // sich diese Komponente mit FreeRideForm (freie Fahrt ohne Strecke).
 export default function LiveTrackingForm({
   route,
+  userId,
   vehicles,
   personalBestSeconds,
   onExit,
 }: {
   route: RouteGeoJSON;
+  // Nur für den localStorage-Schlüssel der Wiederherstellung — die Fahrt
+  // selbst wird serverseitig dem angemeldeten Nutzer zugeordnet.
+  userId: string;
   vehicles: Vehicle[];
   personalBestSeconds: number | null;
   onExit: () => void;
@@ -52,7 +56,7 @@ export default function LiveTrackingForm({
     [route],
   );
 
-  const recorder = useRideRecorder({ storageKey: route.id, gate });
+  const recorder = useRideRecorder({ userId, storageKey: route.id, gate });
   const { phase, result, finishedTrail, clearSnapshot, discard } = recorder;
 
   const [isPublic, setIsPublic] = useState(false);

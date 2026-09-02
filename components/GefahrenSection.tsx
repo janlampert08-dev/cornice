@@ -6,10 +6,12 @@ import type { RouteGeoJSON, Vehicle } from "@/types/database";
 
 export default function GefahrenSection({
   route,
+  userId,
   vehicles,
   personalBestSeconds,
 }: {
   route: RouteGeoJSON;
+  userId: string;
   vehicles: Vehicle[];
   personalBestSeconds: number | null;
 }) {
@@ -37,6 +39,7 @@ export default function GefahrenSection({
   return (
     <LiveTrackingForm
       route={route}
+      userId={userId}
       vehicles={vehicles}
       personalBestSeconds={personalBestSeconds}
       onExit={() => setOpen(false)}
