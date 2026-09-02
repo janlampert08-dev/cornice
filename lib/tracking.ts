@@ -48,7 +48,7 @@ export function evaluateProximity(
     return {
       distanceToStartKm: null,
       shouldBeginTracking: false,
-      hasLeftStart: haversineKm(point, startPoint) > endProximityKm,
+      hasLeftStart: haversineKm(point, startPoint) > startProximityKm,
       shouldAutoStop: false,
     };
   }
