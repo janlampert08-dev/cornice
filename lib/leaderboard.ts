@@ -115,7 +115,7 @@ export interface RouteTimeEntry {
   isPremiumBadge: boolean;
 }
 
-interface RouteLeaderboardRow {
+export interface RouteLeaderboardRow {
   completion_id: string;
   user_id: string;
   display_name: string | null;
@@ -127,6 +127,33 @@ interface RouteLeaderboardRow {
 
 const ROUTE_TOP_N = 10;
 
+// route_leaderboard liefert eine Zeile pro opted-in Fahrt, nicht pro Nutzer —
+// wir holen daher deutlich mehr Zeilen als ROUTE_TOP_N und deduplizieren in JS
+// auf die schnellste Fahrt pro Nutzer (siehe dedupeRouteLeaderboardRows), statt
+// mehrere Zeiten desselben Fahrers in der Bestenliste zuzulassen.
+const ROUTE_FETCH_LIMIT = 200;
+
+// Reine Reduktion (kein DB-Zugriff), daher separat testbar: pro user_id nur
+// die schnellste Fahrt behalten und auf die Top N unterschiedlichen Nutzer
+// kürzen. Setzt voraus, dass rows bereits aufsteigend nach dauer_sekunden
+// sortiert sind — das erste Vorkommen eines Nutzers ist dann seine Bestzeit.
+export function dedupeRouteLeaderboardRows(
+  rows: RouteLeaderboardRow[],
+  topN: number,
+): RouteLeaderboardRow[] {
+  const seenUsers = new Set<string>();
+  const result: RouteLeaderboardRow[] = [];
+
+  for (const row of rows) {
+    if (seenUsers.has(row.user_id)) continue;
+    seenUsers.add(row.user_id);
+    result.push(row);
+    if (result.length >= topN) break;
+  }
+
+  return result;
+}
+
 // Nur Fahrten mit aktivem Opt-in (route_leaderboard-View, siehe
 // 0014_route_leaderboard_optin.sql) — sortiert nach kürzester Zeit.
 export async function getRouteLeaderboard(routeId: string): Promise<RouteTimeEntry[]> {
@@ -136,11 +163,13 @@ export async function getRouteLeaderboard(routeId: string): Promise<RouteTimeEnt
     .select("completion_id, user_id, display_name, avatar_url, dauer_sekunden, ist_premium, zeigt_premium_badge")
     .eq("route_id", routeId)
     .order("dauer_sekunden", { ascending: true })
-    .limit(ROUTE_TOP_N);
+    .limit(ROUTE_FETCH_LIMIT);
 
   if (error || !data) return [];
 
-  return (data as RouteLeaderboardRow[]).map((r) => ({
+  const deduped = dedupeRouteLeaderboardRows(data as RouteLeaderboardRow[], ROUTE_TOP_N);
+
+  return deduped.map((r) => ({
     completionId: r.completion_id,
     userId: r.user_id,
     name: r.display_name ?? "Anonym",

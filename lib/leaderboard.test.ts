@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { aggregateLeaderboards, type LeaderboardRow } from "@/lib/leaderboard";
+import {
+  aggregateLeaderboards,
+  dedupeRouteLeaderboardRows,
+  type LeaderboardRow,
+  type RouteLeaderboardRow,
+} from "@/lib/leaderboard";
 
 function row(overrides: Partial<LeaderboardRow>): LeaderboardRow {
   return {
@@ -9,6 +14,19 @@ function row(overrides: Partial<LeaderboardRow>): LeaderboardRow {
     route_id: "r1",
     hoehe_m: 1000,
     effektive_distanz_km: 20,
+    ist_premium: false,
+    zeigt_premium_badge: false,
+    ...overrides,
+  };
+}
+
+function routeRow(overrides: Partial<RouteLeaderboardRow>): RouteLeaderboardRow {
+  return {
+    completion_id: "c1",
+    user_id: "u1",
+    display_name: "Alice",
+    avatar_url: null,
+    dauer_sekunden: 1000,
     ist_premium: false,
     zeigt_premium_badge: false,
     ...overrides,
@@ -92,5 +110,49 @@ describe("aggregateLeaderboards", () => {
     const byUser = new Map(meisteStrecken.map((e) => [e.userId, e.value]));
     expect(byUser.get("u1")).toBe(2);
     expect(byUser.get("u2")).toBe(1);
+  });
+});
+
+describe("dedupeRouteLeaderboardRows", () => {
+  it("keeps only a user's fastest completion when they appear multiple times", () => {
+    const rows = [
+      routeRow({ completion_id: "c1", user_id: "u1", dauer_sekunden: 500 }),
+      routeRow({ completion_id: "c2", user_id: "u1", dauer_sekunden: 700 }), // langsamere Zweitfahrt
+      routeRow({ completion_id: "c3", user_id: "u2", dauer_sekunden: 600 }),
+    ];
+    const result = dedupeRouteLeaderboardRows(rows, 10);
+    expect(result).toHaveLength(2);
+    const byUser = new Map(result.map((r) => [r.user_id, r.completion_id]));
+    expect(byUser.get("u1")).toBe("c1");
+    expect(byUser.get("u2")).toBe("c3");
+  });
+
+  it("preserves ascending order by dauer_sekunden and breaks ties by input order", () => {
+    const rows = [
+      routeRow({ completion_id: "c1", user_id: "u1", dauer_sekunden: 400 }),
+      routeRow({ completion_id: "c2", user_id: "u2", dauer_sekunden: 400 }), // Gleichstand mit u1
+      routeRow({ completion_id: "c3", user_id: "u3", dauer_sekunden: 900 }),
+    ];
+    const result = dedupeRouteLeaderboardRows(rows, 10);
+    expect(result.map((r) => r.completion_id)).toEqual(["c1", "c2", "c3"]);
+  });
+
+  it("returns exactly topN distinct users when more are available", () => {
+    const rows = Array.from({ length: 15 }, (_, i) =>
+      routeRow({ completion_id: `c${i}`, user_id: `u${i}`, dauer_sekunden: 100 + i }),
+    );
+    // jeder Nutzer fährt zusätzlich eine langsamere Zweitrunde
+    const secondRuns = rows.map((r) =>
+      routeRow({ completion_id: `${r.completion_id}b`, user_id: r.user_id, dauer_sekunden: r.dauer_sekunden + 1000 }),
+    );
+    const allSorted = [...rows, ...secondRuns].sort((a, b) => a.dauer_sekunden - b.dauer_sekunden);
+
+    const result = dedupeRouteLeaderboardRows(allSorted, 10);
+    expect(result).toHaveLength(10);
+    expect(new Set(result.map((r) => r.user_id)).size).toBe(10);
+    // die zehn schnellsten unterschiedlichen Nutzer, nicht durch Zweitrunden verdrängt
+    expect(result.map((r) => r.user_id)).toEqual(
+      Array.from({ length: 10 }, (_, i) => `u${i}`),
+    );
   });
 });
