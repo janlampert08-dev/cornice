@@ -2,8 +2,8 @@
 
 import { useSyncExternalStore } from "react";
 import Link from "next/link";
-import { Check, Compass, Route as RouteIcon, UserPlus, X } from "lucide-react";
-import Card from "@/components/ui/Card";
+import { Check, Compass, Route as RouteIcon, UserPlus } from "lucide-react";
+import { Dialog } from "@/components/ui/Dialog";
 import { buttonVariants } from "@/components/ui/Button";
 
 const STORAGE_KEY = "cornice-onboarding-dismissed";
@@ -43,15 +43,21 @@ interface Step {
 }
 
 // Ersetzt die vorherige, nur nach abgeschlossener Registrierung erreichbare
-// /willkommen-Seite: dieselben Schritte liegen jetzt als schliessbare
-// Checkliste direkt auf der Startseite (app/page.tsx), sichtbar auch für
-// anonyme Erstbesucher — "Konto erstellen" wird selbst zum ersten Schritt,
-// statt Voraussetzung fürs Onboarding zu sein. Jeder Haken kommt aus
-// echtem Serverzustand (loggedIn/hasVehicle/hasTrackedRide), nicht aus dem
-// lokalen Speicher — ein Sprung auf eine andere Seite (z. B. Registrierung)
-// und zurück lässt bereits erledigte Schritte darum zuverlässig
-// durchgestrichen stehen, statt die Checkliste abzubrechen oder
-// zurückzusetzen. Nur das explizite Wegklicken (X) wird lokal gemerkt.
+// /willkommen-Seite: dieselben Schritte erscheinen jetzt als schliessbares
+// Dialog-Overlay direkt auf der Startseite (app/page.tsx), sichtbar auch
+// für anonyme Erstbesucher — "Konto erstellen" wird selbst zum ersten
+// Schritt, statt Voraussetzung fürs Onboarding zu sein. Mittig als Overlay
+// (natives <dialog>, gleiches Dialog.tsx-Primitiv wie FollowListModal),
+// statt als Karte oben in den normalen Seitenfluss eingebettet — ein neuer
+// Nutzer landet sonst direkt in der vollen Explore-Ansicht (Karte + Liste +
+// Filter) UND einer zusätzlichen Karte gleichzeitig, was auf den ersten
+// Blick überladen wirkt. Jeder Haken kommt aus echtem Serverzustand
+// (loggedIn/hasVehicle/hasTrackedRide), nicht aus dem lokalen Speicher —
+// ein Sprung auf eine andere Seite (z. B. Registrierung) und zurück lässt
+// bereits erledigte Schritte darum zuverlässig durchgestrichen stehen,
+// statt die Checkliste abzubrechen oder zurückzusetzen. Nur das explizite
+// Schliessen (Backdrop-Klick, Escape oder "Später einrichten") wird lokal
+// gemerkt.
 export default function OnboardingChecklist({
   loggedIn,
   hasVehicle,
@@ -93,12 +99,11 @@ export default function OnboardingChecklist({
     },
   ];
 
-  // Nach Wegklicken oder vollständigem Abschluss: nichts rendern. (Server-
-  // Snapshot ist immer "nicht weggeklickt" — ein bereits weggeklickter
-  // Rückkehrer sieht die Karte darum kurz aufblitzen, bevor der Client auf
-  // den echten Wert korrigiert; gleicher, bereits akzeptierter Trade-off
-  // wie beim Farbschema in ThemeToggle.tsx.)
-  if (dismissed || steps.every((s) => s.done)) return null;
+  // Server-Snapshot ist immer "nicht weggeklickt" — ein bereits
+  // weggeklickter Rückkehrer sieht das Overlay darum kurz aufblitzen, bevor
+  // der Client auf den echten Wert korrigiert; gleicher, bereits
+  // akzeptierter Trade-off wie beim Farbschema in ThemeToggle.tsx.
+  const allDone = steps.every((s) => s.done);
 
   function handleDismiss() {
     localStorage.setItem(STORAGE_KEY, "true");
@@ -106,26 +111,20 @@ export default function OnboardingChecklist({
   }
 
   return (
-    <Card surface className="relative mx-4 mt-4 flex flex-col gap-3 p-4 sm:mx-6">
-      <button
-        type="button"
-        onClick={handleDismiss}
-        aria-label="Checkliste schliessen"
-        className="absolute top-3 right-3 text-muted transition-colors duration-fast hover:text-foreground"
-      >
-        <X className="h-4 w-4" aria-hidden="true" />
-      </button>
-      <div className="pr-6">
-        <p className="text-sm font-semibold">Willkommen bei Cornice!</p>
-        <p className="text-sm text-muted">Drei kurze Schritte, um loszulegen:</p>
-      </div>
-      <div className="flex flex-col gap-2 sm:flex-row">
+    <Dialog
+      open={!dismissed && !allDone}
+      onClose={handleDismiss}
+      title="Willkommen bei Cornice!"
+      className="flex flex-col gap-4"
+    >
+      <p className="text-sm text-muted">Drei kurze Schritte, um loszulegen:</p>
+      <div className="flex flex-col gap-2">
         {steps.map((step) => {
           const Icon = step.icon;
           return (
             <div
               key={step.key}
-              className="flex flex-1 items-start gap-2.5 rounded-lg border border-border p-3"
+              className="flex items-start gap-2.5 rounded-lg border border-border p-3"
             >
               {step.done ? (
                 <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-background">
@@ -160,6 +159,13 @@ export default function OnboardingChecklist({
           );
         })}
       </div>
-    </Card>
+      <button
+        type="button"
+        onClick={handleDismiss}
+        className="self-center text-sm text-muted hover:text-foreground"
+      >
+        Später einrichten →
+      </button>
+    </Dialog>
   );
 }
