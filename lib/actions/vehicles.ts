@@ -57,9 +57,9 @@ export async function addVehicle(
   const { error } = await insertVehicleFromFormData(formData);
   if (error) return { error };
   // Optionales verstecktes Feld "next" (siehe NeuesFahrzeugForm.tsx) bringt
-  // z. B. vom Onboarding (app/willkommen/page.tsx) hierher navigierte
-  // Nutzer nach dem Speichern wieder dorthin zurück, statt immer fest zu
-  // /profil zu springen.
+  // z. B. von der Onboarding-Checkliste auf der Startseite (components/
+  // OnboardingChecklist.tsx) hierher navigierte Nutzer nach dem Speichern
+  // wieder dorthin zurück, statt immer fest zu /profil zu springen.
   redirect(safeInternalPath(formData.get("next") as string | null) ?? "/profil");
 }
 

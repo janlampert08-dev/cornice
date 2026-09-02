@@ -2,10 +2,11 @@ import Header from "@/components/Header";
 import NeuesFahrzeugForm from "@/components/NeuesFahrzeugForm";
 import { safeInternalPath } from "@/lib/utils/url";
 
-// ?next steuert, wohin's nach dem Speichern zurückgeht — z. B. zurück zum
-// Onboarding (app/willkommen/page.tsx), statt immer fest zu /profil. Fehlt
-// der Parameter oder zeigt er nicht auf einen internen Pfad, bleibt /profil
-// der Standard (siehe safeInternalPath).
+// ?next steuert, wohin's nach dem Speichern zurückgeht — z. B. zurück zur
+// Onboarding-Checkliste auf der Startseite (components/
+// OnboardingChecklist.tsx), statt immer fest zu /profil. Fehlt der
+// Parameter oder zeigt er nicht auf einen internen Pfad, bleibt /profil der
+// Standard (siehe safeInternalPath).
 export default async function NeuesFahrzeugPage({
   searchParams,
 }: {

@@ -12,12 +12,13 @@ import { safeInternalPath } from "@/lib/utils/url";
 // kommt aus einem öffentlich aufrufbaren Query-Parameter (nicht nur aus den
 // beiden internen Aufrufern oben) und läuft deshalb durch safeInternalPath,
 // damit ein präparierter ?next=https://evil.example keinen Open-Redirect
-// auslösen kann. "/willkommen" ist als Default sicher, ohne bestehende
-// Nutzer zu beeinflussen.
+// auslösen kann. "/" ist als Default sicher, ohne bestehende Nutzer zu
+// beeinflussen — dort zeigt die Onboarding-Checkliste (components/
+// OnboardingChecklist.tsx) frisch registrierten Nutzern den nächsten Schritt.
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = safeInternalPath(searchParams.get("next")) ?? "/willkommen";
+  const next = safeInternalPath(searchParams.get("next")) ?? "/";
 
   if (code) {
     const supabase = await createClient();
