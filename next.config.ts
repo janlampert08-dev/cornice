@@ -16,6 +16,13 @@ const nextConfig: NextConfig = {
       // the rest of the multipart body (GPS trail JSON, form fields).
       bodySizeLimit: "9mb",
     },
+    // Ohne das hier sind Server-Fehler in Vercels Runtime-Error-Tracking
+    // nur ein minifizierter Stacktrace ohne Datei/Zeile (z.B.
+    // "at <unknown> (chunks/ssr/_1v-t1gi._.js:1:943)") — unbrauchbar zum
+    // Debuggen. Betrifft nur Server-Bundles (anders als
+    // productionBrowserSourceMaps), die nie an den Client ausgeliefert
+    // werden — kein Leak-Risiko, nur etwas grösserer/langsamerer Build.
+    serverSourceMaps: true,
   },
   images: {
     // Hochgeladene Fotos/Avatare liegen in Supabase Storage (öffentliche
