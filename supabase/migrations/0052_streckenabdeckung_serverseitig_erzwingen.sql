@@ -49,7 +49,15 @@
 --
 --    Die Sample-Anzahl ist zusätzlich auf 5000 gedeckelt (bei 100m-Schritten
 --    eine 500km-Strecke) — reine Vorsicht gegen eine pathologisch lange
---    Streckengeometrie, die den Trigger unnötig teuer machen würde.
+--    Streckengeometrie, die den Trigger unnötig teuer machen würde. Wichtig:
+--    die Deckelung reduziert nur die Auflösung (grösserer Punktabstand),
+--    NICHT die abgetastete Streckenlänge — der Bruchteilsbereich [0,1] wird
+--    immer vollständig abgedeckt (n / sample_count unten, nicht n * 100m).
+--    Eine fixe 100m-Schrittweite, die bei sample_count einfach abgebrochen
+--    hätte (ursprüngliche Fassung dieser Migration, per CodeRabbit-Review
+--    dieser PR gefunden), hätte bei einer > 500km-Strecke das hintere
+--    Streckenstück nie geprüft — ein Track, der nur den Anfang abdeckt,
+--    wäre fälschlich als 100% durchgegangen.
 -- ---------------------------------------------------------------------------
 create or replace function public.compute_route_coverage_percent(
   p_route_geometry geography,
@@ -68,14 +76,23 @@ as $$
       -- der jeweiligen Postgres-Version abhinge.
       ST_Length(p_route_geometry)::double precision as length_m
   ),
+  bounded as (
+    select
+      geom,
+      length_m,
+      -- >= 1 garantiert (length_m > 0 unten => ceil(...) >= 1), greatest()
+      -- nur als explizite zweite Absicherung gegen eine Division durch 0.
+      greatest(least(ceil(length_m / 100::double precision)::int, 5000), 1) as sample_count
+    from route
+    where length_m > 0
+  ),
   samples as (
     select
       ST_LineInterpolatePoint(
-        route.geom,
-        least(1::double precision, (n::double precision * 100::double precision) / route.length_m)
+        bounded.geom,
+        n::double precision / bounded.sample_count::double precision
       )::geography as sample_point
-    from route, generate_series(0, least(ceil(route.length_m / 100::double precision)::int, 5000)) as n
-    where route.length_m > 0
+    from bounded, generate_series(0, bounded.sample_count) as n
   )
   select case
     when p_track is null or (select count(*) from samples) = 0 then 0
