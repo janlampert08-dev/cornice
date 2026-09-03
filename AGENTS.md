@@ -22,6 +22,39 @@ Switzerland/Zürich. Users discover and propose scenic driving/riding routes,
 track completions ("Fahrten"), rate routes, compete on leaderboards, and can
 subscribe to a Premium tier (Stripe) for additional features.
 
+## Core User Loop
+
+This is the loop the product exists to keep turning. Any change that touches
+one of these steps should be checked against how it affects the transition
+into the next one — a feature that strengthens a single step but breaks the
+handoff to the next isn't done.
+
+1. **Discover a route** — `app/page.tsx` / `components/ExploreView.tsx` +
+   `components/ExploreSidebar.tsx` (explore/search), `app/strecken/[id]/page.tsx`
+   (route detail).
+2. **Start a ride** — `components/GefahrenSection.tsx` ("Strecke starten" on a
+   route page, gated ride) or `app/fahrten/neu/page.tsx` (free ride, no
+   route) → `components/FreeRideForm.tsx` / `components/LiveTrackingForm.tsx`.
+3. **Drive** — the recording screen, live map via `components/RouteMap.tsx`.
+4. **GPS tracking** — `components/useRideRecorder.ts` (client recorder hook),
+   `lib/tracking.ts` (start/end gate + proximity for route mode),
+   `lib/trackingStorage.ts` (snapshotting so a killed tab/app can resume),
+   `lib/geo.ts` (trail/distance math).
+5. **Result / route stats** — `components/RideSummaryForm.tsx` submits the raw
+   trail to `lib/actions/completions.ts`, which derives every stat
+   server-side (distance, coverage, laps, elevation) rather than trusting
+   client-sent numbers: `lib/routeCoverage.ts`, `lib/lapDetection.ts`,
+   `lib/elevation.ts`.
+6. **Post the ride** — same `lib/actions/completions.ts` submission,
+   `components/RideVisibilityToggle.tsx` for visibility, landing on
+   `app/fahrten/[id]/page.tsx`.
+7. **Community reacts** — `components/KudosButton.tsx` /
+   `lib/actions/kudos.ts` on the posted ride; `components/RatingSection.tsx` /
+   `lib/actions/ratings.ts` on the route itself; moderation of reactions via
+   `components/CompletionActionsMenu.tsx` / `lib/actions/reports.ts`.
+8. **Next ride** — `app/feed/page.tsx` (global/following feed) surfaces
+   others' rides and routes, closing the loop back to step 1.
+
 ## Stack
 
 Versions below are read directly from `package.json` — verify there before
