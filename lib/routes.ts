@@ -28,6 +28,42 @@ export async function getRoutes(): Promise<{ routes: RouteGeoJSON[]; error: bool
 // opengraph-image.tsx rufen getRoute(id) für denselben Request unabhängig
 // voneinander auf — ohne Memoisierung wäre das dieselbe DB-Abfrage
 // dreifach pro Seitenaufruf.
+// Kandidaten für die automatische Streckenerkennung innerhalb einer freien
+// Fahrt (lib/lapDetection.ts) — Rundstrecken, die der Nutzer überhaupt
+// completen dürfte: freigegeben, und private Strecken nur die eigenen. Ohne
+// diesen Filter könnte das blosse Vorbeifahren an einer fremden privaten
+// Strecke deren Existenz indirekt verraten (siehe PR-Beschreibung). Dieselbe
+// Bedingung wird in der RPC-Funktion save_free_ride_with_segments
+// (0050_streckenerkennung_in_freier_fahrt.sql) nochmal serverseitig geprüft
+// — diese Abfrage allein ist kein Sicherheitsmechanismus, nur die
+// Vorauswahl für den Normalfall (App-Nutzung).
+//
+// Genutzt sowohl vom Erkennungsschritt in logFreeRide als auch — falls
+// später ein Live-Hinweis während der Fahrt dazukommt — von einem
+// entsprechenden Read-Pfad fürs Frontend; eine Stelle statt zwei.
+export async function listLoopRouteCandidates(viewerId: string): Promise<RouteGeoJSON[]> {
+  // viewerId fliesst unten als Rohtext in einen .or()-Filterstring ein
+  // (PostgREST kennt dafür keine parametrisierte Alternative) — hier
+  // validieren statt blind zu vertrauen, dass der Aufrufer immer eine echte
+  // auth.uid() übergibt.
+  if (!UUID_RE.test(viewerId)) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("routes_geojson")
+    .select("*")
+    .eq("ist_rundfahrt", true)
+    .eq("status_ok", true)
+    .or(`ist_privat.eq.false,erstellt_von.eq.${viewerId}`);
+
+  if (error) {
+    console.error("Kandidatenstrecken konnten nicht geladen werden:", error.message);
+    return [];
+  }
+
+  return (data as RouteGeoJSON[]) ?? [];
+}
+
 export const getRoute = cache(async function getRoute(id: string): Promise<RouteGeoJSON | null> {
   if (!UUID_RE.test(id)) return null;
 

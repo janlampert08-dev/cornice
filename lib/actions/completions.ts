@@ -19,8 +19,10 @@ import {
 import { publicTrackEwkt } from "@/lib/publicTrack";
 import { buildHoehenprofil, computeAscentM, fetchElevationProfile } from "@/lib/elevation";
 import { reverseGeocode } from "@/lib/geocoding";
-import { getRoute } from "@/lib/routes";
+import { getRoute, listLoopRouteCandidates } from "@/lib/routes";
 import { todayInZurich } from "@/lib/format";
+import { detectLaps, type DetectedLap, type RouteCandidate } from "@/lib/lapDetection";
+import type { RouteGeoJSON } from "@/types/database";
 
 export interface CompletionFormState {
   error: string | null;
@@ -318,6 +320,11 @@ export interface FreeRideFormState {
   // ihre Detailseite wechseln kann (anders als bei einer Streckenfahrt gibt
   // es keine Streckenseite, zu der man zurückkehren könnte).
   completionId?: string;
+  // Innerhalb dieser Fahrt automatisch erkannte Streckenabschnitte (siehe
+  // lib/lapDetection.ts) — für den Fazit-Screen, der sie als eigene Karten
+  // mit eigenem Sichtbarkeits-Toggle anzeigt. Leer im ganz überwiegenden
+  // Fall (keine Rundstrecke abgedeckt).
+  segments?: (DetectedSegmentSummary & { id: string })[];
 }
 
 // Höhenprofil und Anstieg einer freien Fahrt, best effort: der swisstopo-
@@ -339,6 +346,72 @@ async function deriveElevation(
   } catch {
     return { hoehenmeter_aufstieg: null, hoehenprofil: null };
   }
+}
+
+export interface DetectedSegmentSummary {
+  routeId: string;
+  routeName: string;
+  distanzKm: number;
+  dauerSekunden: number;
+}
+
+interface DetectedSegmentPayload {
+  route_id: string;
+  distanz_km: number;
+  dauer_sekunden: number;
+  bewegte_zeit_sekunden: number;
+  abdeckung_prozent: number;
+  track: string | null;
+}
+
+// Wandelt die von lib/lapDetection.ts erkannten Zeitfenster in fertige
+// Segment-Datensätze um. lapDetection kennt nur den (vereinfachten) Trail
+// und liefert reine Zeitfenster (entryT/exitT) zurück — die eigentlichen
+// Kennzahlen werden hier, genau wie bei einer regulär gestarteten
+// Streckenfahrt, aus dem ROHEN Trail-Ausschnitt neu berechnet: dieselbe
+// Präzision, dieselben Plausibilitäts- und Deckungsgrad-Prüfungen wie bei
+// logTrackedCompletion — ein erkanntes Fenster, das diese Prüfungen nicht
+// besteht, wird stillschweigend verworfen (bewusst: eine verpasste
+// Erkennung kostet nichts, eine fälschlich vergebene Fahrt schon, siehe
+// PR-Beschreibung).
+function buildDetectedSegments(
+  trail: TrailPoint[],
+  laps: DetectedLap[],
+  candidates: RouteGeoJSON[],
+): { payloads: DetectedSegmentPayload[]; summaries: DetectedSegmentSummary[] } {
+  const payloads: DetectedSegmentPayload[] = [];
+  const summaries: DetectedSegmentSummary[] = [];
+
+  for (const lap of laps) {
+    const route = candidates.find((r) => r.id === lap.routeId);
+    if (!route) continue;
+
+    const subTrail = trail.filter((p) => p.t >= lap.entryT && p.t <= lap.exitT);
+    if (subTrail.length < MIN_TRAIL_POINTS) continue;
+
+    const { distanceKm, durationSeconds } = computeTrailStats(subTrail);
+    if (implausibilityReason(subTrail, distanceKm, durationSeconds)) continue;
+
+    const abdeckungProzent = computeRouteCoverage(
+      route.geometry_geojson.coordinates as [number, number][],
+      subTrail.map((p) => [p.lng, p.lat] as [number, number]),
+    );
+    // Zweites, unabhängiges Signal zusätzlich zum geordneten Rundenschluss
+    // aus lapDetection — beide müssen zustimmen (siehe PR-Beschreibung).
+    if (abdeckungProzent < COVERAGE_THRESHOLD_PERCENT) continue;
+
+    payloads.push({
+      route_id: route.id,
+      distanz_km: distanceKm,
+      dauer_sekunden: durationSeconds,
+      bewegte_zeit_sekunden: movingSeconds(subTrail),
+      abdeckung_prozent: abdeckungProzent,
+      track: toEwktLineString(toCoordinates(simplifyTrack(subTrail))),
+    });
+    summaries.push({ routeId: route.id, routeName: route.name, distanzKm: distanceKm, dauerSekunden: durationSeconds });
+  }
+
+  return { payloads, summaries };
 }
 
 // Speichert eine freie Fahrt: dieselbe Aufzeichnung wie bei einer Strecke,
@@ -412,13 +485,32 @@ export async function logFreeRide(
   const uploaded = await uploadFotos(supabase, user.id, fotos);
   if ("error" in uploaded) return { error: uploaded.error };
 
-  const { data: inserted, error } = await supabase
-    .from("route_completions")
-    .insert({
-      user_id: user.id,
-      art: "frei",
-      route_id: null,
-      abdeckung_prozent: null,
+  // Automatische Streckenerkennung: läuft auf dem bereits vereinfachten
+  // Trail (gleiche Vereinfachung wie für die gespeicherte Track-Geometrie
+  // oben), die eigentlichen Kennzahlen pro Treffer kommen aber wieder aus
+  // dem rohen Trail (siehe buildDetectedSegments). Ein Fehler bei der
+  // Kandidatensuche darf die freie Fahrt selbst nicht gefährden — best
+  // effort, wie Ortsbezug/Höhenprofil oben.
+  let segmentPayloads: DetectedSegmentPayload[] = [];
+  let segmentSummaries: DetectedSegmentSummary[] = [];
+  try {
+    const candidates = await listLoopRouteCandidates(user.id);
+    if (candidates.length > 0) {
+      const routeCandidates: RouteCandidate[] = candidates.map((r) => ({
+        routeId: r.id,
+        coordinates: r.geometry_geojson.coordinates,
+      }));
+      const { laps } = detectLaps(simplifyTrack(trail), routeCandidates);
+      const built = buildDetectedSegments(trail, laps, candidates);
+      segmentPayloads = built.payloads;
+      segmentSummaries = built.summaries;
+    }
+  } catch (detectionError) {
+    console.error("Streckenerkennung fehlgeschlagen:", detectionError);
+  }
+
+  const { data: insertedRaw, error } = await supabase.rpc("save_free_ride_with_segments", {
+    p_frei: {
       fahrzeug_id: fahrzeugId,
       datum: todayInZurich(),
       distanz_km: distanzKm,
@@ -435,11 +527,16 @@ export async function logFreeRide(
       track_oeffentlich: istOeffentlich
         ? await publicTrackEwkt(supabase, user.id, coordinates)
         : null,
-    })
-    .select("id")
-    .single();
+    },
+    p_segments: segmentPayloads,
+  });
 
-  if (error || !inserted) {
+  const inserted = insertedRaw as
+    | { out_id: string; out_art: "frei" | "strecke"; out_route_id: string | null }[]
+    | null;
+  const parentRow = inserted?.find((row) => row.out_art === "frei");
+
+  if (error || !parentRow) {
     await removeUploadedFotos(supabase, uploaded.urls);
     // Race-freie Durchsetzung via DB-Trigger (0024) — der App-seitige Check
     // oben ist nur ein schnelles Vorab-Feedback.
@@ -449,14 +546,21 @@ export async function logFreeRide(
     return { error: "Fahrt konnte nicht gespeichert werden." };
   }
 
-  await attachPhotos(supabase, inserted.id, user.id, uploaded.urls);
+  await attachPhotos(supabase, parentRow.out_id, user.id, uploaded.urls);
+
+  // Reihenfolge der 'strecke'-Zeilen entspricht der Reihenfolge von
+  // p_segments (save_free_ride_with_segments verarbeitet sie in einer
+  // einfachen sequenziellen Schleife über jsonb_array_elements) — Zippen mit
+  // den in TypeScript berechneten Zusammenfassungen ist damit sicher.
+  const segmentRows = (inserted ?? []).filter((row) => row.out_art === "strecke");
+  const segments = segmentRows.map((row, i) => ({ id: row.out_id, ...segmentSummaries[i] }));
 
   revalidatePath("/profil");
   if (istOeffentlich) {
     revalidatePath("/feed");
     revalidatePath(`/fahrer/${user.id}`);
   }
-  return { error: null, completionId: inserted.id };
+  return { error: null, completionId: parentRow.out_id, segments };
 }
 
 export interface DeleteCompletionState {
