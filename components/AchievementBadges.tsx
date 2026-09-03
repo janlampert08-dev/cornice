@@ -1,15 +1,12 @@
 import type { ComponentType } from "react";
 import { Compass, Mountain, TrendingUp } from "lucide-react";
 import Card from "@/components/ui/Card";
-
-const PASS_MILESTONES = [1, 5, 10, 25, 50, 100];
-const HOEHENMETER_MILESTONES = [1000, 5000, 10000, 25000, 50000];
-const FAHRTEN_MILESTONES = [1, 10, 25, 50, 100];
-
-function highestMilestone(value: number, milestones: number[]): number | null {
-  const reached = milestones.filter((m) => value >= m);
-  return reached.length > 0 ? reached[reached.length - 1] : null;
-}
+import {
+  FAHRTEN_MILESTONES,
+  HOEHENMETER_MILESTONES,
+  highestMilestone,
+  PASS_MILESTONES,
+} from "@/lib/achievements";
 
 interface Badge {
   icon: ComponentType<{ className?: string }>;
