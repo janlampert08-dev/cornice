@@ -32,6 +32,14 @@ const SNAPSHOT_INTERVAL_MS = 10_000;
 // nimmt ein Array, keine Ref). Fünf Sekunden sind auf der Karte nicht von
 // einer Aktualisierung pro Sekunde zu unterscheiden.
 const LIVE_TRAIL_INTERVAL_MS = 5_000;
+// Ab dieser Lücke seit dem letzten GPS-Fix wird der Nutzer beim
+// Zurückkehren aus dem Hintergrund gewarnt (siehe visibilitychange-Effekt
+// unten). Mobile Browser drosseln oder pausieren watchPosition häufig,
+// sobald der Tab/die App in den Hintergrund geht — der WakeLock schützt nur
+// den Bildschirm, nicht die GPS-Watch. Ohne diesen Hinweis erfährt der
+// Nutzer von der Lücke erst beim Posten, wenn die Trail-Validierung
+// (MAX_JUMP_KM in lib/track.ts) fehlschlägt und die ganze Fahrt verwirft.
+const GPS_GAP_WARNING_MS = 60_000;
 
 export type RecorderPhase = "idle" | "tracking" | "finished";
 
@@ -123,6 +131,9 @@ export function useRideRecorder({
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const lastSnapshotAtRef = useRef(0);
   const lastLiveTrailAtRef = useRef(0);
+  // Zeitpunkt des letzten GPS-Fix, unabhängig von dessen Genauigkeit — Basis
+  // für die Hintergrund-Lücken-Warnung (siehe GPS_GAP_WARNING_MS).
+  const lastFixAtRef = useRef<number | null>(null);
   // Spiegelt distanceKm bzw. hasStarted für den watchPosition-Callback: der
   // Callback ist eine einmal beim Start erzeugte Closure und sähe sonst die
   // veralteten Werte aus dem ersten Render.
@@ -208,8 +219,20 @@ export function useRideRecorder({
   useEffect(() => {
     if (phase !== "tracking") return;
     function handleVisibilityChange() {
-      if (document.visibilityState === "visible" && wakeLockRef.current === null) {
-        requestWakeLock();
+      if (document.visibilityState !== "visible") return;
+      if (wakeLockRef.current === null) requestWakeLock();
+
+      // Beim Zurückkehren aus dem Hintergrund prüfen, ob währenddessen eine
+      // GPS-Lücke entstanden ist, statt das erst beim Posten über eine
+      // fehlgeschlagene Trail-Validierung zu erfahren (siehe
+      // GPS_GAP_WARNING_MS). Ein neuer Fix überschreibt diese Meldung von
+      // selbst wieder (siehe watchPosition-Erfolgs-Callback).
+      const lastFixAt = lastFixAtRef.current;
+      if (lastFixAt !== null && Date.now() - lastFixAt >= GPS_GAP_WARNING_MS) {
+        const minutes = Math.round((Date.now() - lastFixAt) / 60_000);
+        setLocationError(
+          `GPS war ca. ${minutes} Minute${minutes === 1 ? "" : "n"} ohne Empfang (vermutlich im Hintergrund) — die Strecke könnte an dieser Stelle eine Lücke haben.`,
+        );
       }
     }
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -294,6 +317,7 @@ export function useRideRecorder({
       setAccuracyM(null);
       setHeadingDeg(null);
       setDistanceToStartKm(null);
+      lastFixAtRef.current = Date.now();
 
       if (resume) {
         const lastPoint = resume.trail[resume.trail.length - 1];
@@ -347,6 +371,7 @@ export function useRideRecorder({
           setPosition(point);
           setAccuracyM(browserPosition.coords.accuracy);
           setHeadingDeg(browserPosition.coords.heading);
+          lastFixAtRef.current = Date.now();
           // Ein früherer Fehler (z.B. kurzer Empfangsverlust im Tunnel) ist
           // erledigt, sobald wieder ein Fix hereinkommt — sonst bliebe die
           // Fehlermeldung für den Rest der Fahrt stehen, obwohl GPS längst
