@@ -24,6 +24,8 @@ export interface ProposeRouteState {
 // 0041_route_proposal_cooldown.sql für Details und den race-freien
 // DB-seitigen Trigger, der diesen Vorab-Check ergänzt).
 const PROPOSE_ROUTE_COOLDOWN_MS = 15_000;
+const MAX_NAME_LENGTH = 100;
+const MAX_CHARAKTER_TEXT_LENGTH = 500;
 
 export async function proposeRoute(
   _prevState: ProposeRouteState,
@@ -42,7 +44,7 @@ export async function proposeRoute(
 
   const name = String(formData.get("name") ?? "").trim();
   const laengeKm = Number(formData.get("laenge_km"));
-  const charakterText = String(formData.get("charakter_text") ?? "").trim() || null;
+  const charakterText = String(formData.get("charakter_text") ?? "").trim().slice(0, MAX_CHARAKTER_TEXT_LENGTH) || null;
   const kategorien = formData.getAll("kategorien") as Kategorie[];
 
   const geometryRaw = String(formData.get("geometry_geojson") ?? "");
@@ -51,6 +53,9 @@ export async function proposeRoute(
 
   if (!name) {
     return { error: "Bitte einen Namen für die Strecke angeben." };
+  }
+  if (name.length > MAX_NAME_LENGTH) {
+    return { error: `Name darf höchstens ${MAX_NAME_LENGTH} Zeichen lang sein.` };
   }
   if (!geometryRaw) {
     return { error: "Bitte mindestens zwei Wegpunkte auf der Karte setzen." };

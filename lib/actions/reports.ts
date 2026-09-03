@@ -2,6 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { REPORT_REASONS } from "@/lib/constants";
+import { isRateLimited } from "@/lib/rateLimit";
+import { isValidUuid } from "@/lib/validation";
 
 export interface ReportState {
   error: string | null;
@@ -14,11 +16,24 @@ function isValidReason(value: string): value is ReportReason {
   return REPORT_REASONS.some((r) => r.value === value);
 }
 
+// Freitext für die Moderation, kein öffentlicher Diskussionsbeitrag — 500
+// Zeichen reichen für eine kurze Begründung.
+const MAX_KOMMENTAR_LENGTH = 500;
+const REPORT_COOLDOWN_MS = 3000;
+
+function readKommentar(formData: FormData): string | null {
+  const raw = String(formData.get("kommentar") ?? "").trim();
+  if (!raw) return null;
+  return raw.slice(0, MAX_KOMMENTAR_LENGTH);
+}
+
 export async function reportRoute(
   routeId: string,
   _prevState: ReportState,
   formData: FormData,
 ): Promise<ReportState> {
+  if (!isValidUuid(routeId)) return { error: "Strecke nicht gefunden." };
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -30,7 +45,13 @@ export async function reportRoute(
   if (!isValidReason(grund)) {
     return { error: "Bitte einen Grund auswählen." };
   }
-  const kommentar = String(formData.get("kommentar") ?? "").trim() || null;
+  const kommentar = readKommentar(formData);
+
+  if (
+    await isRateLimited(supabase, "route_reports", "erstellt_am", "reporter_id", user.id, REPORT_COOLDOWN_MS)
+  ) {
+    return { error: "Bitte warte einen Moment, bevor du erneut etwas meldest." };
+  }
 
   const { error } = await supabase
     .from("route_reports")
@@ -52,6 +73,8 @@ export async function reportRating(
   _prevState: ReportState,
   formData: FormData,
 ): Promise<ReportState> {
+  if (!isValidUuid(ratingId)) return { error: "Kommentar nicht gefunden." };
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -63,7 +86,13 @@ export async function reportRating(
   if (!isValidReason(grund)) {
     return { error: "Bitte einen Grund auswählen." };
   }
-  const kommentar = String(formData.get("kommentar") ?? "").trim() || null;
+  const kommentar = readKommentar(formData);
+
+  if (
+    await isRateLimited(supabase, "rating_reports", "erstellt_am", "reporter_id", user.id, REPORT_COOLDOWN_MS)
+  ) {
+    return { error: "Bitte warte einen Moment, bevor du erneut etwas meldest." };
+  }
 
   const { error } = await supabase
     .from("rating_reports")
@@ -88,6 +117,8 @@ export async function reportCompletion(
   _prevState: ReportState,
   formData: FormData,
 ): Promise<ReportState> {
+  if (!isValidUuid(completionId)) return { error: "Fahrt nicht gefunden." };
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -99,7 +130,20 @@ export async function reportCompletion(
   if (!isValidReason(grund)) {
     return { error: "Bitte einen Grund auswählen." };
   }
-  const kommentar = String(formData.get("kommentar") ?? "").trim() || null;
+  const kommentar = readKommentar(formData);
+
+  if (
+    await isRateLimited(
+      supabase,
+      "completion_reports",
+      "erstellt_am",
+      "reporter_id",
+      user.id,
+      REPORT_COOLDOWN_MS,
+    )
+  ) {
+    return { error: "Bitte warte einen Moment, bevor du erneut etwas meldest." };
+  }
 
   const { error } = await supabase
     .from("completion_reports")

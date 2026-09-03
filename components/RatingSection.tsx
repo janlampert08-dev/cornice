@@ -49,6 +49,7 @@ export default function RatingSection({
             defaultValue={ownRating?.kommentar ?? ""}
             placeholder="Kommentar"
             rows={2}
+            maxLength={1000}
           />
           {state.error && (
             <p role="alert" className="text-sm text-danger">

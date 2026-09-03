@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
 import { getRoute } from "@/lib/routes";
 import { averageTempolimit, estimateRouteDurationMinutes } from "@/lib/geo";
+import { getClientIp, isRateLimitedByKey } from "@/lib/rateLimit";
+import { isValidUuid } from "@/lib/validation";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (isRateLimitedByKey(`api:strecken:${getClientIp(request.headers)}`, 60, 60_000)) {
+    return NextResponse.json({ error: "Zu viele Anfragen." }, { status: 429 });
+  }
+
   const { id } = await params;
+  if (!isValidUuid(id)) {
+    return NextResponse.json({ error: "Strecke nicht gefunden" }, { status: 404 });
+  }
+
   const route = await getRoute(id);
 
   if (!route) {

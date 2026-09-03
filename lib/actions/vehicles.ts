@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { safeInternalPath } from "@/lib/utils/url";
+import { isRateLimited } from "@/lib/rateLimit";
 import type { FahrzeugTyp, Getriebe, Vehicle } from "@/types/database";
 
 export interface VehicleFormState {
@@ -15,6 +16,16 @@ interface InsertVehicleResult {
   vehicle: Vehicle | null;
 }
 
+// Muss mit den DB-Check-Constraints aus 0001_init.sql übereinstimmen
+// (typ/getriebe/baujahr) — hier geprüft, um bei ungültigem Wert eine
+// verständliche Fehlermeldung statt eines generischen DB-Fehlers zu geben.
+const FAHRZEUG_TYPEN: FahrzeugTyp[] = ["auto", "motorrad"];
+const GETRIEBE_TYPEN: Getriebe[] = ["manuell", "automatik"];
+const MAX_MARKE_MODELL_LENGTH = 60;
+const MIN_BAUJAHR = 1900;
+const MAX_BAUJAHR = 2100;
+const ADD_VEHICLE_COOLDOWN_MS = 2000;
+
 async function insertVehicleFromFormData(formData: FormData): Promise<InsertVehicleResult> {
   const supabase = await createClient();
   const {
@@ -25,20 +36,48 @@ async function insertVehicleFromFormData(formData: FormData): Promise<InsertVehi
     return { error: "Bitte melde dich zuerst an.", vehicle: null };
   }
 
-  const typ = String(formData.get("typ")) as FahrzeugTyp;
+  const typ = String(formData.get("typ") ?? "");
   const marke = String(formData.get("marke") ?? "").trim();
   const modell = String(formData.get("modell") ?? "").trim();
-  const getriebe = String(formData.get("getriebe")) as Getriebe;
+  const getriebe = String(formData.get("getriebe") ?? "");
   const baujahrRaw = String(formData.get("baujahr") ?? "").trim();
   const baujahr = baujahrRaw ? Number(baujahrRaw) : null;
 
   if (!marke || !modell) {
     return { error: "Marke und Modell sind erforderlich.", vehicle: null };
   }
+  if (marke.length > MAX_MARKE_MODELL_LENGTH || modell.length > MAX_MARKE_MODELL_LENGTH) {
+    return {
+      error: `Marke und Modell dürfen höchstens ${MAX_MARKE_MODELL_LENGTH} Zeichen lang sein.`,
+      vehicle: null,
+    };
+  }
+  if (!FAHRZEUG_TYPEN.includes(typ as FahrzeugTyp)) {
+    return { error: "Bitte einen gültigen Fahrzeugtyp wählen.", vehicle: null };
+  }
+  if (!GETRIEBE_TYPEN.includes(getriebe as Getriebe)) {
+    return { error: "Bitte ein gültiges Getriebe wählen.", vehicle: null };
+  }
+  if (baujahr !== null && (!Number.isInteger(baujahr) || baujahr < MIN_BAUJAHR || baujahr > MAX_BAUJAHR)) {
+    return { error: `Baujahr muss zwischen ${MIN_BAUJAHR} und ${MAX_BAUJAHR} liegen.`, vehicle: null };
+  }
+
+  if (
+    await isRateLimited(supabase, "vehicles", "created_at", "user_id", user.id, ADD_VEHICLE_COOLDOWN_MS)
+  ) {
+    return { error: "Bitte warte einen Moment, bevor du ein weiteres Fahrzeug hinzufügst.", vehicle: null };
+  }
 
   const { data, error } = await supabase
     .from("vehicles")
-    .insert({ user_id: user.id, typ, marke, modell, getriebe, baujahr })
+    .insert({
+      user_id: user.id,
+      typ: typ as FahrzeugTyp,
+      marke,
+      modell,
+      getriebe: getriebe as Getriebe,
+      baujahr,
+    })
     .select()
     .single();
 

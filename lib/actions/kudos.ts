@@ -2,6 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { isRateLimited } from "@/lib/rateLimit";
+import { isValidUuid } from "@/lib/validation";
+
+// Kurzer Cooldown gegen skriptgesteuertes Durchklicken vieler Fahrten —
+// eine echte Nutzerin, die mehrere Kudos hintereinander vergibt, merkt eine
+// halbe Sekunde Abstand zwischen Klicks nicht.
+const KUDOS_COOLDOWN_MS = 500;
 
 // Reines Toggle wie toggleFavorite (lib/actions/favorites.ts). RLS
 // (0029_kudos.sql) erzwingt unabhängig davon, dass nur auf öffentliche
@@ -9,12 +16,18 @@ import { createClient } from "@/lib/supabase/server";
 // insert auf eine private Fahrt schlägt serverseitig fehl, auch falls hier
 // je ein Aufruf mit falscher completionId ankäme.
 export async function toggleKudos(completionId: string): Promise<{ ok: boolean }> {
+  if (!isValidUuid(completionId)) return { ok: false };
+
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) return { ok: false };
+
+  if (await isRateLimited(supabase, "kudos", "erstellt_am", "user_id", user.id, KUDOS_COOLDOWN_MS)) {
+    return { ok: false };
+  }
 
   const { data: existing } = await supabase
     .from("kudos")

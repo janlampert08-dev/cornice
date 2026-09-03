@@ -1,20 +1,51 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getOrigin } from "@/lib/utils/url";
+import { getClientIp, isRateLimitedByKey } from "@/lib/rateLimit";
 
 export interface AuthFormState {
   error: string | null;
+}
+
+// Grenzen gegen übergrosse/unsinnige Eingaben, bevor sie überhaupt an
+// Supabase Auth gehen — kein hartes Sicherheitsmerkmal (Supabase validiert
+// selbst), aber verhindert unnötig grosse Requests/Payloads.
+const MAX_EMAIL_LENGTH = 255;
+const MAX_PASSWORD_LENGTH = 200;
+
+const TOO_MANY_ATTEMPTS_ERROR = "Zu viele Versuche. Bitte warte ein paar Minuten und versuche es erneut.";
+
+async function currentIp(): Promise<string> {
+  return getClientIp(await headers());
 }
 
 export async function signIn(
   _prevState: AuthFormState,
   formData: FormData,
 ): Promise<AuthFormState> {
-  const email = String(formData.get("email") ?? "");
-  const password = String(formData.get("password") ?? "");
+  const email = String(formData.get("email") ?? "").slice(0, MAX_EMAIL_LENGTH);
+  const password = String(formData.get("password") ?? "").slice(0, MAX_PASSWORD_LENGTH);
+
+  if (!email || !password) {
+    return { error: "E-Mail oder Passwort ist falsch." };
+  }
+
+  // Zwei Limits: eines pro IP (bremst verteiltes Durchprobieren vieler
+  // Adressen von derselben Quelle) und eines pro Adresse unabhängig von der
+  // IP (bremst gezieltes Erraten eines einzelnen Passworts über wechselnde
+  // IPs). Beide sind bewusst grosszügig, um normale Tippfehler nicht zu
+  // blockieren.
+  const ip = await currentIp();
+  if (
+    isRateLimitedByKey(`signin:ip:${ip}`, 20, 5 * 60_000) ||
+    isRateLimitedByKey(`signin:email:${email.toLowerCase()}`, 5, 5 * 60_000)
+  ) {
+    return { error: TOO_MANY_ATTEMPTS_ERROR };
+  }
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -42,8 +73,8 @@ export async function signUp(
   _prevState: AuthFormState,
   formData: FormData,
 ): Promise<AuthFormState> {
-  const email = String(formData.get("email") ?? "");
-  const password = String(formData.get("password") ?? "");
+  const email = String(formData.get("email") ?? "").slice(0, MAX_EMAIL_LENGTH);
+  const password = String(formData.get("password") ?? "").slice(0, MAX_PASSWORD_LENGTH);
   const displayName = String(formData.get("display_name") ?? "").trim();
 
   if (password.length < 8) {
@@ -54,6 +85,12 @@ export async function signUp(
   }
   if (displayName.length > 50) {
     return { error: "Benutzername darf höchstens 50 Zeichen lang sein." };
+  }
+
+  // Begrenzt Massen-Registrierung von derselben Quelle (Skripte, die viele
+  // Konten anlegen) statt echter, gelegentlicher Neuanmeldungen.
+  if (isRateLimitedByKey(`signup:ip:${await currentIp()}`, 5, 10 * 60_000)) {
+    return { error: TOO_MANY_ATTEMPTS_ERROR };
   }
 
   const supabase = await createClient();
@@ -119,8 +156,21 @@ export async function requestPasswordReset(
   _prevState: RequestPasswordResetState,
   formData: FormData,
 ): Promise<RequestPasswordResetState> {
-  const email = String(formData.get("email") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().slice(0, MAX_EMAIL_LENGTH);
   if (!email) return { error: "Bitte E-Mail-Adresse eingeben.", requested: false };
+
+  // Verhindert, dass eine einzelne Adresse mit E-Mails zugespamt wird
+  // (jede Anfrage löst einen Versand aus) bzw. viele Adressen von derselben
+  // Quelle zur Konto-Enumeration durchprobiert werden.
+  const ip = await currentIp();
+  if (
+    isRateLimitedByKey(`pwreset:ip:${ip}`, 10, 10 * 60_000) ||
+    isRateLimitedByKey(`pwreset:email:${email.toLowerCase()}`, 3, 10 * 60_000)
+  ) {
+    // Dieselbe konstante Erfolgsmeldung wie unten (kein Verrutschen in eine
+    // erkennbar andere Antwort) — die Ursache steht nur im Serverlog.
+    return { error: null, requested: true };
+  }
 
   const supabase = await createClient();
   const origin = await getOrigin();
@@ -146,7 +196,7 @@ export async function updatePassword(
   _prevState: UpdatePasswordState,
   formData: FormData,
 ): Promise<UpdatePasswordState> {
-  const password = String(formData.get("password") ?? "");
+  const password = String(formData.get("password") ?? "").slice(0, MAX_PASSWORD_LENGTH);
   if (password.length < 8) {
     return { error: "Passwort muss mindestens 8 Zeichen lang sein." };
   }
@@ -187,7 +237,7 @@ export async function deleteAccount(
 
   if (!user || !user.email) return { error: "Bitte melde dich zuerst an." };
 
-  const password = String(formData.get("password") ?? "");
+  const password = String(formData.get("password") ?? "").slice(0, MAX_PASSWORD_LENGTH);
   if (!password) return { error: "Bitte gib dein Passwort zur Bestätigung ein." };
 
   const { error: reauthError } = await supabase.auth.signInWithPassword({

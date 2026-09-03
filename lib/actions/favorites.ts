@@ -2,14 +2,24 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { isRateLimited } from "@/lib/rateLimit";
+import { isValidUuid } from "@/lib/validation";
+
+const FAVORITE_COOLDOWN_MS = 500;
 
 export async function toggleFavorite(routeId: string): Promise<{ ok: boolean }> {
+  if (!isValidUuid(routeId)) return { ok: false };
+
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) return { ok: false };
+
+  if (await isRateLimited(supabase, "favorites", "erstellt_am", "user_id", user.id, FAVORITE_COOLDOWN_MS)) {
+    return { ok: false };
+  }
 
   const { data: existing } = await supabase
     .from("favorites")
