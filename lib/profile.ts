@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { throwOnQueryError } from "@/lib/queryError";
 import type { PublicFahrt, Vehicle } from "@/types/database";
 
 export interface PublicProfile {
@@ -45,24 +46,26 @@ export const getPublicProfile = cache(async function getPublicProfile(
     .eq("id", userId)
     .maybeSingle();
 
-  // Ein Ladefehler ist etwas anderes als "kein solches Profil": maybeSingle
-  // liefert bei fehlender Zeile data = null *ohne* error. Beides zu null
-  // zusammenzufassen würde jeden Query-Fehler in ein 404 verwandeln
-  // (app/fahrer/[id]/page.tsx ruft bei null notFound()) — dieselbe
-  // Unterscheidung wie in lib/routes.ts (getRoute) und lib/completions.ts.
-  if (error) {
-    console.error("Profil konnte nicht geladen werden:", error.message);
-    throw new Error("Profil konnte nicht geladen werden.");
-  }
+  // Ohne diese Unterscheidung würde jeder Query-Fehler zu einem 404
+  // (app/fahrer/[id]/page.tsx ruft bei null notFound()). Siehe
+  // lib/queryError.ts.
+  throwOnQueryError(error, "Profil");
 
   if (!profile) return null;
 
   const [vehiclesResult, fahrtenResult] = await Promise.all([
     profile.zeigt_fahrzeuge
       ? supabase.from("vehicles").select("*").eq("user_id", userId)
-      : Promise.resolve({ data: [] as Vehicle[] }),
+      : Promise.resolve({ data: [] as Vehicle[], error: null }),
     supabase.from("public_fahrten").select("*").eq("user_id", userId),
   ]);
+
+  // Hier wiegt das besonders schwer: eine gescheiterte Fahrtenabfrage würde
+  // als leere Liste durchgehen und das Profil zeigte "0 Pässe, 0 km,
+  // 0 Höhenmeter" — eine Zahl, die wie eine Tatsache aussieht, statt einer
+  // Fehlermeldung. Dasselbe gilt für die Fahrzeugliste.
+  throwOnQueryError(vehiclesResult.error, "Fahrzeuge");
+  throwOnQueryError(fahrtenResult.error, "Fahrten");
 
   const fahrten = (fahrtenResult.data as PublicFahrt[]) ?? [];
   // Pässe und Höhenmeter zählen nur Streckenfahrten: seit
@@ -76,10 +79,11 @@ export const getPublicProfile = cache(async function getPublicProfile(
   let hoehenmeter = 0;
   if (streckenFahrten.length > 0) {
     const routeIds = [...new Set(streckenFahrten.map((f) => f.route_id))];
-    const { data: routes } = await supabase
+    const { data: routes, error: routesError } = await supabase
       .from("routes")
       .select("id, hoehe_m")
       .in("id", routeIds);
+    throwOnQueryError(routesError, "Strecken zu den Fahrten");
     const hoeheById = new Map((routes ?? []).map((r) => [r.id, r.hoehe_m ?? 0]));
     hoehenmeter = streckenFahrten.reduce((sum, f) => sum + (hoeheById.get(f.route_id!) ?? 0), 0);
   }
