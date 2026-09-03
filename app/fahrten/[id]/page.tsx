@@ -20,7 +20,8 @@ import CompletionReportButton from "@/components/CompletionReportButton";
 import ElevationProfile from "@/components/ElevationProfile";
 import CompletionMap from "@/components/CompletionMap";
 import CompletionPhotoGallery from "@/components/CompletionPhotoGallery";
-import { freieFahrtTitel, getCompletionDetail } from "@/lib/completions";
+import DetectedSegmentsCard from "@/components/DetectedSegmentsCard";
+import { freieFahrtTitel, getCompletionDetail, getDetectedSegments } from "@/lib/completions";
 import { getRoute } from "@/lib/routes";
 import { getKudosForCompletions } from "@/lib/kudos";
 import { createClient } from "@/lib/supabase/server";
@@ -83,6 +84,16 @@ export default async function FahrtDetailPage({
     ? await getKudosForCompletions([completion.id], user?.id ?? null)
     : null;
   const kudos = kudosByCompletion?.get(completion.id) ?? null;
+
+  // Nur für den Besitzer einer freien Fahrt: innerhalb dieser Aufzeichnung
+  // automatisch erkannte Streckenabschnitte (siehe lib/lapDetection.ts).
+  // Bewusst nicht für fremde Betrachter geladen — die Verknüpfung ist kein
+  // Teil der öffentlichen Views (public_fahrten & Co.), siehe
+  // getDetectedSegments.
+  const detectedSegments =
+    completion.isOwner && istFreieFahrt && user
+      ? await getDetectedSegments(completion.id, user.id)
+      : [];
 
   // Bei einer freien Fahrt zählt die Bewegtzeit — eine Ausfahrt mit
   // Kaffeestopp hätte über die verstrichene Zeit ein sinnlos niedriges
@@ -209,11 +220,25 @@ export default async function FahrtDetailPage({
                 `${route!.start_ort} → ${route!.ziel_ort}`
               )}
             </p>
+            {/* Rückverweis nur für den Besitzer, nur bei einer automatisch
+                erkannten Streckenfahrt (siehe lib/lapDetection.ts) — die
+                Verknüpfung ist bewusst nicht Teil der öffentlichen Views,
+                siehe CompletionDetail.parentCompletionId. */}
+            {completion.isOwner && completion.parentCompletionId && (
+              <Link
+                href={`/fahrten/${completion.parentCompletionId}`}
+                className="mt-1 inline-block text-sm text-accent hover:underline"
+              >
+                Teil einer längeren Fahrt — ansehen →
+              </Link>
+            )}
           </div>
 
           <Card className="h-64 overflow-hidden sm:h-80">
             <CompletionMap route={route} track={completion.track} />
           </Card>
+
+          {detectedSegments.length > 0 && <DetectedSegmentsCard segments={detectedSegments} />}
 
           {(completion.vehicle || completion.abdeckungProzent !== null || completion.notiz) && (
             <Card surface className="flex flex-col gap-4 p-4">

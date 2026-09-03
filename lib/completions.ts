@@ -45,6 +45,63 @@ export async function getPersonalBestSeconds(
   return data?.dauer_sekunden ?? null;
 }
 
+export interface DetectedSegment {
+  id: string;
+  routeId: string;
+  routeName: string;
+  distanzKm: number | null;
+  dauerSekunden: number | null;
+  istOeffentlich: boolean;
+  abdeckungProzent: number | null;
+}
+
+// Innerhalb einer freien Fahrt automatisch erkannte Streckenabschnitte
+// (lib/lapDetection.ts, save_free_ride_with_segments in
+// 0050_streckenerkennung_in_freier_fahrt.sql). RLS auf route_completions
+// beschränkt das ohnehin auf eigene Zeilen — der zusätzliche
+// user_id-Filter ist wie an anderer Stelle in dieser Datei redundant, aber
+// explizit statt sich allein auf die Policy zu verlassen. Bewusst nicht
+// über public_fahrten (die Verknüpfung ist dort kein Teil der View, siehe
+// CompletionDetail.parentCompletionId) — nur der Besitzer sieht diese Liste.
+export async function getDetectedSegments(
+  parentId: string,
+  viewerId: string,
+): Promise<DetectedSegment[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("route_completions")
+    .select(
+      "id, route_id, distanz_km, dauer_sekunden, ist_oeffentlich, abdeckung_prozent, routes(name)",
+    )
+    .eq("parent_completion_id", parentId)
+    .eq("user_id", viewerId)
+    .eq("art", "strecke")
+    .order("datum", { ascending: true })
+    .returns<
+      {
+        id: string;
+        route_id: string;
+        distanz_km: number | null;
+        dauer_sekunden: number | null;
+        ist_oeffentlich: boolean;
+        abdeckung_prozent: number | null;
+        routes: { name: string } | null;
+      }[]
+    >();
+
+  if (error || !data) return [];
+
+  return data.map((row) => ({
+    id: row.id,
+    routeId: row.route_id,
+    routeName: row.routes?.name ?? "Strecke",
+    distanzKm: row.distanz_km,
+    dauerSekunden: row.dauer_sekunden,
+    istOeffentlich: row.ist_oeffentlich,
+    abdeckungProzent: row.abdeckung_prozent,
+  }));
+}
+
 export interface CompletionDetail {
   id: string;
   art: FahrtArt;
@@ -82,6 +139,12 @@ export interface CompletionDetail {
   // Aufrufers, liefert also ohnehin nur eigene Fahrten). Bei Streckenfahrten
   // zeigt die Detailkarte weiterhin die Streckengeometrie.
   track: GeoLineString | null;
+  // Ab 0050_streckenerkennung_in_freier_fahrt.sql: gesetzt, wenn diese
+  // Streckenfahrt automatisch aus einer freien Fahrt erkannt wurde (Verweis
+  // auf deren completion_id) — für den Rückverweis "Teil einer längeren
+  // Fahrt" auf der Detailseite. Bewusst nur für den Besitzer geladen (siehe
+  // unten): public_fahrten führt die Spalte absichtlich nicht.
+  parentCompletionId: string | null;
 }
 
 // Für die Fahrt-Detailseite (app/fahrten/[id]/page.tsx) — zwei Pfade, je
@@ -207,6 +270,11 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
       // korrigiert hat).
       hoehenprofil: ownHoehenprofil,
       track: ownTrack ?? trackRow?.track_geojson ?? null,
+      // public_fahrten führt parent_completion_id absichtlich nicht (siehe
+      // 0050) — der Rückverweis "Teil einer längeren Fahrt" bleibt dem
+      // Besitzer selbst vorbehalten, unabhängig davon, wer diese Fahrt hier
+      // gerade betrachtet.
+      parentCompletionId: null,
     };
   }
 
@@ -215,7 +283,7 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
   const { data: own, error: eigeneFahrtError } = await supabase
     .from("route_completions")
     .select(
-      "id, art, route_id, user_id, datum, dauer_sekunden, distanz_km, ist_oeffentlich, abdeckung_prozent, notiz, titel, start_ort, region, bewegte_zeit_sekunden, hoehenmeter_aufstieg, hoehenprofil, vehicles(typ, marke, modell)",
+      "id, art, route_id, user_id, datum, dauer_sekunden, distanz_km, ist_oeffentlich, abdeckung_prozent, notiz, titel, start_ort, region, bewegte_zeit_sekunden, hoehenmeter_aufstieg, hoehenprofil, parent_completion_id, vehicles(typ, marke, modell)",
     )
     .eq("id", id)
     .eq("user_id", viewerId)
@@ -236,6 +304,7 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
       bewegte_zeit_sekunden: number | null;
       hoehenmeter_aufstieg: number | null;
       hoehenprofil: HoehenprofilPunkt[] | null;
+      parent_completion_id: string | null;
       vehicles: { typ: string; marke: string; modell: string } | null;
     }>();
 
@@ -299,5 +368,6 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
     hoehenmeterAufstieg: own.hoehenmeter_aufstieg,
     hoehenprofil: own.hoehenprofil,
     track,
+    parentCompletionId: own.parent_completion_id,
   };
 });
