@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { getRoutes } from "@/lib/routes";
 import { averageTempolimit, estimateRouteDurationMinutes } from "@/lib/geo";
+import { getClientIp, isRateLimitedByKey } from "@/lib/rateLimit";
 
 // Öffentliche API für Strecken inkl. Tempolimit-Daten, damit externe Clients
 // (oder eine künftige Mobile-App) optimale Strecken vorschlagen können, ohne
-// direkt auf die Datenbank zuzugreifen.
-export async function GET() {
+// direkt auf die Datenbank zuzugreifen. Komplett unauthentifiziert — daher
+// IP-basiertes Rate Limiting statt des nutzergebundenen isRateLimited.
+export async function GET(request: Request) {
+  if (isRateLimitedByKey(`api:strecken:${getClientIp(request.headers)}`, 60, 60_000)) {
+    return NextResponse.json({ error: "Zu viele Anfragen." }, { status: 429 });
+  }
+
   const { routes } = await getRoutes();
 
   const data = routes.map((r) => ({

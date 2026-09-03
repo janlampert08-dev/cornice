@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isRateLimited } from "@/lib/rateLimit";
+import { getClientIp, isRateLimited, isRateLimitedByKey } from "@/lib/rateLimit";
 
 // Minimaler Chainable-Mock für den Teil der Supabase-Query-Builder-API, den
 // isRateLimited tatsächlich nutzt (.from().select().eq().order().limit().maybeSingle()).
@@ -29,5 +29,54 @@ describe("isRateLimited", () => {
     const old = new Date(Date.now() - 10_000).toISOString();
     const supabase = makeMockSupabase({ created_at: old });
     expect(await isRateLimited(supabase, "t", "created_at", "user_id", "u1", 5000)).toBe(false);
+  });
+});
+
+describe("isRateLimitedByKey", () => {
+  it("allows up to the given limit within the window", () => {
+    const key = `test:${crypto.randomUUID()}`;
+    for (let i = 0; i < 3; i++) {
+      expect(isRateLimitedByKey(key, 3, 60_000)).toBe(false);
+    }
+  });
+
+  it("blocks once the limit is exceeded within the window", () => {
+    const key = `test:${crypto.randomUUID()}`;
+    for (let i = 0; i < 3; i++) isRateLimitedByKey(key, 3, 60_000);
+    expect(isRateLimitedByKey(key, 3, 60_000)).toBe(true);
+  });
+
+  it("tracks distinct keys independently", () => {
+    const keyA = `test:${crypto.randomUUID()}`;
+    const keyB = `test:${crypto.randomUUID()}`;
+    for (let i = 0; i < 3; i++) isRateLimitedByKey(keyA, 3, 60_000);
+    expect(isRateLimitedByKey(keyA, 3, 60_000)).toBe(true);
+    expect(isRateLimitedByKey(keyB, 3, 60_000)).toBe(false);
+  });
+
+  it("allows requests again once the window has passed", () => {
+    const key = `test:${crypto.randomUUID()}`;
+    // Ein negatives Fenster bedeutet, dass jeder frühere Treffer sofort als
+    // abgelaufen gilt — simuliert den Zustand "Fenster ist vorbei", ohne in
+    // den Tests echte Zeit verstreichen lassen zu müssen.
+    for (let i = 0; i < 3; i++) isRateLimitedByKey(key, 3, -1);
+    expect(isRateLimitedByKey(key, 3, -1)).toBe(false);
+  });
+});
+
+describe("getClientIp", () => {
+  it("reads the first entry of x-forwarded-for", () => {
+    const headers = new Headers({ "x-forwarded-for": "1.2.3.4, 5.6.7.8" });
+    expect(getClientIp(headers)).toBe("1.2.3.4");
+  });
+
+  it("falls back to x-real-ip", () => {
+    const headers = new Headers({ "x-real-ip": "9.9.9.9" });
+    expect(getClientIp(headers)).toBe("9.9.9.9");
+  });
+
+  it("falls back to 'unknown' without any proxy header", () => {
+    const headers = new Headers();
+    expect(getClientIp(headers)).toBe("unknown");
   });
 });

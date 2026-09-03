@@ -12,7 +12,7 @@ import {
   fetchElevationProfile,
 } from "@/lib/elevation";
 import { deriveRouteLocations } from "@/lib/geocoding";
-import type { GeoLineString, Kategorie } from "@/types/database";
+import type { GeoLineString, Kategorie, TempolimitSegment } from "@/types/database";
 
 export interface ProposeRouteState {
   error: string | null;
@@ -24,6 +24,100 @@ export interface ProposeRouteState {
 // 0041_route_proposal_cooldown.sql für Details und den race-freien
 // DB-seitigen Trigger, der diesen Vorab-Check ergänzt).
 const PROPOSE_ROUTE_COOLDOWN_MS = 15_000;
+const MAX_NAME_LENGTH = 100;
+const MAX_CHARAKTER_TEXT_LENGTH = 500;
+
+// next.config.ts hebt das serverActions-Bodylimit auf 9 MB an (wegen
+// uploadAvatar/logTrackedCompletion) — ohne eigene Grenze könnte
+// geometry_geojson/tempolimits also ebenfalls bis zu 9 MB gross sein. Das
+// würde nicht nur unnötig CPU/Speicher hier kosten, sondern die volle
+// Geometrie geht unverändert an den externen Höhenprofil-Dienst
+// (fetchElevationProfile) und danach an die propose_route_full-RPC weiter.
+// Gleiche Grössenordnung wie MAX_TRAIL_POINTS (lib/track.ts) für GPS-Tracks
+// — 20'000 Punkte decken jede real gezeichnete/aufgezeichnete Route ab.
+const MAX_COORDINATES = 20_000;
+const MIN_COORDINATES = 2;
+// ~35 Zeichen pro Koordinatenpaar im JSON, grosszügig aufgerundet.
+const MAX_GEOMETRY_JSON_LENGTH = MAX_COORDINATES * 35;
+const MAX_TEMPOLIMIT_SEGMENTS = 2000;
+const MAX_TEMPOLIMITS_JSON_LENGTH = MAX_TEMPOLIMIT_SEGMENTS * 80;
+
+function isValidCoordinate(value: unknown): value is [number, number] {
+  return (
+    Array.isArray(value) &&
+    value.length === 2 &&
+    typeof value[0] === "number" &&
+    typeof value[1] === "number" &&
+    Number.isFinite(value[0]) &&
+    Number.isFinite(value[1]) &&
+    value[0] >= -180 &&
+    value[0] <= 180 &&
+    value[1] >= -90 &&
+    value[1] <= 90
+  );
+}
+
+// Prüft Grösse und Form, bevor die Geometrie an externe Dienste oder die DB
+// geht — anders als bei propose_route_full (0033) gibt es hier noch keine
+// serverseitige Grenze; ST_GeomFromGeoJSON in der RPC würde eine strukturell
+// falsche Geometrie zwar ablehnen, aber erst nachdem fetchElevationProfile
+// und countKehren bereits mit den vollen (potenziell riesigen) Rohdaten
+// gelaufen sind.
+function parseGeometry(raw: string): GeoLineString | null {
+  if (raw.length > MAX_GEOMETRY_JSON_LENGTH) return null;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+
+  if (
+    !parsed ||
+    typeof parsed !== "object" ||
+    (parsed as { type?: unknown }).type !== "LineString" ||
+    !Array.isArray((parsed as { coordinates?: unknown }).coordinates)
+  ) {
+    return null;
+  }
+
+  const coordinates = (parsed as { coordinates: unknown[] }).coordinates;
+  if (coordinates.length < MIN_COORDINATES || coordinates.length > MAX_COORDINATES) return null;
+  if (!coordinates.every(isValidCoordinate)) return null;
+
+  return { type: "LineString", coordinates };
+}
+
+function isValidTempolimitSegment(value: unknown): value is TempolimitSegment {
+  if (!value || typeof value !== "object") return false;
+  const s = value as Record<string, unknown>;
+  return (
+    typeof s.km_von === "number" &&
+    typeof s.km_bis === "number" &&
+    typeof s.kmh === "number" &&
+    typeof s.bekannt === "boolean" &&
+    Number.isFinite(s.km_von) &&
+    Number.isFinite(s.km_bis) &&
+    Number.isFinite(s.kmh)
+  );
+}
+
+function parseTempolimits(raw: string): TempolimitSegment[] | null {
+  if (raw.length > MAX_TEMPOLIMITS_JSON_LENGTH) return null;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+
+  if (!Array.isArray(parsed) || parsed.length > MAX_TEMPOLIMIT_SEGMENTS) return null;
+  if (!parsed.every(isValidTempolimitSegment)) return null;
+
+  return parsed;
+}
 
 export async function proposeRoute(
   _prevState: ProposeRouteState,
@@ -42,7 +136,7 @@ export async function proposeRoute(
 
   const name = String(formData.get("name") ?? "").trim();
   const laengeKm = Number(formData.get("laenge_km"));
-  const charakterText = String(formData.get("charakter_text") ?? "").trim() || null;
+  const charakterText = String(formData.get("charakter_text") ?? "").trim().slice(0, MAX_CHARAKTER_TEXT_LENGTH) || null;
   const kategorien = formData.getAll("kategorien") as Kategorie[];
 
   const geometryRaw = String(formData.get("geometry_geojson") ?? "");
@@ -52,6 +146,9 @@ export async function proposeRoute(
   if (!name) {
     return { error: "Bitte einen Namen für die Strecke angeben." };
   }
+  if (name.length > MAX_NAME_LENGTH) {
+    return { error: `Name darf höchstens ${MAX_NAME_LENGTH} Zeichen lang sein.` };
+  }
   if (!geometryRaw) {
     return { error: "Bitte mindestens zwei Wegpunkte auf der Karte setzen." };
   }
@@ -59,12 +156,12 @@ export async function proposeRoute(
     return { error: "Bitte eine gültige Länge in km angeben." };
   }
 
-  let geometry: GeoLineString;
-  let tempolimits: unknown;
-  try {
-    geometry = JSON.parse(geometryRaw);
-    tempolimits = JSON.parse(tempolimitsRaw);
-  } catch {
+  const geometry = parseGeometry(geometryRaw);
+  if (!geometry) {
+    return { error: "Route konnte nicht verarbeitet werden." };
+  }
+  const tempolimits = parseTempolimits(tempolimitsRaw);
+  if (!tempolimits) {
     return { error: "Route konnte nicht verarbeitet werden." };
   }
 

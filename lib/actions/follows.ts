@@ -2,18 +2,28 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { isRateLimited } from "@/lib/rateLimit";
+import { isValidUuid } from "@/lib/validation";
+
+const FOLLOW_COOLDOWN_MS = 500;
 
 // Reines Toggle wie toggleFavorite/toggleKudos (lib/actions/favorites.ts,
 // lib/actions/kudos.ts). Selbst-Folgen wird zusätzlich per DB-Constraint
 // (follows_not_self, siehe 0030_follows_and_feed.sql) verhindert — der
 // Check hier vermeidet nur den unnötigen Roundtrip.
 export async function toggleFollow(targetUserId: string): Promise<{ ok: boolean }> {
+  if (!isValidUuid(targetUserId)) return { ok: false };
+
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user || user.id === targetUserId) return { ok: false };
+
+  if (await isRateLimited(supabase, "follows", "erstellt_am", "follower_id", user.id, FOLLOW_COOLDOWN_MS)) {
+    return { ok: false };
+  }
 
   const { data: existing } = await supabase
     .from("follows")
