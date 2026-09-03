@@ -13,3 +13,22 @@ export const KATEGORIEN = [
 // verwendet (RouteLeaderboardPreview.tsx, app/leaderboards/page.tsx), daher
 // hier zentral statt mehrfach dupliziert.
 export const MEDAL_COLORS = ["#D4AF37", "#A8A9AD", "#CD7F32"] as const;
+
+// Feste Werte statt Freitext, damit die Moderationswarteschlange (siehe
+// lib/moderation.ts) filter-/auswertbar bleibt — ein optionaler
+// Freitextkommentar ergänzt bei Bedarf.
+//
+// Bewusst hier statt in lib/actions/reports.ts: eine Datei mit der
+// "use server"-Direktive darf laut Next.js/React nur async Functions
+// exportieren. Eine einfache Konstante wie diese wird von der
+// Client-Reference-Manifest-Transformation dieser Dateien nicht abgebildet
+// und kommt im Client-Bundle als undefined an — genau das liess
+// ReportDialog.tsx (Client Component) mit "REPORT_REASONS.map is not a
+// function" abstürzen, sobald die Seite über einen Client-seitigen
+// Navigationspfad statt eines vollen Seitenladens gerendert wurde.
+export const REPORT_REASONS = [
+  { value: "unangemessen", label: "Unangemessener Inhalt" },
+  { value: "spam", label: "Spam" },
+  { value: "falsche_angaben", label: "Falsche Angaben" },
+  { value: "sonstiges", label: "Sonstiges" },
+] as const;

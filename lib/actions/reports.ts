@@ -1,21 +1,12 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { REPORT_REASONS } from "@/lib/constants";
 
 export interface ReportState {
   error: string | null;
   success?: boolean;
 }
-
-// Feste Werte statt Freitext, damit die Moderationswarteschlange (siehe
-// lib/moderation.ts) filter-/auswertbar bleibt — ein optionaler
-// Freitextkommentar ergänzt bei Bedarf.
-export const REPORT_REASONS = [
-  { value: "unangemessen", label: "Unangemessener Inhalt" },
-  { value: "spam", label: "Spam" },
-  { value: "falsche_angaben", label: "Falsche Angaben" },
-  { value: "sonstiges", label: "Sonstiges" },
-] as const;
 
 type ReportReason = (typeof REPORT_REASONS)[number]["value"];
 
