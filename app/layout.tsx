@@ -44,6 +44,11 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // Deaktiviert Pinch-/Doppeltipp-Zoom der Seite selbst (z.B. versehentliches
+  // Zoomen beim Scrollen einer Liste) — Mapbox GL zoomt die Karte über eigene,
+  // vom Browser-Viewport unabhängige Touch-/Scroll-Handler weiter normal.
+  maximumScale: 1,
+  userScalable: false,
   // Lässt den Seiteninhalt bis unter Notch/Dynamic Island bzw. Home-Indicator
   // laufen — erst dadurch greifen die env(safe-area-inset-*)-Werte, die
   // globals.css und die Bottom-Nav für Abstände dort nutzen.

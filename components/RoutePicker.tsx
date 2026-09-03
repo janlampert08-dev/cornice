@@ -59,6 +59,11 @@ export default function RoutePicker({
     // map.setStyle()-Aufruf beim Themenwechsel (siehe eigener Effekt unten),
     // der Source/Layer sonst kommentarlos entfernt.
     map.on("style.load", () => {
+      // Deutsche Strassen-/Orts-Labels — muss nach jedem "style.load" (auch
+      // nach setStyle() beim Themenwechsel) erneut gesetzt werden, siehe
+      // RouteMap.tsx für die ausführliche Begründung.
+      map.setLanguage("de");
+
       map.addSource(LINE_SOURCE, {
         type: "geojson",
         data: {

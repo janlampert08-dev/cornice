@@ -411,6 +411,12 @@ export default function RouteMap({
     // Style inkl. aller selbst hinzugefügten Sources/Layer — sie müssen hier
     // deshalb bei jedem Aufruf neu aufgebaut werden.
     map.on("style.load", () => {
+      // Deutsche Strassen-/Orts-Labels statt der Browser-/Systemsprache der
+      // Nutzerin — muss nach jedem "style.load" (auch nach setStyle() beim
+      // Themenwechsel) erneut gesetzt werden, da ein Style-Wechsel die
+      // Sprachauswahl der Text-Layer zurücksetzt.
+      map.setLanguage("de");
+
       // Knapp unterhalb der Strassennummern-Schilder (z.B. A1-Schild) einfügen:
       // road-label (Strassennamen-Text) liegt in der Streets-v12-Style-
       // Reihenfolge VOR road-number-shield, also landet unsere Strecke über
