@@ -100,11 +100,22 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
 ): Promise<CompletionDetail | null> {
   const supabase = await createClient();
 
-  const { data: publicRow } = await supabase
+  const { data: publicRow, error: publicError } = await supabase
     .from("public_fahrten")
     .select("*")
     .eq("completion_id", id)
     .maybeSingle();
+
+  // Ein Ladefehler ist etwas anderes als "keine solche Fahrt": maybeSingle
+  // liefert bei fehlender Zeile data = null *ohne* error. Wer beides zu null
+  // zusammenfasst, verwandelt jeden Query-Fehler (fehlende Spalte, noch nicht
+  // eingespielte Migration, Supabase-Hänger) in ein 404 — die Seite behauptet
+  // dann, die Fahrt existiere nicht, statt den Fehler zu zeigen. Deshalb hier
+  // werfen, damit error.tsx greift; genauso wie in lib/routes.ts (getRoute).
+  if (publicError) {
+    console.error("Fahrt konnte nicht geladen werden:", publicError.message);
+    throw new Error("Fahrt konnte nicht geladen werden.");
+  }
 
   if (publicRow) {
     const row = publicRow as PublicFahrt;
@@ -191,7 +202,7 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
 
   if (!viewerId) return null;
 
-  const { data: own } = await supabase
+  const { data: own, error: ownError } = await supabase
     .from("route_completions")
     .select(
       "id, art, route_id, user_id, datum, dauer_sekunden, distanz_km, ist_oeffentlich, abdeckung_prozent, notiz, titel, start_ort, region, bewegte_zeit_sekunden, hoehenmeter_aufstieg, hoehenprofil, vehicles(typ, marke, modell)",
@@ -217,6 +228,12 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
       hoehenprofil: HoehenprofilPunkt[] | null;
       vehicles: { typ: string; marke: string; modell: string } | null;
     }>();
+
+  // Siehe oben: nur eine wirklich fehlende (bzw. fremde) Fahrt ergibt 404.
+  if (ownError) {
+    console.error("Fahrt konnte nicht geladen werden:", ownError.message);
+    throw new Error("Fahrt konnte nicht geladen werden.");
+  }
 
   if (!own) return null;
 

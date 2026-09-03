@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import FreeRideForm from "@/components/FreeRideForm";
 import { createClient } from "@/lib/supabase/server";
+import { getRoutes } from "@/lib/routes";
 import type { Vehicle } from "@/types/database";
 
 export const metadata = {
@@ -19,11 +20,21 @@ export default async function NeueFahrtPage() {
 
   if (!user) redirect("/anmelden");
 
-  const { data: vehicles } = await supabase
-    .from("vehicles")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+  // Die freigegebenen Strecken dienen auf der Aufzeichnungskarte nur der
+  // Orientierung ("fahre ich gerade auf einer kuratierten Strecke?") — sie
+  // sind dort bewusst nicht anklickbar, siehe routesAsBackdrop in RouteMap.
+  // Ein Ladefehler kostet nur diese Orientierungshilfe, nicht die
+  // Aufzeichnung: dann startet die Karte eben ohne Streckenlinien.
+  const [{ data: vehicles }, { routes }] = await Promise.all([
+    supabase
+      .from("vehicles")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false }),
+    getRoutes(),
+  ]);
 
-  return <FreeRideForm userId={user.id} vehicles={(vehicles as Vehicle[]) ?? []} />;
+  return (
+    <FreeRideForm userId={user.id} vehicles={(vehicles as Vehicle[]) ?? []} routes={routes} />
+  );
 }

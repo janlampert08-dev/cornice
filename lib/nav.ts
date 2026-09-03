@@ -14,7 +14,9 @@ export interface NavItem {
 // Leiste trägt an der mittleren, am leichtesten erreichbaren Position
 // "Aufzeichnen" und dafür nicht mehr "Vorschlagen" (sechs Tabs wären auf
 // schmalen Geräten zu eng, und der Weg zum Streckenvorschlag steht ohnehin
-// prominent auf /profil). Im Header ist Platz für beides.
+// prominent auf /profil). Der Header ist eine reine Textleiste mit
+// horizontalem Überlauf — dort ist Platz für beides, also stehen dort auch
+// beide.
 export function getNavItems({
   loggedIn,
   moderator,
@@ -31,15 +33,15 @@ export function getNavItems({
     ];
   }
 
-  const mittlereAktion: NavItem =
-    surface === "bottom"
-      ? { href: "/fahrten/neu", label: "Aufzeichnen", icon: RecordIcon }
-      : { href: "/strecken/neu", label: "Vorschlagen", icon: PlusIcon };
+  const aufzeichnen: NavItem = { href: "/fahrten/neu", label: "Aufzeichnen", icon: RecordIcon };
+  const vorschlagen: NavItem = { href: "/strecken/neu", label: "Vorschlagen", icon: PlusIcon };
+  const mittlereAktionen: NavItem[] =
+    surface === "bottom" ? [aufzeichnen] : [aufzeichnen, vorschlagen];
 
   return [
     { href: "/", label: "Strecken", icon: MapPinIcon },
     { href: "/feed", label: "Feed", icon: FeedIcon },
-    mittlereAktion,
+    ...mittlereAktionen,
     { href: "/leaderboards", label: "Bestenlisten", icon: RankingIcon },
     { href: "/profil", label: "Profil", icon: PersonIcon },
     ...(moderator ? [{ href: "/moderation", label: "Moderation", icon: ShieldIcon }] : []),

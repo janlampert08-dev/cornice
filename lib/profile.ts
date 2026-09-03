@@ -37,13 +37,23 @@ export const getPublicProfile = cache(async function getPublicProfile(
 ): Promise<PublicProfile | null> {
   const supabase = await createClient();
 
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from("profiles")
     .select(
       "id, display_name, avatar_url, zeigt_fahrzeuge, zeigt_avatar, zeigt_paesse, zeigt_hoehenmeter, zeigt_distanz, zeigt_follower_liste, ist_premium, zeigt_premium_badge",
     )
     .eq("id", userId)
     .maybeSingle();
+
+  // Ein Ladefehler ist etwas anderes als "kein solches Profil": maybeSingle
+  // liefert bei fehlender Zeile data = null *ohne* error. Beides zu null
+  // zusammenzufassen würde jeden Query-Fehler in ein 404 verwandeln
+  // (app/fahrer/[id]/page.tsx ruft bei null notFound()) — dieselbe
+  // Unterscheidung wie in lib/routes.ts (getRoute) und lib/completions.ts.
+  if (error) {
+    console.error("Profil konnte nicht geladen werden:", error.message);
+    throw new Error("Profil konnte nicht geladen werden.");
+  }
 
   if (!profile) return null;
 
