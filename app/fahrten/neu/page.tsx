@@ -22,7 +22,7 @@ export default async function NeueFahrtPage() {
 
   // Die freigegebenen Strecken dienen auf der Aufzeichnungskarte nur der
   // Orientierung ("fahre ich gerade auf einer kuratierten Strecke?") — sie
-  // sind dort bewusst nicht anklickbar, siehe routesAsBackdrop in RouteMap.
+  // sind dort bewusst nicht anklickbar, siehe routesClickable in RouteMap.
   // Ein Ladefehler kostet nur diese Orientierungshilfe, nicht die
   // Aufzeichnung: dann startet die Karte eben ohne Streckenlinien.
   const [{ data: vehicles }, { routes }] = await Promise.all([

@@ -265,7 +265,8 @@ export default function RouteMap({
   trafficSegments = [],
   trail = [],
   fitTrail = false,
-  routesAsBackdrop = false,
+  fitRoutes = true,
+  routesClickable = true,
   centerOnFirstLocation = false,
   followLocation = false,
 }: {
@@ -289,12 +290,20 @@ export default function RouteMap({
   // während einer laufenden Aufzeichnung würde das den Ausschnitt bei jedem
   // GPS-Fix neu setzen und gegen jedes manuelle Verschieben arbeiten.
   fitTrail?: boolean;
-  // Strecken nur als Orientierungshilfe im Hintergrund zeichnen: kein
-  // Einpassen des Kartenausschnitts auf sie und kein Klick auf die
-  // Streckendetailseite. Für die laufende Aufzeichnung, wo die Karte der
-  // GPS-Position folgen soll und ein versehentlicher Tap auf eine Linie
-  // sonst mitten in der Fahrt wegnavigieren würde.
-  routesAsBackdrop?: boolean;
+  // Kartenausschnitt auf die übergebenen Strecken legen (beim Aufbau und bei
+  // jedem Wechsel der Streckenliste). Abschaltbar für FreeRideForm: dort
+  // dienen die Strecken nur der Orientierung, und ein Einpassen auf sie
+  // würde gegen centerOnFirstLocation/followLocation arbeiten.
+  fitRoutes?: boolean;
+  // Klick auf eine Streckenlinie öffnet die Streckendetailseite. Während
+  // einer laufenden Aufzeichnung (LiveTrackingForm, FreeRideForm) abgeschaltet:
+  // dort liegt die Karte im Vollbild, und ein versehentlicher Tap auf eine
+  // Linie würde die Komponente aushängen und die Fahrt mitten im Rennen
+  // abbrechen.
+  //
+  // Bewusst getrennt von fitRoutes: LiveTrackingForm braucht das Einpassen
+  // (die Streckenübersicht vor dem Start), aber eben nicht die Navigation.
+  routesClickable?: boolean;
   // Einmalig auf den ersten ermittelten Standort zentrieren. Für die
   // Aufzeichnung einer freien Fahrt, wo es keine Strecke gibt, auf die sich
   // die Karte beim Aufbau legen könnte.
@@ -319,7 +328,8 @@ export default function RouteMap({
   const routesRef = useRef(routes);
   const colorsRef = useRef(colors);
   const trailRef = useRef(trail);
-  const routesAsBackdropRef = useRef(routesAsBackdrop);
+  const routesClickableRef = useRef(routesClickable);
+  const fitRoutesRef = useRef(fitRoutes);
   const hasCenteredOnLocationRef = useRef(false);
   const locationMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const locationElementsRef = useRef<ReturnType<typeof createLocationMarkerElement> | null>(null);
@@ -334,8 +344,12 @@ export default function RouteMap({
   }, [routes]);
 
   useEffect(() => {
-    routesAsBackdropRef.current = routesAsBackdrop;
-  }, [routesAsBackdrop]);
+    routesClickableRef.current = routesClickable;
+  }, [routesClickable]);
+
+  useEffect(() => {
+    fitRoutesRef.current = fitRoutes;
+  }, [fitRoutes]);
 
   useEffect(() => {
     colorsRef.current = colors;
@@ -612,7 +626,7 @@ export default function RouteMap({
       // späteren Themenwechsel (erneutes "style.load") soll die aktuelle
       // Kartenansicht der Nutzerin erhalten bleiben statt zurückzuspringen.
       if (!hasFitBounds) {
-        if (routesRef.current.length > 0 && !routesAsBackdropRef.current) {
+        if (routesRef.current.length > 0 && fitRoutesRef.current) {
           fitToRoutes(map, routesRef.current, false);
         } else {
           fitToTrail(map, trailRef.current, false);
@@ -629,15 +643,15 @@ export default function RouteMap({
     // ausserhalb von "style.load" registriert, sonst würden sie sich bei
     // jedem Themenwechsel duplizieren.
     map.on("mouseenter", ROUTES_HIT_LAYER, () => {
-      // Kein Zeigefinger, wo der Klick bewusst nichts tut (routesAsBackdrop).
-      if (routesAsBackdropRef.current) return;
+      // Kein Zeigefinger, wo der Klick bewusst nichts tut.
+      if (!routesClickableRef.current) return;
       map.getCanvas().style.cursor = "pointer";
     });
     map.on("mouseleave", ROUTES_HIT_LAYER, () => {
       map.getCanvas().style.cursor = "";
     });
     map.on("click", ROUTES_HIT_LAYER, (e) => {
-      if (routesAsBackdropRef.current) return;
+      if (!routesClickableRef.current) return;
       const id = e.features?.[0]?.properties?.id;
       if (id) router.push(`/strecken/${id}`);
     });
@@ -700,8 +714,8 @@ export default function RouteMap({
         : { type: "FeatureCollection", features: [] },
     );
 
-    if (!routesAsBackdrop) fitToRoutes(map, routes, true);
-  }, [routes, colors, routesAsBackdrop]);
+    if (fitRoutes) fitToRoutes(map, routes, true);
+  }, [routes, colors, fitRoutes]);
 
   // Markiert die per Sidebar-Hover (oder Tastaturfokus) ausgewählte Strecke auf
   // der Karte — eigener Source/Layer statt feature-state, weil hier ohnehin

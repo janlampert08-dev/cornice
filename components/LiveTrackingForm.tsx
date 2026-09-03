@@ -130,6 +130,13 @@ export default function LiveTrackingForm({
         <div className="min-h-0 flex-1">
           <RouteMap
             routes={routes}
+            // Die Karte liegt hier im Vollbild über der Streckenseite. Ohne
+            // das würde ein versehentlicher Tap auf die Streckenlinie zurück
+            // auf /strecken/<id> navigieren, diese Komponente aushängen und
+            // damit die laufende Aufzeichnung abbrechen. Das Einpassen auf
+            // die Strecke bleibt dagegen an — siehe centerOnFirstLocation
+            // weiter unten.
+            routesClickable={false}
             userLocation={recorder.position}
             userAccuracyM={recorder.accuracyM}
             userHeadingDeg={recorder.headingDeg}

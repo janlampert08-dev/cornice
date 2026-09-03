@@ -159,7 +159,8 @@ export default function FreeRideForm({
       <div className="min-h-0 flex-1">
         <RouteMap
           routes={routes}
-          routesAsBackdrop
+          fitRoutes={false}
+          routesClickable={false}
           trail={recorder.liveTrail}
           centerOnFirstLocation
           followLocation
