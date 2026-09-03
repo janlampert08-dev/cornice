@@ -193,6 +193,39 @@ describe("detectLaps", () => {
     expect(result.laps[0].entryT).toBe(forward2.points[0].t);
   });
 
+  it("schliesst die Runde nicht zu früh, wenn der Wiedereintritt nach bereits gesperrter Richtung am Rundenschluss liegt", () => {
+    const { coordinates, lengthKm } = squareLoop();
+    const candidate: RouteCandidate = { routeId: "r1", coordinates };
+
+    // Regression zum Test darüber, aber mit bereits GESPERRTER Fahrtrichtung:
+    // die Anfahrt läuft 300 m im Korridor (> DIRECTION_LOCK_KM), verlässt ihn
+    // dann und tritt am Streckenanfang wieder ein. Der Sprung von km 1.3 auf
+    // km 0 ist auf dem Ring vorwärts kürzer als rückwärts und wurde vor dem
+    // Fix als echter Fortschritt gutgeschrieben — die anschliessend real
+    // gefahrene volle Runde galt dadurch schon nach ~60% als geschlossen, und
+    // das an exitT abgeschnittene Zeitfenster deckte nur einen Teil der
+    // Strecke ab. Genau dieses Muster hat eine real aufgezeichnete Fahrt auf
+    // einer 5.7-km-Runde mit 71% statt 100% Deckungsgrad ausgelöst.
+    const approach = driveSegment(coordinates, lengthKm, 1.0, 1.3, 0);
+    const gapStart = approach.endSeconds;
+    const gapEnd = gapStart + 60; // deutlich unter MAX_GAP_SECONDS (180s)
+    const lap = driveSegment(coordinates, lengthKm, 0, lengthKm, gapEnd);
+
+    const trail = [...approach.points, farAway(gapStart + 10), farAway(gapEnd - 5), ...lap.points];
+    const result = detectLaps(trail, [candidate]);
+
+    expect(result.laps).toHaveLength(1);
+    // Der Wiedereintritt eröffnet einen neuen Rundenversuch: die Runde beginnt
+    // am Streckenanfang, nicht bereits bei der Anfahrt.
+    expect(result.laps[0].entryT).toBe(lap.points[0].t);
+    // Und sie schliesst erst am Ende der tatsächlich gefahrenen Runde — das
+    // Zeitfenster deckt damit die ganze Strecke ab, nicht nur ein Teilstück.
+    const lapDurationMs = lap.points[lap.points.length - 1].t - lap.points[0].t;
+    expect(result.laps[0].exitT - result.laps[0].entryT).toBeGreaterThanOrEqual(
+      lapDurationMs * 0.9,
+    );
+  });
+
   it("wertet ein kurzes Durchqueren des Korridors nicht als Runde", () => {
     const { coordinates, lengthKm } = squareLoop();
     const candidate: RouteCandidate = { routeId: "r1", coordinates };

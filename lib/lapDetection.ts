@@ -176,9 +176,8 @@ interface LapAttemptState {
   reversalKm: number;
   maxProgressFraction: number;
   // true, wenn seit dem letzten Treffer mindestens ein Punkt den Korridor
-  // verlassen hat, solange die Fahrtrichtung noch nicht feststeht. Verhindert
-  // das Verschmelzen eines Lücken-Sprungs mit echtem Fortschritt, siehe
-  // Kommentar bei der Verwendung unten.
+  // verlassen hat. Verhindert das Verschmelzen eines Lücken-Sprungs mit
+  // echtem Fortschritt, siehe Kommentar bei der Verwendung unten.
   missedSinceHit: boolean;
 }
 
@@ -252,39 +251,53 @@ function detectLapsForRoute(
 
     const hit = findBestProjection(p, samples, lengthKm, window);
     if (!hit || hit.distanceKm > CORRIDOR_KM) {
-      // Vor dem Richtungs-Lock läuft die Suche global (window === null oben)
-      // — ohne diese Markierung würde ein Treffer nach einer Lücke unten
-      // unverändert wie ein direkt aufeinanderfolgender Punkt behandelt.
-      if (state.direction === 0) state.missedSinceHit = true;
+      state.missedSinceHit = true;
+      continue;
+    }
+
+    if (state.missedSinceHit) {
+      // Der Trail hat den Korridor seit dem letzten Treffer verlassen.
+      // wrappedDelta() liefert für einen solchen Sprung immer den kürzesten
+      // Weg auf dem Ringmodell der Strecke — das ist nur eine Vermutung,
+      // keine Beobachtung: ob der Nutzer diesen Bogen wirklich durchgehend
+      // gefahren ist oder zufällig an einer ganz anderen Stelle wieder in
+      // den Korridor eingetreten ist, lässt sich aus einem einzelnen Sprung
+      // nicht unterscheiden. Realer Fall, der genau das offengelegt hat: ein
+      // Trail verliess den Korridor für mehrere Punkte und traf beim
+      // Wiedereintritt zufällig nur wenige Meter neben dem Streckenanfang
+      // auf — der Sprung "über den Rundenschluss" wurde dadurch als 1.8 km
+      // Fortschritt in Fahrtrichtung fehlinterpretiert, obwohl der
+      // dazwischenliegende Bogen nie befahren wurde. Statt zu raten: der
+      // Wiedereintritt zählt als neuer Rundenversuch, kein Fortschritt wird
+      // verschenkt — sichere Richtung, siehe Moduskommentar oben.
+      //
+      // Gilt ausdrücklich in BEIDEN Phasen, vor wie nach dem Richtungs-Lock.
+      // Die frühere Fassung markierte den Austritt nur solange die Richtung
+      // noch offen war, in der Annahme, das Kontinuitäts-Fenster oben fange
+      // den Fall danach ab. Das trägt nicht: dessen Radius wächst mit der
+      // verstrichenen Zeit (bis 1.5 km, Radius 2x) und ist an keine
+      // Streckenlänge gekoppelt — auf einer kurzen Rundstrecke umspannt es
+      // nach wenigen Sekunden ausserhalb des Korridors den gesamten Ring und
+      // akzeptiert damit jeden beliebigen Wiedereintritt als Fortschritt.
+      // Real aufgefallen an einer 5.7-km-Runde: die Anfahrt zum offiziellen
+      // Startpunkt lief ein Stück im Korridor (Richtung dadurch bereits
+      // gesperrt), verliess ihn, und der Wiedereintritt am Startpunkt wurde
+      // als +1.85 km gutgeschrieben. Zusammen mit der danach real gefahrenen
+      // Runde galt sie ~36% zu früh als geschlossen; das Zeitfenster endete
+      // mitten in der Runde und der Deckungsgrad des Ausschnitts fiel auf
+      // 71% (siehe lib/actions/completions.ts, buildDetectedSegments).
+      abort();
+      state.active = true;
+      state.lapEntryT = point.t;
+      state.lastS = hit.s;
+      state.lastT = point.t;
       continue;
     }
 
     const delta = wrappedDelta(state.lastS, hit.s, lengthKm);
 
     if (state.direction === 0) {
-      if (state.missedSinceHit) {
-        // Der Trail hat den Korridor seit dem letzten Treffer verlassen,
-        // bevor die Fahrtrichtung feststand. wrappedDelta() liefert für
-        // einen solchen Sprung immer den kürzesten Weg auf dem Ringmodell
-        // der Strecke — das ist nur eine Vermutung, keine Beobachtung: ob
-        // der Nutzer diesen Bogen wirklich durchgehend gefahren ist oder
-        // zufällig an einer ganz anderen Stelle wieder in den Korridor
-        // eingetreten ist, lässt sich aus einem einzelnen Sprung nicht
-        // unterscheiden. Realer Fall, der genau das offengelegt hat: ein
-        // Trail verliess den Korridor für mehrere Punkte und traf beim
-        // Wiedereintritt zufällig nur wenige Meter neben dem Streckenanfang
-        // auf — der Sprung "über den Rundenschluss" wurde dadurch als
-        // 1.8 km Fortschritt in Fahrtrichtung fehlinterpretiert und sprang
-        // sofort über die DIRECTION_LOCK_KM-Schwelle, obwohl der
-        // dazwischenliegende Bogen nie befahren wurde. Statt zu raten: der
-        // Wiedereintritt zählt als neuer Rundenversuch, kein Fortschritt
-        // wird verschenkt — sichere Richtung, siehe Moduskommentar oben.
-        state.lapEntryT = point.t;
-        state.rawLockProgress = 0;
-        state.missedSinceHit = false;
-      } else {
-        state.rawLockProgress += delta;
-      }
+      state.rawLockProgress += delta;
       state.lastS = hit.s;
       state.lastT = point.t;
       if (Math.abs(state.rawLockProgress) >= DIRECTION_LOCK_KM) {
