@@ -12,6 +12,7 @@ import {
   Timer,
 } from "lucide-react";
 import Header from "@/components/Header";
+import MarkKudosSeen from "@/components/MarkKudosSeen";
 import VehicleGrid from "@/components/VehicleGrid";
 import AvatarUpload from "@/components/AvatarUpload";
 import RideVisibilityToggle from "@/components/RideVisibilityToggle";
@@ -177,6 +178,7 @@ export default async function ProfilPage() {
 
   return (
     <div className="flex h-dvh flex-col">
+      <MarkKudosSeen />
       <Header />
       {/* Scroll-Container ist der volle Rest der Seitenbreite, nicht das
           zentrierte max-w-Element darin — sonst sitzt die native

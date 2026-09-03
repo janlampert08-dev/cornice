@@ -39,3 +39,17 @@ export async function getKudosForCompletions(
 
   return result;
 }
+
+// Anzahl Kudos auf den eigenen Fahrten seit dem letzten Besuch des eigenen
+// Profils (profiles.kudos_gesehen_am) — der Rückkanal für "Community
+// reagiert" im Kernloop (siehe AGENTS.md, "Core User Loop"). Läuft über die
+// SECURITY-DEFINER-Funktion count_unseen_kudos (0053_kudos_gesehen.sql),
+// die ausschliesslich auf auth.uid() arbeitet: es gibt bewusst keinen
+// userId-Parameter, ein Aufruf liefert immer nur die eigenen ungelesenen
+// Kudos des eingeloggten Nutzers.
+export async function getUnseenKudosCount(): Promise<number> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("count_unseen_kudos");
+  if (error || data == null) return 0;
+  return Number(data);
+}
