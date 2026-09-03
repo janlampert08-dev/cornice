@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { throwOnQueryError } from "@/lib/queryError";
 import type {
   CompletionPhoto,
   FahrtArt,
@@ -100,16 +101,24 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
 ): Promise<CompletionDetail | null> {
   const supabase = await createClient();
 
-  const { data: publicRow } = await supabase
+  const { data: publicRow, error: publicError } = await supabase
     .from("public_fahrten")
     .select("*")
     .eq("completion_id", id)
     .maybeSingle();
 
+  // Ohne diese Unterscheidung würde jeder Query-Fehler zu einem 404 — die
+  // Seite behauptete dann, die Fahrt existiere nicht, statt den Fehler zu
+  // zeigen. Siehe lib/queryError.ts.
+  throwOnQueryError(publicError, "Fahrt");
+
   if (publicRow) {
     const row = publicRow as PublicFahrt;
 
-    const [{ data: photoRows }, { data: trackRow }] = await Promise.all([
+    const [
+      { data: photoRows, error: photoError },
+      { data: trackRow, error: trackError },
+    ] = await Promise.all([
       supabase
         .from("public_completion_photos")
         .select("id, foto_url")
@@ -124,6 +133,12 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
         .maybeSingle<Pick<PublicFahrtTrack, "track_geojson">>(),
     ]);
 
+    // Eine leere Fotoliste bzw. ein fehlender Track sind ein gültiges
+    // Ergebnis — ein gescheiterter Query darf nicht als eines davon
+    // durchgehen und die Fahrt stillschweigend ärmer aussehen lassen.
+    throwOnQueryError(photoError, "Fotos der Fahrt");
+    throwOnQueryError(trackError, "Track der Fahrt");
+
     // Für den Fahrer selbst zwei Dinge nachladen, die die öffentliche View
     // bewusst nicht enthält: sein Höhenprofil (siehe unten) und seinen
     // vollständigen, ungekappten Track. Die Privatzone schützt die Fahrt vor
@@ -132,7 +147,10 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
     let ownHoehenprofil: HoehenprofilPunkt[] | null = null;
     let ownTrack: GeoLineString | null = null;
     if (viewerId === row.user_id) {
-      const [{ data: own }, { data: ownTrackRow }] = await Promise.all([
+      const [
+        { data: own, error: ownError },
+        { data: ownTrackRow, error: ownTrackError },
+      ] = await Promise.all([
         supabase
           .from("route_completions")
           .select("hoehenprofil")
@@ -145,6 +163,9 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
           .eq("completion_id", row.completion_id)
           .maybeSingle<Pick<FahrtTrack, "track_geojson">>(),
       ]);
+      throwOnQueryError(ownError, "Höhenprofil der Fahrt");
+      throwOnQueryError(ownTrackError, "Track der Fahrt");
+
       ownHoehenprofil = own?.hoehenprofil ?? null;
       ownTrack = ownTrackRow?.track_geojson ?? null;
     }
@@ -191,7 +212,7 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
 
   if (!viewerId) return null;
 
-  const { data: own } = await supabase
+  const { data: own, error: eigeneFahrtError } = await supabase
     .from("route_completions")
     .select(
       "id, art, route_id, user_id, datum, dauer_sekunden, distanz_km, ist_oeffentlich, abdeckung_prozent, notiz, titel, start_ort, region, bewegte_zeit_sekunden, hoehenmeter_aufstieg, hoehenprofil, vehicles(typ, marke, modell)",
@@ -218,9 +239,15 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
       vehicles: { typ: string; marke: string; modell: string } | null;
     }>();
 
+  // Siehe oben: nur eine wirklich fehlende (bzw. fremde) Fahrt ergibt 404.
+  throwOnQueryError(eigeneFahrtError, "Fahrt");
+
   if (!own) return null;
 
-  const [{ data: profile }, { data: photoRows }] = await Promise.all([
+  const [
+    { data: profile, error: profileError },
+    { data: photoRows, error: eigeneFotosError },
+  ] = await Promise.all([
     supabase.from("profiles").select("display_name, avatar_url").eq("id", viewerId).maybeSingle(),
     supabase
       .from("completion_photos")
@@ -230,15 +257,19 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
       .order("position", { ascending: true }),
   ]);
 
+  throwOnQueryError(profileError, "Profil zur Fahrt");
+  throwOnQueryError(eigeneFotosError, "Fotos der Fahrt");
+
   // Nur bei freien Fahrten nötig: die Detailkarte einer Streckenfahrt zeigt
   // weiterhin die Streckengeometrie, dafür braucht es keinen zweiten Zugriff.
   let track: GeoLineString | null = null;
   if (own.art === "frei") {
-    const { data: trackRow } = await supabase
+    const { data: trackRow, error: trackError } = await supabase
       .from("fahrt_tracks")
       .select("track_geojson")
       .eq("completion_id", id)
       .maybeSingle<Pick<FahrtTrack, "track_geojson">>();
+    throwOnQueryError(trackError, "Track der Fahrt");
     track = trackRow?.track_geojson ?? null;
   }
 

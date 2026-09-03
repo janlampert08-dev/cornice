@@ -9,7 +9,7 @@ import { FREE_RIDE_STORAGE_KEY } from "@/lib/trackingStorage";
 import RideSummaryForm from "@/components/RideSummaryForm";
 import { formatDuration } from "@/lib/format";
 import { movingSeconds, publicationBlockReason } from "@/lib/track";
-import type { Vehicle } from "@/types/database";
+import type { RouteGeoJSON, Vehicle } from "@/types/database";
 import { fieldClassName } from "@/components/ui/Input";
 import { buttonVariants } from "@/components/ui/Button";
 import Skeleton from "@/components/ui/Skeleton";
@@ -22,9 +22,6 @@ const RouteMap = dynamic(() => import("@/components/RouteMap"), {
 
 const initialState: FreeRideFormState = { error: null };
 const MAX_TITEL_LENGTH = 80;
-// Ohne Strecke gibt es nichts, worauf sich die Karte beim Aufbau legen
-// könnte — sie folgt stattdessen dem ersten ermittelten Standort.
-const EMPTY_ROUTES: never[] = [];
 
 // Aufzeichnung einer freien Fahrt: kein Streckenbezug, also kein
 // automatischer Start am Startpunkt, kein automatischer Stopp am Ziel und
@@ -34,11 +31,18 @@ const EMPTY_ROUTES: never[] = [];
 export default function FreeRideForm({
   userId,
   vehicles,
+  routes,
 }: {
   // Nur für den localStorage-Schlüssel der Wiederherstellung — die Fahrt
   // selbst wird serverseitig dem angemeldeten Nutzer zugeordnet.
   userId: string;
   vehicles: Vehicle[];
+  // Freigegebene Strecken als Orientierungshilfe auf der Karte: sichtbar,
+  // aber weder anklickbar noch massgeblich für den Kartenausschnitt (die
+  // Karte folgt der GPS-Position). Ein Streckenbezug entsteht daraus nicht —
+  // eine freie Fahrt bleibt eine freie Fahrt, auch wenn sie zufällig über
+  // eine kuratierte Strecke führt.
+  routes: RouteGeoJSON[];
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(logFreeRide, initialState);
@@ -154,7 +158,9 @@ export default function FreeRideForm({
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
       <div className="min-h-0 flex-1">
         <RouteMap
-          routes={EMPTY_ROUTES}
+          routes={routes}
+          fitRoutes={false}
+          routesClickable={false}
           trail={recorder.liveTrail}
           centerOnFirstLocation
           followLocation
