@@ -1,0 +1,17 @@
+-- Nachtrag zu 0050, gleiches Muster wie 0048_direkte_execute_grants_entziehen.sql:
+-- "revoke ... from public" wirkt nur gegen den Grantee PUBLIC, nicht gegen
+-- einen direkten Grant. Dieses Projekt vergibt beim Anlegen einer Funktion
+-- (ALTER DEFAULT PRIVILEGES) einen direkten EXECUTE-Grant an anon UND
+-- authenticated — bestätigt per aclexplode(proacl) direkt nach dem Anlegen
+-- von save_free_ride_with_segments in 0050: anon stand dort mit EXECUTE,
+-- obwohl 0050 "revoke execute ... from public" gesetzt hatte. Bereits gegen
+-- die Produktionsdatenbank angewendet und dort verifiziert (has_function_
+-- privilege('anon', ..., 'EXECUTE') = false danach); diese Datei zieht die
+-- Repo-Historie nach.
+--
+-- Praktische Auswirkung begrenzt: der erste Insert in der Funktion braucht
+-- auth.uid() als user_id (NOT NULL) — ein anonymer Aufruf wäre dort ohnehin
+-- gescheitert, bevor irgendetwas geschrieben worden wäre. Trotzdem
+-- unnötige Angriffsfläche und inkonsistent mit dem in 0047/0048
+-- etablierten Härtungsmuster dieses Projekts.
+revoke execute on function public.save_free_ride_with_segments(jsonb, jsonb) from anon;
