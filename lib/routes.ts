@@ -21,7 +21,7 @@ export async function getRoutes(): Promise<{ routes: RouteGeoJSON[]; error: bool
 }
 
 // Kandidaten für die automatische Streckenerkennung innerhalb einer freien
-// Fahrt (lib/lapDetection.ts) — Rundstrecken, die der Nutzer überhaupt
+// Fahrt (lib/lapDetection.ts) — Strecken, die der Nutzer überhaupt
 // completen dürfte: freigegeben, und private Strecken nur die eigenen. Ohne
 // diesen Filter könnte das blosse Vorbeifahren an einer fremden privaten
 // Strecke deren Existenz indirekt verraten (siehe PR-Beschreibung). Dieselbe
@@ -36,13 +36,21 @@ export async function getRoutes(): Promise<{ routes: RouteGeoJSON[]; error: bool
 // für die Erkennung tatsächlich gebrauchten Spalten (nicht select("*")) —
 // diese Abfrage läuft bei jeder freien Fahrt, tempolimits/hoehenprofil/
 // kategorien & Co. werden dafür nie angefasst.
-export interface LoopRouteCandidate {
+//
+// Enthält Rundfahrten UND Punkt-zu-Punkt-Strecken: detectLaps() wertet beide
+// aus, aber mit unterschiedlichem Fortschrittsmodell (Ring vs. offene
+// Strecke, siehe lib/lapDetection.ts) — deshalb wird ist_rundfahrt
+// mitgelesen und weitergereicht statt hier zu filtern.
+export interface RouteDetectionCandidate {
   id: string;
   name: string;
   geometry_geojson: GeoLineString;
+  ist_rundfahrt: boolean;
 }
 
-export async function listLoopRouteCandidates(viewerId: string): Promise<LoopRouteCandidate[]> {
+export async function listRouteDetectionCandidates(
+  viewerId: string,
+): Promise<RouteDetectionCandidate[]> {
   // viewerId fliesst unten als Rohtext in einen .or()-Filterstring ein
   // (PostgREST kennt dafür keine parametrisierte Alternative) — hier
   // validieren statt blind zu vertrauen, dass der Aufrufer immer eine echte
@@ -52,8 +60,7 @@ export async function listLoopRouteCandidates(viewerId: string): Promise<LoopRou
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("routes_geojson")
-    .select("id, name, geometry_geojson")
-    .eq("ist_rundfahrt", true)
+    .select("id, name, geometry_geojson, ist_rundfahrt")
     .eq("status_ok", true)
     .or(`ist_privat.eq.false,erstellt_von.eq.${viewerId}`);
 
@@ -62,7 +69,7 @@ export async function listLoopRouteCandidates(viewerId: string): Promise<LoopRou
     return [];
   }
 
-  return (data as LoopRouteCandidate[]) ?? [];
+  return (data as RouteDetectionCandidate[]) ?? [];
 }
 
 // Wirft bei einem echten Ladefehler (statt "nicht gefunden" mit null

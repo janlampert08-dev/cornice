@@ -70,10 +70,90 @@ function farAway(seconds: number): TrailPoint {
   return { lng: 9.2, lat: 47.9, t: seconds * 1000 };
 }
 
+// Offene Punkt-zu-Punkt-Strecke A → B, L-förmig, ca. 1.5 km: erst ~500 m nach
+// Osten, dann ~1000 m nach Norden. Kein geschlossener Ring — Anfang und Ende
+// liegen weit auseinander.
+//
+// Bewusst dicht gestützt (~20 m zwischen zwei Punkten, wie eine echte
+// Mapbox-/GPX-Geometrie): buildArcTable() tastet ausschliesslich an
+// vorhandenen Stützpunkten ab und interpoliert nicht, weshalb das
+// Kontinuitäts-Suchfenster in findBestProjection() bei einem sehr langen
+// Einzelsegment ins Leere greifen würde. Das ist eine Eigenschaft der
+// Geometrie, nicht der Erkennung — eine grob gestützte Teststrecke würde
+// hier etwas prüfen, das mit echten Strecken nichts zu tun hat.
+function openRoute(): { coordinates: [number, number][]; lengthKm: number } {
+  const corners: [number, number][] = [
+    [8.5, 47.37],
+    [8.506635, 47.37],
+    [8.506635, 47.378984],
+  ];
+  const coordinates: [number, number][] = [corners[0]];
+  for (let i = 1; i < corners.length; i++) {
+    const steps = Math.max(1, Math.round((haversineKm(corners[i - 1], corners[i]) * 1000) / 20));
+    for (let s = 1; s <= steps; s++) {
+      const t = s / steps;
+      coordinates.push([
+        corners[i - 1][0] + (corners[i][0] - corners[i - 1][0]) * t,
+        corners[i - 1][1] + (corners[i][1] - corners[i - 1][1]) * t,
+      ]);
+    }
+  }
+
+  let lengthKm = 0;
+  for (let i = 1; i < coordinates.length; i++) {
+    lengthKm += haversineKm(coordinates[i - 1], coordinates[i]);
+  }
+  return { coordinates, lengthKm };
+}
+
+// Wie pointAtKm, aber ohne Umlauf: auf einer offenen Strecke ist km =
+// lengthKm das Ziel B und nicht wieder der Start A.
+function pointAtKmOpen(
+  coords: [number, number][],
+  lengthKm: number,
+  km: number,
+): [number, number] {
+  const target = Math.min(Math.max(km, 0), lengthKm);
+  let acc = 0;
+  for (let i = 1; i < coords.length; i++) {
+    const segKm = haversineKm(coords[i - 1], coords[i]);
+    if (acc + segKm >= target || i === coords.length - 1) {
+      const t = segKm === 0 ? 0 : (target - acc) / segKm;
+      const [lng1, lat1] = coords[i - 1];
+      const [lng2, lat2] = coords[i];
+      return [lng1 + (lng2 - lng1) * t, lat1 + (lat2 - lat1) * t];
+    }
+    acc += segKm;
+  }
+  return coords[coords.length - 1];
+}
+
+// driveSegment für offene Strecken (ohne Umlauf).
+function driveOpen(
+  coords: [number, number][],
+  lengthKm: number,
+  fromKm: number,
+  toKm: number,
+  startSeconds: number,
+  speedKmh = 40,
+  stepSeconds = 5,
+): { points: TrailPoint[]; endSeconds: number } {
+  const distanceKm = toKm - fromKm;
+  const totalSeconds = (Math.abs(distanceKm) / speedKmh) * 3600;
+  const steps = Math.max(1, Math.round(totalSeconds / stepSeconds));
+  const points: TrailPoint[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const frac = i / steps;
+    const [lng, lat] = pointAtKmOpen(coords, lengthKm, fromKm + distanceKm * frac);
+    points.push({ lng, lat, t: (startSeconds + frac * totalSeconds) * 1000 });
+  }
+  return { points, endSeconds: startSeconds + totalSeconds };
+}
+
 describe("detectLaps", () => {
   it("erkennt eine volle Runde bei Einstieg mitten in der Strecke", () => {
     const { coordinates, lengthKm } = squareLoop();
-    const candidate: RouteCandidate = { routeId: "r1", coordinates };
+    const candidate: RouteCandidate = { routeId: "r1", coordinates, isLoop: true };
 
     // Einstieg bei km 1.0 (mitten in der Runde), eine volle Runde vorwärts.
     const { points } = driveSegment(coordinates, lengthKm, 1.0, 1.0 + lengthKm, 0);
@@ -87,7 +167,7 @@ describe("detectLaps", () => {
 
   it("erkennt zwei Runden in Folge als zwei separate Completions", () => {
     const { coordinates, lengthKm } = squareLoop();
-    const candidate: RouteCandidate = { routeId: "r1", coordinates };
+    const candidate: RouteCandidate = { routeId: "r1", coordinates, isLoop: true };
 
     const { points } = driveSegment(coordinates, lengthKm, 0, 2 * lengthKm, 0);
 
@@ -98,7 +178,7 @@ describe("detectLaps", () => {
 
   it("zählt eine abgebrochene Runde (Umkehr) nicht, meldet aber den erreichten Fortschritt", () => {
     const { coordinates, lengthKm } = squareLoop();
-    const candidate: RouteCandidate = { routeId: "r1", coordinates };
+    const candidate: RouteCandidate = { routeId: "r1", coordinates, isLoop: true };
 
     // 60% der Runde vorwärts, dann deutlich (>50m) zurück — ein echtes Wenden,
     // kein GPS-Jitter im Stand.
@@ -121,7 +201,7 @@ describe("detectLaps", () => {
 
   it("bricht nach einer zu langen Lücke ab, statt die Runde später fälschlich zu schliessen", () => {
     const { coordinates, lengthKm } = squareLoop();
-    const candidate: RouteCandidate = { routeId: "r1", coordinates };
+    const candidate: RouteCandidate = { routeId: "r1", coordinates, isLoop: true };
 
     // 40% der Runde vorwärts, dann > MAX_GAP_SECONDS weit weg vom Korridor
     // (z.B. abgestellt und zu Fuss weitergegangen), danach bei km 0 (nicht
@@ -145,7 +225,7 @@ describe("detectLaps", () => {
 
   it("bricht auch dann bei einer zu langen Lücke ab, wenn der Trail danach direkt wieder im Korridor liegt", () => {
     const { coordinates, lengthKm } = squareLoop();
-    const candidate: RouteCandidate = { routeId: "r1", coordinates };
+    const candidate: RouteCandidate = { routeId: "r1", coordinates, isLoop: true };
 
     // Regression: anders als im Test oben gibt es hier KEINEN Punkt
     // ausserhalb des Korridors während der Lücke (z.B. eine pausierte
@@ -166,7 +246,7 @@ describe("detectLaps", () => {
 
   it("verschenkt keinen Fortschritt, wenn ein Wiedereintritt nach einer Lücke zufällig nah am Rundenschluss liegt", () => {
     const { coordinates, lengthKm } = squareLoop();
-    const candidate: RouteCandidate = { routeId: "r1", coordinates };
+    const candidate: RouteCandidate = { routeId: "r1", coordinates, isLoop: true };
 
     // Regression: Einstieg bei km 1.0, wenige Meter Fortschritt (Richtung
     // noch nicht gesperrt) — dann eine kurze Lücke (unter MAX_GAP_SECONDS,
@@ -195,7 +275,7 @@ describe("detectLaps", () => {
 
   it("schliesst die Runde nicht zu früh, wenn der Wiedereintritt nach bereits gesperrter Richtung am Rundenschluss liegt", () => {
     const { coordinates, lengthKm } = squareLoop();
-    const candidate: RouteCandidate = { routeId: "r1", coordinates };
+    const candidate: RouteCandidate = { routeId: "r1", coordinates, isLoop: true };
 
     // Regression zum Test darüber, aber mit bereits GESPERRTER Fahrtrichtung:
     // die Anfahrt läuft 300 m im Korridor (> DIRECTION_LOCK_KM), verlässt ihn
@@ -228,7 +308,7 @@ describe("detectLaps", () => {
 
   it("wertet ein kurzes Durchqueren des Korridors nicht als Runde", () => {
     const { coordinates, lengthKm } = squareLoop();
-    const candidate: RouteCandidate = { routeId: "r1", coordinates };
+    const candidate: RouteCandidate = { routeId: "r1", coordinates, isLoop: true };
 
     // Nur wenige Punkte direkt am Streckenrand, weit unter dem
     // Richtungs-Lock-Schwellenwert — z.B. eine kreuzende Nebenstrasse.
@@ -240,7 +320,7 @@ describe("detectLaps", () => {
 
   it("liefert nichts für Kandidaten ausserhalb der Bounding Box des Trails", () => {
     const { coordinates, lengthKm } = squareLoop();
-    const nearby: RouteCandidate = { routeId: "near", coordinates };
+    const nearby: RouteCandidate = { routeId: "near", coordinates, isLoop: true };
     const farCandidate: RouteCandidate = {
       routeId: "far",
       coordinates: [
@@ -248,12 +328,66 @@ describe("detectLaps", () => {
         [20.01, -30],
         [20.01, -29.99],
       ],
+      isLoop: true,
     };
 
     const { points } = driveSegment(coordinates, lengthKm, 0, lengthKm, 0);
     const result = detectLaps(points, [nearby, farCandidate]);
 
     expect(result.laps.every((lap) => lap.routeId === "near")).toBe(true);
+  });
+
+  it("erkennt eine Punkt-zu-Punkt-Strecke von A nach B", () => {
+    const { coordinates, lengthKm } = openRoute();
+    const candidate: RouteCandidate = { routeId: "a2b", coordinates, isLoop: false };
+
+    const { points } = driveOpen(coordinates, lengthKm, 0, lengthKm, 0);
+
+    const result = detectLaps(points, [candidate]);
+    expect(result.laps).toHaveLength(1);
+    expect(result.laps[0].routeId).toBe("a2b");
+    expect(result.laps[0].entryT).toBe(points[0].t);
+  });
+
+  it("erkennt dieselbe Punkt-zu-Punkt-Strecke auch rückwärts von B nach A", () => {
+    const { coordinates, lengthKm } = openRoute();
+    const candidate: RouteCandidate = { routeId: "a2b", coordinates, isLoop: false };
+
+    const { points } = driveOpen(coordinates, lengthKm, lengthKm, 0, 0);
+
+    const result = detectLaps(points, [candidate]);
+    expect(result.laps).toHaveLength(1);
+    expect(result.laps[0].entryT).toBe(points[0].t);
+  });
+
+  it("erkennt eine Punkt-zu-Punkt-Strecke nicht, wenn erst mitten drin eingestiegen wird", () => {
+    const { coordinates, lengthKm } = openRoute();
+    const candidate: RouteCandidate = { routeId: "a2b", coordinates, isLoop: false };
+
+    // Einstieg bei 30% und bis zum Ziel gefahren: 70% Fortschritt, unter der
+    // 95%-Schwelle. Anders als bei einer Rundfahrt gibt es hier keinen
+    // beliebigen Einstiegspunkt — wer nicht an A oder B beginnt, hat die
+    // Strecke schlicht nicht ganz gefahren. Genau das erzwingt die Schwelle
+    // von selbst, ohne separate Endpunkt-Prüfung.
+    const { points } = driveOpen(coordinates, lengthKm, 0.3 * lengthKm, lengthKm, 0);
+
+    const result = detectLaps(points, [candidate]);
+    expect(result.laps).toHaveLength(0);
+    expect(result.partialAttempts).toHaveLength(1);
+    expect(result.partialAttempts[0].maxProgressFraction).toBeGreaterThan(0.6);
+    expect(result.partialAttempts[0].maxProgressFraction).toBeLessThan(0.75);
+  });
+
+  it("zählt eine Hin- und Rückfahrt auf einer Punkt-zu-Punkt-Strecke als zwei Completions", () => {
+    const { coordinates, lengthKm } = openRoute();
+    const candidate: RouteCandidate = { routeId: "a2b", coordinates, isLoop: false };
+
+    const hin = driveOpen(coordinates, lengthKm, 0, lengthKm, 0);
+    const rueck = driveOpen(coordinates, lengthKm, lengthKm, 0, hin.endSeconds);
+
+    const result = detectLaps([...hin.points, ...rueck.points], [candidate]);
+    expect(result.laps).toHaveLength(2);
+    expect(result.laps[0].exitT).toBeLessThan(result.laps[1].exitT);
   });
 
   it("liefert ein leeres Ergebnis ohne Kandidaten oder mit zu kurzem Trail", () => {

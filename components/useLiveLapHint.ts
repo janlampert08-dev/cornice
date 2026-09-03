@@ -52,9 +52,12 @@ export function useLiveLapHint(
 
   const candidates = useMemo<(RouteCandidate & { name: string })[]>(
     () =>
-      routes
-        .filter((r) => r.ist_rundfahrt)
-        .map((r) => ({ routeId: r.id, name: r.name, coordinates: r.geometry_geojson.coordinates })),
+      routes.map((r) => ({
+        routeId: r.id,
+        name: r.name,
+        coordinates: r.geometry_geojson.coordinates,
+        isLoop: r.ist_rundfahrt,
+      })),
     [routes],
   );
 

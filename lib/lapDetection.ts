@@ -1,19 +1,34 @@
 import { haversineKm, type TrailPoint } from "@/lib/geo";
 import { CORRIDOR_KM } from "@/lib/routeCoverage";
 
-// Erkennt innerhalb einer freien Fahrt, ob eine Rundstrecke vollständig
-// abgefahren wurde — unabhängig davon, an welchem Punkt der Runde
-// eingestiegen wurde. Läuft ausschliesslich auf dem bereits vereinfachten
-// Trail (simplifyTrack, lib/track.ts): liefert nur Zeitfenster (entryT/
-// exitT), aus denen der Aufrufer die eigentlichen Kennzahlen anschliessend
-// aus dem ROHEN Trail-Ausschnitt neu berechnet — dieselbe Präzision wie bei
-// einer regulär gestarteten Streckenfahrt, aber ohne für die Erkennung
-// selbst tausende Rohpunkte durchlaufen zu müssen.
+// Erkennt innerhalb einer freien Fahrt, ob eine hinterlegte Strecke
+// vollständig abgefahren wurde. Läuft ausschliesslich auf dem bereits
+// vereinfachten Trail (simplifyTrack, lib/track.ts): liefert nur Zeitfenster
+// (entryT/exitT), aus denen der Aufrufer die eigentlichen Kennzahlen
+// anschliessend aus dem ROHEN Trail-Ausschnitt neu berechnet — dieselbe
+// Präzision wie bei einer regulär gestarteten Streckenfahrt, aber ohne für
+// die Erkennung selbst tausende Rohpunkte durchlaufen zu müssen.
 //
-// Kernidee: die Streckengeometrie wird als Umlaufweg mit Bogenlänge
-// s ∈ [0, L] parametrisiert. Jeder Trail-Punkt wird darauf projiziert; eine
-// volle, in eine Richtung durchgehende Runde (progress ≥ 95% von L) zählt
-// als Completion — unabhängig vom Startpunkt der Projektion.
+// Kernidee: die Streckengeometrie wird mit Bogenlänge s ∈ [0, L]
+// parametrisiert. Jeder Trail-Punkt wird darauf projiziert; ein in eine
+// Richtung durchgehender Fortschritt ≥ 95% von L zählt als Completion.
+//
+// Zwei Fortschrittsmodelle, je nach Streckenart (isLoop):
+//
+//   Rundfahrt (Ring): s wickelt bei L auf 0 um. Der Einstieg darf an einem
+//   BELIEBIGEN Punkt der Runde liegen — wer bei s = 0.7L einsteigt und
+//   einmal herum fährt, kommt bei 0.7L wieder an und hat 100% Fortschritt.
+//   Mehrere Runden hintereinander ergeben mehrere Completions.
+//
+//   Punkt-zu-Punkt (offene Strecke): kein Umlauf, s bleibt in [0, L].
+//   Beide Fahrtrichtungen zählen (A→B und B→A), der Einstieg muss aber
+//   zwangsläufig nahe A oder B liegen — das erzwingt die 95%-Schwelle von
+//   selbst: wer erst bei s = 0.3L dazustösst, kann bis zum Ende höchstens
+//   0.7L Fortschritt sammeln und bleibt damit unter der Schwelle. Es
+//   braucht dafür also keine separate Endpunkt-Prüfung. Eine Hin- und
+//   Rückfahrt ergibt zwei Completions: die Umkehr am Ziel bricht den
+//   laufenden Versuch ab (REVERSAL_ABORT_KM) und der Rückweg beginnt als
+//   neuer Versuch in die Gegenrichtung.
 
 // Feste Abtastung der Streckengeometrie für die Projektion (wie sampleRoute
 // in routeCoverage.ts, hier aber feiner, weil die Bogenlängen-Position
@@ -52,6 +67,9 @@ const MAX_SEARCH_SPEED_KMH = 160;
 export interface RouteCandidate {
   routeId: string;
   coordinates: [number, number][];
+  // Rundfahrt (Ring-Modell) oder Punkt-zu-Punkt-Strecke (offenes Modell) —
+  // siehe Moduskommentar oben.
+  isLoop: boolean;
 }
 
 export interface DetectedLap {
@@ -127,7 +145,11 @@ function projectToSegment(
   return { distanceKm, s: a.s + t * (b.s - a.s) };
 }
 
-function circularDistance(a: number, b: number, lengthKm: number): number {
+// Abstand zweier Bogenlängen-Positionen: auf dem Ring der kürzere der beiden
+// Wege, auf einer offenen Strecke schlicht die Differenz — dort sind Anfang
+// und Ende NICHT benachbart.
+function arcDistance(a: number, b: number, lengthKm: number, isLoop: boolean): number {
+  if (!isLoop) return Math.abs(a - b);
   const diff = Math.abs(a - b) % lengthKm;
   return Math.min(diff, lengthKm - diff);
 }
@@ -141,6 +163,7 @@ function findBestProjection(
   point: [number, number],
   samples: ArcSample[],
   lengthKm: number,
+  isLoop: boolean,
   window: { centerS: number; radiusKm: number } | null,
 ): { distanceKm: number; s: number } | null {
   const cosRefLat = Math.cos((point[1] * Math.PI) / 180);
@@ -148,7 +171,10 @@ function findBestProjection(
   for (let i = 0; i < samples.length - 1; i++) {
     if (window) {
       const mid = (samples[i].s + samples[i + 1].s) / 2;
-      if (circularDistance(mid, window.centerS, lengthKm) > window.radiusKm + SAMPLE_INTERVAL_KM) {
+      if (
+        arcDistance(mid, window.centerS, lengthKm, isLoop) >
+        window.radiusKm + SAMPLE_INTERVAL_KM
+      ) {
         continue;
       }
     }
@@ -158,10 +184,16 @@ function findBestProjection(
   return best;
 }
 
-function wrappedDelta(from: number, to: number, lengthKm: number): number {
-  let delta = to - from;
-  if (delta > lengthKm / 2) delta -= lengthKm;
-  if (delta < -lengthKm / 2) delta += lengthKm;
+// Fortschritt zwischen zwei Bogenlängen-Positionen. Auf dem Ring der
+// kürzeste Weg (kann über den Rundenschluss laufen); auf einer offenen
+// Strecke die schlichte Differenz — ein Sprung vom Ende zurück zum Anfang
+// ist dort kein kleiner Vorwärtsschritt, sondern die volle Rückwärtsstrecke
+// und wird korrekterweise als Umkehr gewertet.
+function arcDelta(from: number, to: number, lengthKm: number, isLoop: boolean): number {
+  const delta = to - from;
+  if (!isLoop) return delta;
+  if (delta > lengthKm / 2) return delta - lengthKm;
+  if (delta < -lengthKm / 2) return delta + lengthKm;
   return delta;
 }
 
@@ -203,6 +235,7 @@ function detectLapsForRoute(
   const { samples, lengthKm } = buildArcTable(candidate.coordinates);
   if (lengthKm <= 0 || samples.length < 2) return { laps: [], maxProgressFraction: 0 };
 
+  const isLoop = candidate.isLoop;
   const laps: DetectedLap[] = [];
   let state = freshState();
   let overallMaxFraction = 0;
@@ -227,7 +260,7 @@ function detectLapsForRoute(
     }
 
     if (!state.active) {
-      const hit = findBestProjection(p, samples, lengthKm, null);
+      const hit = findBestProjection(p, samples, lengthKm, isLoop, null);
       if (hit && hit.distanceKm <= CORRIDOR_KM) {
         state.active = true;
         state.lapEntryT = point.t;
@@ -249,7 +282,7 @@ function detectLapsForRoute(
           }
         : null;
 
-    const hit = findBestProjection(p, samples, lengthKm, window);
+    const hit = findBestProjection(p, samples, lengthKm, isLoop, window);
     if (!hit || hit.distanceKm > CORRIDOR_KM) {
       state.missedSinceHit = true;
       continue;
@@ -257,8 +290,8 @@ function detectLapsForRoute(
 
     if (state.missedSinceHit) {
       // Der Trail hat den Korridor seit dem letzten Treffer verlassen.
-      // wrappedDelta() liefert für einen solchen Sprung immer den kürzesten
-      // Weg auf dem Ringmodell der Strecke — das ist nur eine Vermutung,
+      // arcDelta() liefert für einen solchen Sprung auf dem Ring immer den
+      // kürzesten Weg — das ist nur eine Vermutung,
       // keine Beobachtung: ob der Nutzer diesen Bogen wirklich durchgehend
       // gefahren ist oder zufällig an einer ganz anderen Stelle wieder in
       // den Korridor eingetreten ist, lässt sich aus einem einzelnen Sprung
@@ -294,7 +327,7 @@ function detectLapsForRoute(
       continue;
     }
 
-    const delta = wrappedDelta(state.lastS, hit.s, lengthKm);
+    const delta = arcDelta(state.lastS, hit.s, lengthKm, isLoop);
 
     if (state.direction === 0) {
       state.rawLockProgress += delta;
@@ -324,9 +357,19 @@ function detectLapsForRoute(
 
     if (state.progressKm >= lengthKm * LAP_CLOSE_FRACTION) {
       laps.push({ routeId: candidate.routeId, entryT: state.lapEntryT, exitT: point.t });
-      state.progressKm -= lengthKm;
-      state.lapEntryT = point.t;
-      state.maxProgressFraction = 0;
+      if (isLoop) {
+        // Auf dem Ring geht es unmittelbar in die nächste Runde über: der
+        // Überschuss über die Schwelle hinaus zählt bereits für sie.
+        state.progressKm -= lengthKm;
+        state.lapEntryT = point.t;
+        state.maxProgressFraction = 0;
+      } else {
+        // Auf einer offenen Strecke ist am Ziel Schluss — weiterzuzählen
+        // würde das letzte Stück vor dem Ziel einer zweiten Completion
+        // gutschreiben, die es nicht gibt. Eine Rückfahrt beginnt als
+        // eigener Versuch (die Umkehr am Ziel bricht ohnehin ab).
+        abort();
+      }
     }
   }
 
