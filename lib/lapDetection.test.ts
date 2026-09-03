@@ -164,6 +164,35 @@ describe("detectLaps", () => {
     expect(result.laps).toHaveLength(0);
   });
 
+  it("verschenkt keinen Fortschritt, wenn ein Wiedereintritt nach einer Lücke zufällig nah am Rundenschluss liegt", () => {
+    const { coordinates, lengthKm } = squareLoop();
+    const candidate: RouteCandidate = { routeId: "r1", coordinates };
+
+    // Regression: Einstieg bei km 1.0, wenige Meter Fortschritt (Richtung
+    // noch nicht gesperrt) — dann eine kurze Lücke (unter MAX_GAP_SECONDS,
+    // löst also NICHT den Zeitlücken-Abbruch aus), danach Wiedereintritt bei
+    // km 0. wrappedDelta() interpretiert den Sprung von km 1.05 zu km 0
+    // als kürzesten Weg auf dem Ring — vorwärts über den Rundenschluss
+    // (lengthKm - 1.05) ist kürzer als rückwärts (1.05) und hätte vor dem
+    // Fix sofort > DIRECTION_LOCK_KM (0.2 km) Fortschritt gutgeschrieben,
+    // obwohl dieser Bogen nie befahren wurde — exakt das Muster, das eine
+    // real aufgezeichnete Fahrt live als vorzeitig geschlossene Runde
+    // (ca. 30 Prozentpunkte zu früh) auffliegen liess.
+    const forward1 = driveSegment(coordinates, lengthKm, 1.0, 1.05, 0);
+    const gapStart = forward1.endSeconds;
+    const gapEnd = gapStart + 60; // deutlich unter MAX_GAP_SECONDS (180s)
+    const forward2 = driveSegment(coordinates, lengthKm, 0, lengthKm, gapEnd);
+
+    const trail = [...forward1.points, farAway(gapStart + 10), farAway(gapEnd - 5), ...forward2.points];
+    const result = detectLaps(trail, [candidate]);
+
+    expect(result.laps).toHaveLength(1);
+    // Der Wiedereintritt bei km 0 zählt als neuer Rundenversuch — die
+    // erkannte Runde beginnt dort, nicht beim ursprünglichen Einstieg vor
+    // der Lücke.
+    expect(result.laps[0].entryT).toBe(forward2.points[0].t);
+  });
+
   it("wertet ein kurzes Durchqueren des Korridors nicht als Runde", () => {
     const { coordinates, lengthKm } = squareLoop();
     const candidate: RouteCandidate = { routeId: "r1", coordinates };
