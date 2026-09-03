@@ -74,3 +74,43 @@ export async function getFollowingProfiles(userId: string): Promise<FollowProfil
     avatarUrl: r.followed_avatar_url,
   }));
 }
+
+export interface MutualFollowers {
+  preview: FollowProfile[];
+  totalCount: number;
+}
+
+interface MutualFollowerRow {
+  id: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  total_count: number;
+}
+
+const MUTUAL_FOLLOWERS_PREVIEW_LIMIT = 3;
+
+// "Gefolgt von ..." — Personen, denen viewerId selbst folgt und die
+// ihrerseits profileId folgen (0053_gefolgt_von_feature.sql). Nur sinnvoll
+// für eingeloggte Betrachter auf einem fremden Profil; die Funktion selbst
+// erzwingt zusätzlich auth.uid() = viewerId, ein falscher Aufruf liefert
+// also ohnehin nur eine leere Liste statt fremder Daten.
+export async function getMutualFollowers(
+  viewerId: string,
+  profileId: string,
+): Promise<MutualFollowers> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("get_mutual_followers", {
+    p_viewer_id: viewerId,
+    p_profile_id: profileId,
+    p_limit: MUTUAL_FOLLOWERS_PREVIEW_LIMIT,
+  });
+  const rows = (data as MutualFollowerRow[] | null) ?? [];
+  return {
+    preview: rows.map((r) => ({
+      id: r.id,
+      displayName: r.display_name,
+      avatarUrl: r.avatar_url,
+    })),
+    totalCount: rows[0]?.total_count ?? 0,
+  };
+}
