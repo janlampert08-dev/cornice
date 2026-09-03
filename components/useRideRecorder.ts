@@ -59,6 +59,10 @@ export interface RideRecorder {
   // Bisher aufgezeichnete Linie für die Kartendarstellung während der Fahrt
   // (gedrosselt aktualisiert, siehe LIVE_TRAIL_INTERVAL_MS).
   liveTrail: [number, number][];
+  // Dieselben Punkte, aber mit Zeitstempeln statt als reine Koordinaten —
+  // für optionale clientseitige Auswertung während der Fahrt (siehe
+  // useLiveLapHint), sonst ungenutzt. Gleicher Takt/Drosselung wie liveTrail.
+  liveTrailPoints: TrailPoint[];
   locationError: string | null;
   result: { distanceKm: number; seconds: number } | null;
   // Der aufgezeichnete Trail nach dem Stoppen — Grundlage für den
@@ -106,6 +110,7 @@ export function useRideRecorder({
   const [result, setResult] = useState<{ distanceKm: number; seconds: number } | null>(null);
   const [finishedTrail, setFinishedTrail] = useState<TrailPoint[]>([]);
   const [liveTrail, setLiveTrail] = useState<[number, number][]>([]);
+  const [liveTrailPoints, setLiveTrailPoints] = useState<TrailPoint[]>([]);
   const [trailJson, setTrailJson] = useState("[]");
   const [hasStarted, setHasStarted] = useState(false);
 
@@ -150,6 +155,12 @@ export function useRideRecorder({
     if (!force && now - lastLiveTrailAtRef.current < LIVE_TRAIL_INTERVAL_MS) return;
     lastLiveTrailAtRef.current = now;
     setLiveTrail(trailRef.current.map((p) => [p.lng, p.lat] as [number, number]));
+    // Mit Zeitstempeln, im selben Takt gedrosselt — Grundlage für den
+    // optionalen Live-Streckenerkennungs-Hinweis (useLiveLapHint) einer
+    // freien Fahrt. Kopie statt derselben Referenz, damit spätere Pushes auf
+    // trailRef.current das bereits veröffentlichte Array nicht rückwirkend
+    // verändern.
+    setLiveTrailPoints([...trailRef.current]);
   }, []);
 
   const writeSnapshot = useCallback((snapshot: TrackingSnapshot, force = false) => {
@@ -320,6 +331,7 @@ export function useRideRecorder({
         distanceKmRef.current = 0;
         hasLeftStartRef.current = false;
         setLiveTrail([]);
+        setLiveTrailPoints([]);
       }
 
       watchIdRef.current = navigator.geolocation.watchPosition(
@@ -489,6 +501,7 @@ export function useRideRecorder({
     headingDeg,
     distanceToStartKm,
     liveTrail,
+    liveTrailPoints,
     locationError,
     result,
     finishedTrail,

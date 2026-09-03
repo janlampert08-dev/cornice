@@ -195,6 +195,15 @@ export interface RouteCompletion {
   // Bewusst nicht dasselbe wie routes.hoehe_m (Scheitelhöhe einer Strecke).
   hoehenmeter_aufstieg: number | null;
   hoehenprofil: HoehenprofilPunkt[] | null;
+  // Ab 0050_streckenerkennung_in_freier_fahrt.sql: bei einem automatisch aus
+  // einer freien Fahrt erkannten Streckenabschnitt Verweis auf die
+  // übergeordnete freie Fahrt, sonst null. Nie Teil der öffentlichen Views
+  // (public_fahrten & Co.) — nur über die RLS-geschützte Basistabelle
+  // sichtbar, siehe save_free_ride_with_segments.
+  parent_completion_id: string | null;
+  // true, wenn diese Streckenfahrt automatisch erkannt statt explizit über
+  // die Streckenseite gestartet wurde. Rein informativ (Badge).
+  erkennung_automatisch: boolean;
   created_at: string;
 }
 

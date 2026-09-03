@@ -8,7 +8,10 @@ import { haversineKm } from "@/lib/geo";
 export const COVERAGE_THRESHOLD_PERCENT = 75;
 
 const SAMPLE_INTERVAL_KM = 0.1;
-const CORRIDOR_KM = 0.08;
+// Exportiert, da lib/lapDetection.ts denselben Korridor für die
+// Rundenerkennung innerhalb einer freien Fahrt verwendet — eine Stelle für
+// "was zählt als 'auf der Strecke'", nicht zwei potenziell auseinanderlaufende.
+export const CORRIDOR_KM = 0.08;
 
 // Tastet die offizielle Streckengeometrie alle SAMPLE_INTERVAL_KM ab und
 // prüft je Abtastpunkt, ob mindestens ein aufgezeichneter GPS-Punkt innerhalb
