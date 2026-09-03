@@ -167,6 +167,32 @@ as protected-area work: it needs to justify why it can't run as the
 caller, and it must not encode secrets or trust unauthenticated input to
 decide what it's allowed to do.
 
+**Think twice before executing SQL.** Any statement that reaches the
+database — via the Supabase MCP tools, `psql`, or the Supabase CLI —
+requires an explicit confirmation. Claude Code is configured to prompt
+for one (`permissions.ask` and the `PreToolUse` hook in `.claude/`).
+That prompt is a checkpoint, not a formality, and clicking through it
+does not move responsibility to whoever clicked. Before asking for it,
+be able to answer:
+
+1. What does the statement do, which tables does it touch, and roughly
+   how many rows?
+2. Does it write? If so, is it reversible, and what is the way back — a
+   backup, an inverse statement, a restore?
+3. Does it belong in a migration instead? Every schema change does (Core
+   Rule 8); ad-hoc DDL against a live database is not a substitute for
+   `supabase/migrations/`.
+4. Does it run as the logged-in user under RLS, or does it bypass that
+   boundary? If it bypasses, why is that justified here?
+5. Is it aimed at production data, and is any `WHERE` clause missing or
+   wider than intended?
+
+If an answer is unclear, do not run the statement yet — narrow it, wrap
+it in a transaction that can be rolled back, or try it against a branch
+or a local stack first. A read-only `SELECT` still deserves question 5:
+an unbounded query against production is a load problem rather than a
+data problem, but it is still a problem.
+
 ## AI Agent Behavior
 
 When an AI agent (Claude Code or otherwise) works in this repository, it

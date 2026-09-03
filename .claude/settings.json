@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "ask": [
+      "mcp__Supabase__execute_sql",
+      "mcp__Supabase__apply_migration",
+      "mcp__Supabase__merge_branch",
+      "mcp__Supabase__rebase_branch",
+      "mcp__Supabase__reset_branch",
+      "Bash(psql *)",
+      "Bash(supabase db *)",
+      "Bash(supabase migration *)",
+      "Bash(pg_dump *)",
+      "Bash(pg_restore *)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/sql-guard.sh\"",
+            "timeout": 10,
+            "statusMessage": "SQL-Check"
+          }
+        ]
+      }
+    ]
+  }
+}
