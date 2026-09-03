@@ -7,10 +7,17 @@ import Avatar from "@/components/Avatar";
 import KudosButton from "@/components/KudosButton";
 import FollowButton from "@/components/FollowButton";
 import FollowCounts from "@/components/FollowCounts";
+import FollowedBy from "@/components/FollowedBy";
 import VehicleGrid from "@/components/VehicleGrid";
 import { getPublicProfile } from "@/lib/profile";
 import { getKudosForCompletions } from "@/lib/kudos";
-import { isFollowing, getFollowCounts, getFollowerProfiles, getFollowingProfiles } from "@/lib/follows";
+import {
+  isFollowing,
+  getFollowCounts,
+  getFollowerProfiles,
+  getFollowingProfiles,
+  getMutualFollowers,
+} from "@/lib/follows";
 import { createClient } from "@/lib/supabase/server";
 import Card from "@/components/ui/Card";
 import { freieFahrtTitel } from "@/lib/completions";
@@ -54,19 +61,26 @@ export default async function FahrerPage({
   const isOwnProfile = viewer?.id === id;
   const showFollowLists = isOwnProfile || profile.zeigtFollowerListe;
 
-  const [kudosByCompletion, followers, following] = await Promise.all([
+  // Kein Folgen-Button auf dem eigenen Profil, und nur für eingeloggte
+  // Betrachter — dieselbe Bedingung wie beim Kudos-Button oben.
+  const showFollow = !!viewer && !isOwnProfile;
+
+  const [kudosByCompletion, followers, following, mutualFollowers] = await Promise.all([
     getKudosForCompletions(
       profile.fahrten.map((f) => f.completion_id),
       viewer?.id ?? null,
     ),
     showFollowLists ? getFollowerProfiles(id) : Promise.resolve([]),
     showFollowLists ? getFollowingProfiles(id) : Promise.resolve([]),
+    // "Gefolgt von ..." (0053_gefolgt_von_feature.sql) — nur für fremde
+    // Profile mit eingeloggtem Betrachter sinnvoll, respektiert
+    // zeigt_follower_liste bereits serverseitig in der RPC selbst.
+    showFollow
+      ? getMutualFollowers(viewer!.id, id)
+      : Promise.resolve({ preview: [], totalCount: 0 }),
   ]);
 
-  // Kein Folgen-Button auf dem eigenen Profil, und nur für eingeloggte
-  // Betrachter — dieselbe Bedingung wie beim Kudos-Button oben.
-  const showFollow = !!viewer && !isOwnProfile;
-  const alreadyFollowing = viewer && !isOwnProfile ? await isFollowing(viewer.id, id) : false;
+  const alreadyFollowing = showFollow ? await isFollowing(viewer!.id, id) : false;
 
   const zeigtStatistiken = profile.zeigtPaesse || profile.zeigtHoehenmeter || profile.zeigtDistanz;
   const istPrivat =
@@ -93,6 +107,12 @@ export default async function FahrerPage({
                 following={following}
                 listsHidden={!showFollowLists}
               />
+              {showFollow && (
+                <FollowedBy
+                  preview={mutualFollowers.preview}
+                  totalCount={mutualFollowers.totalCount}
+                />
+              )}
             </div>
           </div>
           {showFollow && <FollowButton targetUserId={id} initialFollowing={alreadyFollowing} />}
