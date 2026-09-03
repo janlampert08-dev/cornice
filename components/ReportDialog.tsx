@@ -4,7 +4,8 @@ import { useActionState } from "react";
 import { Dialog } from "@/components/ui/Dialog";
 import { Textarea, fieldClassName } from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
-import { REPORT_REASONS, type ReportState } from "@/lib/actions/reports";
+import type { ReportState } from "@/lib/actions/reports";
+import { REPORT_REASONS } from "@/lib/constants";
 
 const initialState: ReportState = { error: null };
 
