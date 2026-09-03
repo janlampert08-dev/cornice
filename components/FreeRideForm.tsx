@@ -3,8 +3,10 @@
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { Route as RouteIcon } from "lucide-react";
 import { logFreeRide, type FreeRideFormState } from "@/lib/actions/completions";
 import { useRideRecorder } from "@/components/useRideRecorder";
+import { useLiveLapHint } from "@/components/useLiveLapHint";
 import { FREE_RIDE_STORAGE_KEY } from "@/lib/trackingStorage";
 import RideSummaryForm from "@/components/RideSummaryForm";
 import { formatDuration } from "@/lib/format";
@@ -48,6 +50,12 @@ export default function FreeRideForm({
   const [state, formAction, pending] = useActionState(logFreeRide, initialState);
   const recorder = useRideRecorder({ userId, storageKey: FREE_RIDE_STORAGE_KEY });
   const { phase, result, clearSnapshot, discard } = recorder;
+
+  // Rein informativer Live-Hinweis während der Fahrt — siehe
+  // components/useLiveLapHint.ts. Massgeblich für die tatsächlich erkannten
+  // Streckenabschnitte bleibt ausschliesslich die serverseitige Erkennung
+  // beim Speichern (logFreeRide).
+  const liveLapHint = useLiveLapHint(phase === "tracking", recorder.liveTrailPoints, routes);
 
   const [titel, setTitel] = useState("");
   const [isPublic, setIsPublic] = useState(false);
@@ -191,6 +199,17 @@ export default function FreeRideForm({
             </dd>
           </div>
         </dl>
+        {/* Reiner Komfort-Hinweis, keine Wertung — die tatsächlich erkannten
+            Streckenabschnitte entscheidet ausschliesslich der Server beim
+            Speichern (siehe useLiveLapHint.ts). */}
+        {liveLapHint && (
+          <p className="flex items-center gap-1.5 text-sm text-accent">
+            <RouteIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+            {liveLapHint.completed
+              ? `„${liveLapHint.routeName}" erkannt!`
+              : `„${liveLapHint.routeName}" wird erkannt · ${Math.round(liveLapHint.fraction * 100)}%`}
+          </p>
+        )}
         {recorder.locationError && <p className="text-sm text-danger">{recorder.locationError}</p>}
         <div className="flex flex-wrap items-center justify-between gap-3">
           {recorder.hasStarted ? (
