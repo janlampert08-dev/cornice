@@ -347,6 +347,11 @@ export function useRideRecorder({
           setPosition(point);
           setAccuracyM(browserPosition.coords.accuracy);
           setHeadingDeg(browserPosition.coords.heading);
+          // Ein früherer Fehler (z.B. kurzer Empfangsverlust im Tunnel) ist
+          // erledigt, sobald wieder ein Fix hereinkommt — sonst bliebe die
+          // Fehlermeldung für den Rest der Fahrt stehen, obwohl GPS längst
+          // wieder funktioniert.
+          setLocationError(null);
 
           const currentGate = gateRef.current;
 
@@ -434,7 +439,22 @@ export function useRideRecorder({
           hasLeftStartRef.current = proximity.hasLeftStart;
           if (proximity.shouldAutoStop) stop();
         },
-        () => setLocationError("Standort konnte nicht ermittelt werden."),
+        (error) => {
+          // PERMISSION_DENIED ist faktisch endgültig: der Browser ruft den
+          // Erfolgs-Callback ohne erneute Erlaubnis nicht mehr auf, die
+          // Aufzeichnung bekommt ab hier keine weiteren Punkte mehr. Das
+          // braucht eine andere Meldung als ein Tunnel oder kurzzeitig
+          // schlechter Empfang (POSITION_UNAVAILABLE/TIMEOUT), wo
+          // watchPosition von selbst weiterversucht und der obige
+          // Erfolgs-Callback den Fehler wieder löscht, sobald es klappt.
+          if (error.code === error.PERMISSION_DENIED) {
+            setLocationError(
+              "Standortzugriff verweigert — ohne GPS-Berechtigung kann diese Fahrt nicht weiter aufgezeichnet werden. Bitte in den Einstellungen erlauben.",
+            );
+            return;
+          }
+          setLocationError("Kein GPS-Empfang — Aufzeichnung läuft weiter, sobald wieder Signal da ist.");
+        },
         { enableHighAccuracy: true, maximumAge: 2000, timeout: 15_000 },
       );
 
