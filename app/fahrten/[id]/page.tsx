@@ -23,6 +23,7 @@ import CompletionPhotoGallery from "@/components/CompletionPhotoGallery";
 import { freieFahrtTitel, getCompletionDetail } from "@/lib/completions";
 import { getRoute } from "@/lib/routes";
 import { getKudosForCompletions } from "@/lib/kudos";
+import { featuredMilestone, getUserAchievementStats } from "@/lib/achievements";
 import { createClient } from "@/lib/supabase/server";
 import { formatDuration } from "@/lib/format";
 import { publicationBlockReason } from "@/lib/track";
@@ -83,6 +84,13 @@ export default async function FahrtDetailPage({
     ? await getKudosForCompletions([completion.id], user?.id ?? null)
     : null;
   const kudos = kudosByCompletion?.get(completion.id) ?? null;
+
+  // Nur für den Besitzer berechnet — die Meilensteine sind seine eigenen
+  // Gesamtzahlen, nicht die dieser einzelnen Fahrt, und für einen fremden
+  // Betrachter irrelevant (spart die zusätzlichen Queries in dem Fall).
+  const milestoneLabel = completion.isOwner
+    ? featuredMilestone(await getUserAchievementStats(completion.userId))
+    : null;
 
   // Bei einer freien Fahrt zählt die Bewegtzeit — eine Ausfahrt mit
   // Kaffeestopp hätte über die verstrichene Zeit ein sinnlos niedriges
@@ -153,6 +161,7 @@ export default async function FahrtDetailPage({
                   distanceKm={completion.distanzKm ?? route?.laenge_km ?? 0}
                   durationSeconds={completion.dauerSekunden}
                   date={completion.datum}
+                  milestoneLabel={milestoneLabel}
                 />
               )}
               {/* Melden nur für andere und nur bei einer geteilten Fahrt —

@@ -30,6 +30,7 @@ export default function ShareRideButton({
   distanceKm,
   durationSeconds,
   date,
+  milestoneLabel = null,
 }: {
   routeId: string | null;
   completionId: string;
@@ -39,6 +40,9 @@ export default function ShareRideButton({
   distanceKm: number;
   durationSeconds: number | null;
   date: string;
+  // Höchster aktuell erreichter Meilenstein des Besitzers (lib/achievements.ts),
+  // vom Aufrufer nur für den eigenen Fahrten-Detailscreen mitgegeben.
+  milestoneLabel?: string | null;
 }) {
   const [loading, setLoading] = useState(false);
 
@@ -88,12 +92,38 @@ export default function ShareRideButton({
         date,
         elevationM: elevation,
         coordinates,
+        milestoneLabel,
       });
+
+      const filename = `${slugify(name)}-${date}.jpg`;
+
+      // Natives Share-Sheet bevorzugt (Instagram Story/DM, WhatsApp etc. ohne
+      // Umweg über den Download-Ordner) — nur wenn der Browser das für genau
+      // diese Datei unterstützt (nicht überall der Fall, z.B. Desktop-Firefox).
+      // navigator.canShare mit files ist erst Web-Share-API-Level-2, deshalb
+      // der optionale Zugriff statt eines direkten Aufrufs.
+      const file = new File([blob], filename, { type: "image/jpeg" });
+      const nav = navigator as Navigator & {
+        canShare?: (data?: ShareData) => boolean;
+        share?: (data: ShareData) => Promise<void>;
+      };
+      if (nav.canShare?.({ files: [file] }) && nav.share) {
+        try {
+          await nav.share({ files: [file], title: name });
+          return;
+        } catch (err) {
+          // Nutzer hat den Share-Dialog abgebrochen — kein Fehler, kein
+          // Download-Fallback nötig.
+          if (err instanceof Error && err.name === "AbortError") return;
+          // Andernfalls (z.B. Share fehlgeschlagen) auf den Download darunter
+          // durchfallen.
+        }
+      }
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${slugify(name)}-${date}.jpg`;
+      a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
     } finally {
