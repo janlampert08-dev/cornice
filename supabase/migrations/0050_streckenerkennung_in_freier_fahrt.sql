@@ -83,6 +83,13 @@ create or replace function public.save_free_ride_with_segments(
   p_segments jsonb default '[]'::jsonb
 ) returns table(out_id uuid, out_art text, out_route_id uuid)
 language plpgsql
+-- Pinnt nur die Namensauflösung für die ::geography-Casts unten (auf
+-- Supabase-Projekten teils in "extensions" statt "public" installiert),
+-- keine erhöhten Rechte — bleibt SECURITY INVOKER, RLS greift unverändert
+-- für jede Zeile. Ohne das könnte "type geography does not exist"
+-- auftreten, falls der ambiente search_path der aufrufenden Rolle
+-- (authenticated) das PostGIS-Schema nicht enthält.
+set search_path = public, extensions
 as $$
 declare
   v_parent_id uuid;

@@ -89,7 +89,11 @@ export async function getDetectedSegments(
       }[]
     >();
 
-  if (error || !data) return [];
+  // Ein echter Query-Fehler darf nicht als "keine Segmente" durchgehen —
+  // sonst verschwände eine bereits erkannte Streckenfahrt für den Besitzer
+  // kommentarlos von seiner eigenen Fahrt-Detailseite. Siehe lib/queryError.ts.
+  throwOnQueryError(error, "Erkannte Streckenabschnitte");
+  if (!data) return [];
 
   return data.map((row) => ({
     id: row.id,
@@ -209,6 +213,9 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
     // Einstellung zusagt.
     let ownHoehenprofil: HoehenprofilPunkt[] | null = null;
     let ownTrack: GeoLineString | null = null;
+    // Nur für den Besitzer selbst gesetzt — siehe parentCompletionId weiter
+    // unten und der Kommentar auf CompletionDetail.parentCompletionId.
+    let ownParentCompletionId: string | null = null;
     if (viewerId === row.user_id) {
       const [
         { data: own, error: ownError },
@@ -216,10 +223,13 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
       ] = await Promise.all([
         supabase
           .from("route_completions")
-          .select("hoehenprofil")
+          .select("hoehenprofil, parent_completion_id")
           .eq("id", row.completion_id)
           .eq("user_id", viewerId)
-          .maybeSingle<{ hoehenprofil: HoehenprofilPunkt[] | null }>(),
+          .maybeSingle<{
+            hoehenprofil: HoehenprofilPunkt[] | null;
+            parent_completion_id: string | null;
+          }>(),
         supabase
           .from("fahrt_tracks")
           .select("track_geojson")
@@ -231,6 +241,7 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
 
       ownHoehenprofil = own?.hoehenprofil ?? null;
       ownTrack = ownTrackRow?.track_geojson ?? null;
+      ownParentCompletionId = own?.parent_completion_id ?? null;
     }
 
     return {
@@ -271,10 +282,11 @@ export const getCompletionDetail = cache(async function getCompletionDetail(
       hoehenprofil: ownHoehenprofil,
       track: ownTrack ?? trackRow?.track_geojson ?? null,
       // public_fahrten führt parent_completion_id absichtlich nicht (siehe
-      // 0050) — der Rückverweis "Teil einer längeren Fahrt" bleibt dem
-      // Besitzer selbst vorbehalten, unabhängig davon, wer diese Fahrt hier
-      // gerade betrachtet.
-      parentCompletionId: null,
+      // 0050) — der Rückverweis "Teil einer längeren Fahrt" bleibt fremden
+      // Betrachtern verborgen. Für den Besitzer selbst (ownParentCompletionId
+      // oben, nur dann geladen) bleibt er erhalten, auch wenn diese
+      // Streckenfahrt öffentlich ist und deshalb über public_fahrten läuft.
+      parentCompletionId: ownParentCompletionId,
     };
   }
 

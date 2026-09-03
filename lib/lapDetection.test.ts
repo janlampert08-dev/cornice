@@ -143,6 +143,27 @@ describe("detectLaps", () => {
     }
   });
 
+  it("bricht auch dann bei einer zu langen Lücke ab, wenn der Trail danach direkt wieder im Korridor liegt", () => {
+    const { coordinates, lengthKm } = squareLoop();
+    const candidate: RouteCandidate = { routeId: "r1", coordinates };
+
+    // Regression: anders als im Test oben gibt es hier KEINEN Punkt
+    // ausserhalb des Korridors während der Lücke (z.B. eine pausierte
+    // Aufzeichnung, die exakt am selben Ort wieder aufnimmt) — die
+    // Zeitlücken-Prüfung darf trotzdem greifen, nicht erst wenn ein Punkt
+    // ausserhalb des Korridors liegt.
+    const before = driveSegment(coordinates, lengthKm, 0, 0.4 * lengthKm, 0);
+    const lastBefore = before.points[before.points.length - 1];
+    const gapEndSeconds = lastBefore.t / 1000 + 200; // > MAX_GAP_SECONDS (180s)
+    const after = driveSegment(coordinates, lengthKm, 0.4 * lengthKm, lengthKm, gapEndSeconds);
+
+    const result = detectLaps([...before.points, ...after.points], [candidate]);
+
+    // Die restlichen 60% der Strecke reichen für sich allein nicht für eine
+    // volle Runde — keine Runde darf die Lücke überspannen.
+    expect(result.laps).toHaveLength(0);
+  });
+
   it("wertet ein kurzes Durchqueren des Korridors nicht als Runde", () => {
     const { coordinates, lengthKm } = squareLoop();
     const candidate: RouteCandidate = { routeId: "r1", coordinates };

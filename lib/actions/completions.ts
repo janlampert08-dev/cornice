@@ -19,10 +19,9 @@ import {
 import { publicTrackEwkt } from "@/lib/publicTrack";
 import { buildHoehenprofil, computeAscentM, fetchElevationProfile } from "@/lib/elevation";
 import { reverseGeocode } from "@/lib/geocoding";
-import { getRoute, listLoopRouteCandidates } from "@/lib/routes";
+import { getRoute, listLoopRouteCandidates, type LoopRouteCandidate } from "@/lib/routes";
 import { todayInZurich } from "@/lib/format";
 import { detectLaps, type DetectedLap, type RouteCandidate } from "@/lib/lapDetection";
-import type { RouteGeoJSON } from "@/types/database";
 
 export interface CompletionFormState {
   error: string | null;
@@ -380,6 +379,13 @@ interface DetectedSegmentPayload {
   track: string | null;
 }
 
+// Muss zum v_max_segments-Limit der RPC-Funktion in
+// 0050_streckenerkennung_in_freier_fahrt.sql passen. Ohne diese Kappung
+// hier würde ein Trail mit mehr Treffern die gesamte Fahrt zu Fall bringen
+// (save_free_ride_with_segments ist atomar) statt nur die überzähligen
+// Segmente zu verwerfen.
+const MAX_DETECTED_SEGMENTS = 20;
+
 // Wandelt die von lib/lapDetection.ts erkannten Zeitfenster in fertige
 // Segment-Datensätze um. lapDetection kennt nur den (vereinfachten) Trail
 // und liefert reine Zeitfenster (entryT/exitT) zurück — die eigentlichen
@@ -393,12 +399,14 @@ interface DetectedSegmentPayload {
 function buildDetectedSegments(
   trail: TrailPoint[],
   laps: DetectedLap[],
-  candidates: RouteGeoJSON[],
+  candidates: LoopRouteCandidate[],
 ): { payloads: DetectedSegmentPayload[]; summaries: DetectedSegmentSummary[] } {
   const payloads: DetectedSegmentPayload[] = [];
   const summaries: DetectedSegmentSummary[] = [];
 
   for (const lap of laps) {
+    if (payloads.length >= MAX_DETECTED_SEGMENTS) break;
+
     const route = candidates.find((r) => r.id === lap.routeId);
     if (!route) continue;
 
@@ -487,7 +495,12 @@ export async function logFreeRide(
     .filter((f): f is File => f instanceof File && f.size > 0)
     .slice(0, MAX_PHOTOS_PER_COMPLETION);
 
-  const coordinates = toCoordinates(simplifyTrack(trail));
+  // Einmal berechnet, für die gespeicherte Track-Geometrie und die
+  // Streckenerkennung weiter unten gemeinsam genutzt — Douglas-Peucker auf
+  // demselben, potenziell mehrere tausend Punkte grossen Trail zweimal
+  // laufen zu lassen wäre unnötige Arbeit.
+  const simplifiedTrail = simplifyTrack(trail);
+  const coordinates = toCoordinates(simplifiedTrail);
   const track = toEwktLineString(coordinates);
   if (!track) return { error: "Ungültige Tracking-Daten." };
 
@@ -517,7 +530,7 @@ export async function logFreeRide(
         routeId: r.id,
         coordinates: r.geometry_geojson.coordinates,
       }));
-      const { laps, partialAttempts } = detectLaps(simplifyTrack(trail), routeCandidates);
+      const { laps, partialAttempts } = detectLaps(simplifiedTrail, routeCandidates);
       const built = buildDetectedSegments(trail, laps, candidates);
       segmentPayloads = built.payloads;
       segmentSummaries = built.summaries;
@@ -537,27 +550,49 @@ export async function logFreeRide(
     console.error("Streckenerkennung fehlgeschlagen:", detectionError);
   }
 
-  const { data: insertedRaw, error } = await supabase.rpc("save_free_ride_with_segments", {
-    p_frei: {
-      fahrzeug_id: fahrzeugId,
-      datum: todayInZurich(),
-      distanz_km: distanzKm,
-      dauer_sekunden: dauerSekunden,
-      bewegte_zeit_sekunden: bewegteSekunden,
-      ist_oeffentlich: istOeffentlich,
-      titel,
-      notiz,
-      start_ort: ort?.ort ?? null,
-      region: ort?.region ?? null,
-      hoehenmeter_aufstieg: elevation.hoehenmeter_aufstieg,
-      hoehenprofil: elevation.hoehenprofil,
-      track,
-      track_oeffentlich: istOeffentlich
-        ? await publicTrackEwkt(supabase, user.id, coordinates)
-        : null,
-    },
+  const freiPayload = {
+    fahrzeug_id: fahrzeugId,
+    datum: todayInZurich(),
+    distanz_km: distanzKm,
+    dauer_sekunden: dauerSekunden,
+    bewegte_zeit_sekunden: bewegteSekunden,
+    ist_oeffentlich: istOeffentlich,
+    titel,
+    notiz,
+    start_ort: ort?.ort ?? null,
+    region: ort?.region ?? null,
+    hoehenmeter_aufstieg: elevation.hoehenmeter_aufstieg,
+    hoehenprofil: elevation.hoehenprofil,
+    track,
+    track_oeffentlich: istOeffentlich
+      ? await publicTrackEwkt(supabase, user.id, coordinates)
+      : null,
+  };
+
+  let { data: insertedRaw, error } = await supabase.rpc("save_free_ride_with_segments", {
+    p_frei: freiPayload,
     p_segments: segmentPayloads,
   });
+
+  // save_free_ride_with_segments ist atomar — ein Fehler bei irgendeinem
+  // Segment (z.B. route_not_eligible durch eine seltene Race zwischen
+  // Kandidatenauswahl und Insert: die Strecke wurde in der Zwischenzeit
+  // privat gesetzt/zurückgezogen) würde sonst auch die längst gültige
+  // freie Fahrt mit zu Fall bringen. Erkennung ist best effort, die Fahrt
+  // selbst nicht — deshalb hier einmal ohne Segmente erneut versuchen,
+  // statt die ganze Aufzeichnung zu verlieren.
+  if (
+    error &&
+    segmentPayloads.length > 0 &&
+    /route_not_eligible|too_many_segments/.test(error.message)
+  ) {
+    console.error("Segmentpersistenz fehlgeschlagen, speichere ohne Segmente:", error.message);
+    segmentSummaries = [];
+    ({ data: insertedRaw, error } = await supabase.rpc("save_free_ride_with_segments", {
+      p_frei: freiPayload,
+      p_segments: [],
+    }));
+  }
 
   const inserted = insertedRaw as
     | { out_id: string; out_art: "frei" | "strecke"; out_route_id: string | null }[]

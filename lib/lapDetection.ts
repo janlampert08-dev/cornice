@@ -210,6 +210,17 @@ function detectLapsForRoute(
   for (const point of trail) {
     const p: [number, number] = [point.lng, point.lat];
 
+    // Muss VOR der Fenstersuche laufen und unabhängig davon, ob dieser
+    // Punkt selbst im Korridor landet: sonst bleibt eine echte Lücke
+    // unentdeckt, wenn der Trail (z.B. wegen einer pausierten Aufzeichnung)
+    // nach der Lücke zufällig direkt wieder im Korridor aufsetzt — ein
+    // Punkt, der stets "trifft", hätte den alten Check (nur im
+    // Nicht-Treffer-Zweig) nie erreicht.
+    if (state.active) {
+      const gapSeconds = (point.t - state.lastT) / 1000;
+      if (gapSeconds > MAX_GAP_SECONDS) abort();
+    }
+
     if (!state.active) {
       const hit = findBestProjection(p, samples, lengthKm, null);
       if (hit && hit.distanceKm <= CORRIDOR_KM) {
@@ -234,11 +245,7 @@ function detectLapsForRoute(
         : null;
 
     const hit = findBestProjection(p, samples, lengthKm, window);
-    if (!hit || hit.distanceKm > CORRIDOR_KM) {
-      const gapSeconds = (point.t - state.lastT) / 1000;
-      if (gapSeconds > MAX_GAP_SECONDS) abort();
-      continue;
-    }
+    if (!hit || hit.distanceKm > CORRIDOR_KM) continue;
 
     const delta = wrappedDelta(state.lastS, hit.s, lengthKm);
 
