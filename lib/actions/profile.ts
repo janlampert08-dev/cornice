@@ -111,6 +111,12 @@ export async function updateVisibilitySettings(
 
 const MAX_AVATAR_BYTES = 4 * 1024 * 1024;
 
+// Muss mit den allowed_mime_types des "avatars"-Buckets übereinstimmen
+// (0033_route_length_and_upload_mime_hardening.sql) — sonst besteht ein Foto
+// diese Prüfung, scheitert aber erst beim Storage-Upload mit einer
+// nichtssagenden Fehlermeldung (z. B. HEIC-Fotos von iPhones).
+const ALLOWED_AVATAR_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
 export async function uploadAvatar(
   _prevState: ProfileActionState,
   formData: FormData,
@@ -124,7 +130,9 @@ export async function uploadAvatar(
 
   const foto = formData.get("avatar") as File | null;
   if (!foto || foto.size === 0) return { error: "Bitte ein Foto auswählen." };
-  if (!foto.type.startsWith("image/")) return { error: "Nur Bilddateien sind erlaubt." };
+  if (!ALLOWED_AVATAR_MIME_TYPES.includes(foto.type)) {
+    return { error: "Nur JPEG-, PNG-, WEBP- oder GIF-Bilder sind erlaubt." };
+  }
   if (foto.size > MAX_AVATAR_BYTES) return { error: "Foto ist zu gross (max. 4 MB)." };
 
   const ext = foto.name.split(".").pop() ?? "jpg";

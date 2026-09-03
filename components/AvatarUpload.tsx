@@ -28,7 +28,7 @@ export default function AvatarUpload({
           type="file"
           name="avatar"
           id="avatar-input"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp,image/gif"
           onChange={(e) => e.target.form?.requestSubmit()}
           className="sr-only"
         />
