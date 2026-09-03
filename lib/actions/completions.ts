@@ -325,6 +325,11 @@ export interface FreeRideFormState {
   // mit eigenem Sichtbarkeits-Toggle anzeigt. Leer im ganz überwiegenden
   // Fall (keine Rundstrecke abgedeckt).
   segments?: (DetectedSegmentSummary & { id: string })[];
+  // Rundstrecken, die spürbar, aber nicht vollständig abgefahren wurden —
+  // rein informativ ("fast geschafft"), keine eigene Fahrt, nichts
+  // Gespeichertes. Der Fazit-Screen zeigt das kurz an, bevor er wie gewohnt
+  // auf die neue Fahrt weiterleitet.
+  partialAttempts?: PartialAttemptSummary[];
 }
 
 // Höhenprofil und Anstieg einer freien Fahrt, best effort: der swisstopo-
@@ -354,6 +359,17 @@ export interface DetectedSegmentSummary {
   distanzKm: number;
   dauerSekunden: number;
 }
+
+export interface PartialAttemptSummary {
+  routeId: string;
+  routeName: string;
+  percent: number;
+}
+
+// Unterhalb dieses Fortschritts wird ein nicht geschlossener Rundenversuch
+// gar nicht erst als Hinweis zurückgegeben — reiner UI-Schwellenwert, ohne
+// Einfluss auf die eigentliche Erkennung.
+const MIN_PARTIAL_HINT_FRACTION = 0.3;
 
 interface DetectedSegmentPayload {
   route_id: string;
@@ -493,6 +509,7 @@ export async function logFreeRide(
   // effort, wie Ortsbezug/Höhenprofil oben.
   let segmentPayloads: DetectedSegmentPayload[] = [];
   let segmentSummaries: DetectedSegmentSummary[] = [];
+  let partialAttemptSummaries: PartialAttemptSummary[] = [];
   try {
     const candidates = await listLoopRouteCandidates(user.id);
     if (candidates.length > 0) {
@@ -500,10 +517,21 @@ export async function logFreeRide(
         routeId: r.id,
         coordinates: r.geometry_geojson.coordinates,
       }));
-      const { laps } = detectLaps(simplifyTrack(trail), routeCandidates);
+      const { laps, partialAttempts } = detectLaps(simplifyTrack(trail), routeCandidates);
       const built = buildDetectedSegments(trail, laps, candidates);
       segmentPayloads = built.payloads;
       segmentSummaries = built.summaries;
+
+      // Rein informativ ("fast geschafft"), keine Fahrt und nichts, das
+      // gespeichert wird — nur ab einem gewissen Fortschritt zeigen, sonst
+      // wäre jede zufällig gekreuzte Rundstrecke eine Meldung wert.
+      partialAttemptSummaries = partialAttempts
+        .filter((p) => p.maxProgressFraction >= MIN_PARTIAL_HINT_FRACTION)
+        .map((p) => ({
+          routeId: p.routeId,
+          routeName: candidates.find((r) => r.id === p.routeId)?.name ?? "Strecke",
+          percent: Math.round(p.maxProgressFraction * 100),
+        }));
     }
   } catch (detectionError) {
     console.error("Streckenerkennung fehlgeschlagen:", detectionError);
@@ -560,7 +588,12 @@ export async function logFreeRide(
     revalidatePath("/feed");
     revalidatePath(`/fahrer/${user.id}`);
   }
-  return { error: null, completionId: parentRow.out_id, segments };
+  return {
+    error: null,
+    completionId: parentRow.out_id,
+    segments,
+    partialAttempts: partialAttemptSummaries,
+  };
 }
 
 export interface DeleteCompletionState {

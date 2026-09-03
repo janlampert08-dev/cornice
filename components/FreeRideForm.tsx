@@ -15,6 +15,7 @@ import type { RouteGeoJSON, Vehicle } from "@/types/database";
 import { fieldClassName } from "@/components/ui/Input";
 import { buttonVariants } from "@/components/ui/Button";
 import Skeleton from "@/components/ui/Skeleton";
+import Card from "@/components/ui/Card";
 
 // Siehe ExploreView.tsx für die Begründung des dynamischen Imports.
 const RouteMap = dynamic(() => import("@/components/RouteMap"), {
@@ -60,6 +61,12 @@ export default function FreeRideForm({
   const [titel, setTitel] = useState("");
   const [isPublic, setIsPublic] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  // Hält die automatische Weiterleitung an, solange es noch etwas
+  // Informatives zu zeigen gibt (siehe partialAttempts unten) — im
+  // ganz überwiegenden Fall (keine oder nur volle Runden erkannt) bleibt
+  // dieser Zustand ungenutzt und die Weiterleitung passiert wie bisher
+  // sofort.
+  const [partialAcknowledged, setPartialAcknowledged] = useState(false);
 
   // Dieselbe Prüfung wie im Server (logFreeRide): eine zu kurze Aufzeichnung
   // lässt sich speichern, aber nicht teilen. Die Bewegtzeit wird hier aus
@@ -71,13 +78,26 @@ export default function FreeRideForm({
   }, [result, recorder.finishedTrail]);
 
   // Nach dem Speichern direkt auf die neue Fahrt — anders als bei einer
-  // Streckenfahrt gibt es keine Seite, zu der man "zurück" könnte.
+  // Streckenfahrt gibt es keine Seite, zu der man "zurück" könnte. Gibt es
+  // ausserdem einen "fast geschafft"-Hinweis (partialAttempts), wartet die
+  // Weiterleitung, bis der Nutzer ihn gesehen und bestätigt hat — dafür
+  // gibt es sonst keine Seite, auf der er später noch auftauchen könnte
+  // (nicht gespeichert, siehe lib/actions/completions.ts).
+  const hasUnacknowledgedPartial = (state.partialAttempts?.length ?? 0) > 0 && !partialAcknowledged;
   useEffect(() => {
-    if (submitted && !pending && !state.error && state.completionId) {
+    if (submitted && !pending && !state.error && state.completionId && !hasUnacknowledgedPartial) {
       clearSnapshot();
       router.push(`/fahrten/${state.completionId}`);
     }
-  }, [submitted, pending, state.error, state.completionId, clearSnapshot, router]);
+  }, [
+    submitted,
+    pending,
+    state.error,
+    state.completionId,
+    hasUnacknowledgedPartial,
+    clearSnapshot,
+    router,
+  ]);
 
   function handleExit() {
     discard();
@@ -112,49 +132,73 @@ export default function FreeRideForm({
             </div>
           </dl>
 
-          <RideSummaryForm
-            formAction={formAction}
-            pending={pending}
-            error={state.error}
-            vehicles={vehicles}
-            trailJson={recorder.trailJson}
-            visibility={{
-              publicDisabled: publicationBlocked !== null,
-              publicDisabledHint: publicationBlocked ?? undefined,
-              publicHint:
-                "Öffentlich: erscheint im Feed und auf deinem öffentlichen Profil. Start und Ziel werden auf der Karte gekappt (Privatzone in den Einstellungen). Später jederzeit umschaltbar.",
-              privateHint:
-                "Privat: nur du siehst diese Fahrt in deinem Profil, für andere bleibt sie unsichtbar. Später jederzeit umschaltbar.",
-            }}
-            isPublic={isPublic}
-            onIsPublicChange={setIsPublic}
-            onSubmit={() => setSubmitted(true)}
-            onDiscard={handleExit}
-          >
-            <div className="flex flex-col gap-1 text-sm">
-              <div className="flex items-baseline justify-between">
-                <label
-                  htmlFor="freie-fahrt-titel"
-                  className="text-xs font-semibold tracking-wide text-muted uppercase"
-                >
-                  Titel (optional)
-                </label>
-                <span className="font-mono text-xs tabular-nums text-muted">
-                  {titel.length}/{MAX_TITEL_LENGTH}
-                </span>
+          {/* Erst nach erfolgreichem Speichern relevant, siehe
+              hasUnacknowledgedPartial oben: hält kurz an, bevor es wie
+              gewohnt auf die neue Fahrt weitergeht — es gibt sonst keine
+              Seite, auf der dieser Hinweis später noch stehen könnte
+              (partialAttempts wird nicht gespeichert). */}
+          {state.completionId && hasUnacknowledgedPartial ? (
+            <Card surface className="flex flex-col gap-3 p-4 text-sm">
+              <p className="font-medium text-foreground">Fahrt gespeichert.</p>
+              {state.partialAttempts!.map((p) => (
+                <p key={p.routeId} className="text-muted">
+                  „{p.routeName}&#8220; wurde zu {p.percent}% gefahren — nicht vollständig, zählt nicht
+                  als eigene Fahrt.
+                </p>
+              ))}
+              <button
+                type="button"
+                onClick={() => setPartialAcknowledged(true)}
+                className={buttonVariants({ variant: "accent", size: "sm" })}
+              >
+                Weiter
+              </button>
+            </Card>
+          ) : (
+            <RideSummaryForm
+              formAction={formAction}
+              pending={pending}
+              error={state.error}
+              vehicles={vehicles}
+              trailJson={recorder.trailJson}
+              visibility={{
+                publicDisabled: publicationBlocked !== null,
+                publicDisabledHint: publicationBlocked ?? undefined,
+                publicHint:
+                  "Öffentlich: erscheint im Feed und auf deinem öffentlichen Profil. Start und Ziel werden auf der Karte gekappt (Privatzone in den Einstellungen). Später jederzeit umschaltbar.",
+                privateHint:
+                  "Privat: nur du siehst diese Fahrt in deinem Profil, für andere bleibt sie unsichtbar. Später jederzeit umschaltbar.",
+              }}
+              isPublic={isPublic}
+              onIsPublicChange={setIsPublic}
+              onSubmit={() => setSubmitted(true)}
+              onDiscard={handleExit}
+            >
+              <div className="flex flex-col gap-1 text-sm">
+                <div className="flex items-baseline justify-between">
+                  <label
+                    htmlFor="freie-fahrt-titel"
+                    className="text-xs font-semibold tracking-wide text-muted uppercase"
+                  >
+                    Titel (optional)
+                  </label>
+                  <span className="font-mono text-xs tabular-nums text-muted">
+                    {titel.length}/{MAX_TITEL_LENGTH}
+                  </span>
+                </div>
+                <input
+                  id="freie-fahrt-titel"
+                  name="titel"
+                  type="text"
+                  maxLength={MAX_TITEL_LENGTH}
+                  value={titel}
+                  onChange={(e) => setTitel(e.target.value)}
+                  placeholder="z.B. Sonntagsrunde Zürichsee"
+                  className={fieldClassName()}
+                />
               </div>
-              <input
-                id="freie-fahrt-titel"
-                name="titel"
-                type="text"
-                maxLength={MAX_TITEL_LENGTH}
-                value={titel}
-                onChange={(e) => setTitel(e.target.value)}
-                placeholder="z.B. Sonntagsrunde Zürichsee"
-                className={fieldClassName()}
-              />
-            </div>
-          </RideSummaryForm>
+            </RideSummaryForm>
+          )}
         </div>
       </div>
     );
