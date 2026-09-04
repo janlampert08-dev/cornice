@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { isModerator } from "@/lib/moderation";
+import { getUnseenKudosCount } from "@/lib/kudos";
 import { getNavItems } from "@/lib/nav";
 import BackButton from "@/components/BackButton";
 import BottomNav from "@/components/BottomNav";
@@ -12,6 +13,10 @@ export default async function Header({ back }: { back?: string } = {}) {
     data: { user },
   } = await supabase.auth.getUser();
   const moderator = user ? await isModerator(user.id) : false;
+  // Rückkanal für "Community reagiert" im Kernloop (siehe AGENTS.md, "Core
+  // User Loop") — ohne diesen Zähler erfährt der Fahrer sonst nie aktiv,
+  // dass eine geteilte Fahrt Kudos bekommen hat.
+  const unseenKudosCount = user ? await getUnseenKudosCount() : 0;
   // "/" wird hier ausgelassen — das Logo verlinkt bereits dorthin, ein
   // zweiter Link wäre redundant. Einzige Quelle der Nav-Items: lib/nav.ts,
   // von BottomNav (Mobile) genauso genutzt.
@@ -49,15 +54,20 @@ export default async function Header({ back }: { back?: string } = {}) {
               <Link
                 key={item.href}
                 href={item.href}
-                className="whitespace-nowrap text-foreground transition-colors duration-fast hover:text-accent"
+                className="flex items-center gap-1.5 whitespace-nowrap text-foreground transition-colors duration-fast hover:text-accent"
               >
                 {item.label}
+                {item.href === "/profil" && unseenKudosCount > 0 && (
+                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-background">
+                    {unseenKudosCount > 9 ? "9+" : unseenKudosCount}
+                  </span>
+                )}
               </Link>
             ),
           )}
         </nav>
       </header>
-      <BottomNav loggedIn={!!user} moderator={moderator} />
+      <BottomNav loggedIn={!!user} moderator={moderator} unseenKudosCount={unseenKudosCount} />
     </>
   );
 }

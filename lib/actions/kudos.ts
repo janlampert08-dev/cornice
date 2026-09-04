@@ -48,3 +48,18 @@ export async function toggleKudos(completionId: string): Promise<{ ok: boolean }
   revalidatePath("/profil");
   return { ok: true };
 }
+
+// Markiert die eigenen Kudos-Reaktionen als gesehen (setzt
+// profiles.kudos_gesehen_am = now() über mark_kudos_seen,
+// 0053_kudos_gesehen.sql) — aufgerufen beim Laden des eigenen Profils
+// (components/MarkKudosSeen.tsx), setzt den Ungelesen-Zähler in der
+// Navigation (lib/kudos.ts, getUnseenKudosCount) auf null zurück.
+export async function markKudosSeen(): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  await supabase.rpc("mark_kudos_seen");
+}
