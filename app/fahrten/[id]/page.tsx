@@ -76,32 +76,36 @@ export default async function FahrtDetailPage({
   if (!completion) notFound();
 
   const istFreieFahrt = completion.art === "frei";
-  const route = completion.routeId ? await getRoute(completion.routeId) : null;
+
+  // Die folgenden vier Abfragen hängen alle nur an completion, nicht
+  // voneinander — parallel statt nacheinander gestartet (gleiches Muster
+  // wie app/strecken/[id]/page.tsx), spart auf dieser Seite einen
+  // entsprechend langen Round-Trip-Wasserfall.
+  const [route, kudosByCompletion, detectedSegments, achievementStats] = await Promise.all([
+    completion.routeId ? getRoute(completion.routeId) : Promise.resolve(null),
+    completion.istOeffentlich
+      ? getKudosForCompletions([completion.id], user?.id ?? null)
+      : Promise.resolve(null),
+    // Nur für den Besitzer einer freien Fahrt: innerhalb dieser Aufzeichnung
+    // automatisch erkannte Streckenabschnitte (siehe lib/lapDetection.ts).
+    // Bewusst nicht für fremde Betrachter geladen — die Verknüpfung ist kein
+    // Teil der öffentlichen Views (public_fahrten & Co.), siehe
+    // getDetectedSegments.
+    completion.isOwner && istFreieFahrt && user
+      ? getDetectedSegments(completion.id, user.id)
+      : Promise.resolve([]),
+    // Nur für den Besitzer geladen — die Meilensteine sind seine eigenen
+    // Gesamtzahlen, nicht die dieser einzelnen Fahrt, und für einen fremden
+    // Betrachter irrelevant (spart die zusätzliche Query in dem Fall).
+    completion.isOwner ? getUserAchievementStats(completion.userId) : Promise.resolve(null),
+  ]);
+
   // Eine Streckenfahrt ohne auffindbare Strecke gibt es nicht — eine freie
   // Fahrt dagegen hat per Definition keine.
   if (!istFreieFahrt && !route) notFound();
 
-  const kudosByCompletion = completion.istOeffentlich
-    ? await getKudosForCompletions([completion.id], user?.id ?? null)
-    : null;
   const kudos = kudosByCompletion?.get(completion.id) ?? null;
-
-  // Nur für den Besitzer einer freien Fahrt: innerhalb dieser Aufzeichnung
-  // automatisch erkannte Streckenabschnitte (siehe lib/lapDetection.ts).
-  // Bewusst nicht für fremde Betrachter geladen — die Verknüpfung ist kein
-  // Teil der öffentlichen Views (public_fahrten & Co.), siehe
-  // getDetectedSegments.
-  const detectedSegments =
-    completion.isOwner && istFreieFahrt && user
-      ? await getDetectedSegments(completion.id, user.id)
-      : [];
-
-  // Nur für den Besitzer berechnet — die Meilensteine sind seine eigenen
-  // Gesamtzahlen, nicht die dieser einzelnen Fahrt, und für einen fremden
-  // Betrachter irrelevant (spart die zusätzlichen Queries in dem Fall).
-  const milestoneLabel = completion.isOwner
-    ? featuredMilestone(await getUserAchievementStats(completion.userId))
-    : null;
+  const milestoneLabel = achievementStats ? featuredMilestone(achievementStats) : null;
 
   // Bei einer freien Fahrt zählt die Bewegtzeit — eine Ausfahrt mit
   // Kaffeestopp hätte über die verstrichene Zeit ein sinnlos niedriges
