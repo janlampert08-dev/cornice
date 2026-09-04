@@ -8,102 +8,89 @@ export interface LeaderboardEntry {
   isPremiumBadge: boolean;
 }
 
-export interface LeaderboardRow {
+// Zeilenform von public.leaderboard_user_totals (0054_leaderboard_user_totals.sql)
+// — bereits serverseitig pro Nutzer aggregiert (eine Zeile pro Nutzer statt
+// pro Fahrt), damit getGlobalLeaderboards() unten nicht mehr die komplette
+// Fahrtenhistorie der Plattform laden und selbst summieren muss.
+export interface LeaderboardUserTotalsRow {
   user_id: string;
   display_name: string | null;
   avatar_url: string | null;
-  route_id: string;
-  hoehe_m: number | null;
-  effektive_distanz_km: number | null;
   ist_premium: boolean;
   zeigt_premium_badge: boolean;
+  fahrten_count: number;
+  hoehenmeter: number;
+  km: number;
+  strecken_count: number;
 }
+
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
 const TOP_N = 3;
 
-function toTopEntries(
-  values: Map<string, number>,
-  names: Map<string, string>,
-  avatarUrls: Map<string, string | null>,
-): LeaderboardEntry[] {
-  return Array.from(values.entries())
-    .map(([userId, value]) => ({
-      userId,
-      name: names.get(userId) ?? "Anonym",
-      // avatar_url kommt bereits serverseitig mit dem zeigt_avatar-Opt-in
-      // verrechnet aus der View (siehe 0028_leaderboard_avatar.sql) — hier
-      // nur noch durchgereicht, keine weitere Prüfung nötig.
-      avatarUrl: avatarUrls.get(userId) ?? null,
-      value,
-      // Premium-Feature (Gold-Badge) vorerst deaktiviert.
-      isPremiumBadge: false,
-    }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, TOP_N);
+// Exportiert für lib/leaderboard.test.ts — die eigentliche Summierung/
+// Deduplizierung läuft seit 0054_leaderboard_user_totals.sql serverseitig in
+// der View, hier bleibt nur noch die Zeile-zu-LeaderboardEntry-Abbildung als
+// reine, unit-testbare Funktion übrig.
+export function toEntry(row: LeaderboardUserTotalsRow, value: number): LeaderboardEntry {
+  return {
+    userId: row.user_id,
+    name: row.display_name ?? "Anonym",
+    // avatar_url kommt bereits serverseitig mit dem zeigt_avatar-Opt-in
+    // verrechnet aus der View (siehe 0028_leaderboard_avatar.sql) — hier
+    // nur noch durchgereicht, keine weitere Prüfung nötig.
+    avatarUrl: row.avatar_url,
+    value,
+    // Premium-Feature (Gold-Badge) vorerst deaktiviert.
+    isPremiumBadge: false,
+  };
+}
+
+// Holt direkt die Top TOP_N Nutzer für eine Metrik aus
+// leaderboard_user_totals — sortiert und begrenzt die Datenbank selbst
+// (order/limit), statt wie zuvor die komplette Tabelle zu laden und in JS
+// zu sortieren.
+async function topByMetric(
+  supabase: SupabaseClient,
+  metric: "fahrten_count" | "hoehenmeter" | "km" | "strecken_count",
+): Promise<LeaderboardEntry[]> {
+  const { data, error } = await supabase
+    .from("leaderboard_user_totals")
+    .select("user_id, display_name, avatar_url, fahrten_count, hoehenmeter, km, strecken_count")
+    .order(metric, { ascending: false, nullsFirst: false })
+    .limit(TOP_N);
+
+  if (error || !data) return [];
+
+  return (data as LeaderboardUserTotalsRow[]).map((row) => toEntry(row, row[metric]));
 }
 
 // Vier bewusst nicht-zeitbezogene Bestenlisten (siehe 0013_leaderboard_view.sql
 // für die Begründung) — belohnen Distanz/Höhenmeter/Anzahl aufgezeichneter
-// Fahrten/unterschiedlicher Strecken, nie Geschwindigkeit.
-export function aggregateLeaderboards(rows: LeaderboardRow[]): {
+// Fahrten/unterschiedlicher Strecken, nie Geschwindigkeit. "Entdecker"
+// (strecken_count) zählt unterschiedliche Strecken statt reiner Fahrtenzahl
+// — belohnt Vielfalt auch für Nutzer, die nie an die Spitze der
+// Distanz-/Höhenmeter-Rangliste kommen. Bewusst ohne Zeitfenster:
+// leaderboard_completions liefert kein Datum; ein Rolling-Window wäre eine
+// eigene View-Änderung und ist nicht Teil dieser Phase.
+export async function getGlobalLeaderboards(): Promise<{
   meisteFahrten: LeaderboardEntry[];
   meisteHoehenmeter: LeaderboardEntry[];
   meisteKm: LeaderboardEntry[];
   meisteStrecken: LeaderboardEntry[];
-} {
-  const names = new Map<string, string>();
-  const avatarUrls = new Map<string, string | null>();
-  const fahrtenByUser = new Map<string, number>();
-  const hoehenmeterByUser = new Map<string, number>();
-  const kmByUser = new Map<string, number>();
-  const streckenByUser = new Map<string, Set<string>>();
-
-  for (const row of rows) {
-    names.set(row.user_id, row.display_name ?? "Anonym");
-    avatarUrls.set(row.user_id, row.avatar_url);
-
-    // Jede Aufzeichnung zählt, auch mehrfach gefahrene Strecken — im
-    // Gegensatz zu passCount (lib/profile.ts), das pro Strecke dedupliziert.
-    fahrtenByUser.set(row.user_id, (fahrtenByUser.get(row.user_id) ?? 0) + 1);
-
-    hoehenmeterByUser.set(row.user_id, (hoehenmeterByUser.get(row.user_id) ?? 0) + (row.hoehe_m ?? 0));
-    kmByUser.set(row.user_id, (kmByUser.get(row.user_id) ?? 0) + (row.effektive_distanz_km ?? 0));
-
-    // "Entdecker": Anzahl unterschiedlicher Strecken statt reiner
-    // Fahrtenzahl — belohnt Vielfalt auch für Nutzer, die nie an die Spitze
-    // der Distanz-/Höhenmeter-Rangliste kommen. Hiess zuvor "Stammfahrer",
-    // was sprachlich das Gegenteil suggerierte (Treue zu derselben Strecke,
-    // wie Stravas "Local Legend" — meiste Fahrten auf einer Strecke). Bewusst
-    // ohne Zeitfenster: leaderboard_completions liefert kein Datum; ein
-    // Rolling-Window wäre eine eigene View-Änderung (Migration) und ist
-    // nicht Teil dieser Phase.
-    if (!streckenByUser.has(row.user_id)) streckenByUser.set(row.user_id, new Set());
-    streckenByUser.get(row.user_id)!.add(row.route_id);
-  }
-
-  const streckenCountByUser = new Map<string, number>(
-    [...streckenByUser.entries()].map(([userId, routeIds]) => [userId, routeIds.size]),
-  );
-
-  return {
-    meisteFahrten: toTopEntries(fahrtenByUser, names, avatarUrls),
-    meisteHoehenmeter: toTopEntries(hoehenmeterByUser, names, avatarUrls),
-    meisteKm: toTopEntries(kmByUser, names, avatarUrls),
-    meisteStrecken: toTopEntries(streckenCountByUser, names, avatarUrls),
-  };
-}
-
-export async function getGlobalLeaderboards(): Promise<
-  ReturnType<typeof aggregateLeaderboards>
-> {
+}> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("leaderboard_completions").select("*");
 
-  if (error || !data) {
-    return { meisteFahrten: [], meisteHoehenmeter: [], meisteKm: [], meisteStrecken: [] };
-  }
+  // Vier unabhängige, jeweils auf TOP_N Zeilen begrenzte Abfragen statt
+  // einer einzigen "alles laden"-Abfrage — parallel gestartet.
+  const [meisteFahrten, meisteHoehenmeter, meisteKm, meisteStrecken] = await Promise.all([
+    topByMetric(supabase, "fahrten_count"),
+    topByMetric(supabase, "hoehenmeter"),
+    topByMetric(supabase, "km"),
+    topByMetric(supabase, "strecken_count"),
+  ]);
 
-  return aggregateLeaderboards(data as LeaderboardRow[]);
+  return { meisteFahrten, meisteHoehenmeter, meisteKm, meisteStrecken };
 }
 
 export interface RouteTimeEntry {
