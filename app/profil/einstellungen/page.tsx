@@ -68,17 +68,17 @@ export default async function EinstellungenPage() {
             </h2>
             <p className="text-sm text-muted">
               Legt fest, was andere Nutzer auf deinem öffentlichen Profil sehen. Standardmässig ist
-              alles aus. Ob eine einzelne Fahrt öffentlich ist, entscheidest du separat im
+              alles an. Ob eine einzelne Fahrt öffentlich ist, entscheidest du separat im
               Fazit-Screen beim Speichern oder per Symbol bei &bdquo;Getrackte Fahrten&ldquo; in
               deinem Profil.
             </p>
             <VisibilitySettings
-              zeigtFahrzeuge={profile?.zeigt_fahrzeuge ?? false}
-              zeigtAvatar={profile?.zeigt_avatar ?? false}
-              zeigtPaesse={profile?.zeigt_paesse ?? false}
-              zeigtHoehenmeter={profile?.zeigt_hoehenmeter ?? false}
-              zeigtDistanz={profile?.zeigt_distanz ?? false}
-              zeigtFollowerListe={profile?.zeigt_follower_liste ?? false}
+              zeigtFahrzeuge={profile?.zeigt_fahrzeuge ?? true}
+              zeigtAvatar={profile?.zeigt_avatar ?? true}
+              zeigtPaesse={profile?.zeigt_paesse ?? true}
+              zeigtHoehenmeter={profile?.zeigt_hoehenmeter ?? true}
+              zeigtDistanz={profile?.zeigt_distanz ?? true}
+              zeigtFollowerListe={profile?.zeigt_follower_liste ?? true}
               privatzoneRadiusM={profile?.privatzone_radius_m ?? DEFAULT_PRIVACY_RADIUS_M}
             />
           </section>
