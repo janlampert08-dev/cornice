@@ -20,6 +20,30 @@ export async function getRoutes(): Promise<{ routes: RouteGeoJSON[]; error: bool
   return { routes: (data as RouteGeoJSON[]) ?? [], error: false };
 }
 
+// Für die Streckenauswahl in TrackLeaderboardChooser (app/leaderboards) —
+// die dortige Karte braucht nur id+name, kein select("*") mit voller
+// Geometrie/Höhenprofil/Tempolimits wie getRoutes() oben.
+export interface RouteChoice {
+  id: string;
+  name: string;
+}
+
+export async function listRouteChoices(): Promise<RouteChoice[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("routes_geojson")
+    .select("id, name")
+    .eq("status_ok", true)
+    .order("name");
+
+  if (error) {
+    console.error("Streckenliste konnte nicht geladen werden:", error.message);
+    return [];
+  }
+
+  return (data as RouteChoice[]) ?? [];
+}
+
 // Kandidaten für die automatische Streckenerkennung innerhalb einer freien
 // Fahrt (lib/lapDetection.ts) — Strecken, die der Nutzer überhaupt
 // completen dürfte: freigegeben, und private Strecken nur die eigenen. Ohne
