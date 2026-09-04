@@ -19,7 +19,11 @@ import {
 import { publicTrackEwkt } from "@/lib/publicTrack";
 import { buildHoehenprofil, computeAscentM, fetchElevationProfile } from "@/lib/elevation";
 import { reverseGeocode } from "@/lib/geocoding";
-import { getRoute, listLoopRouteCandidates, type LoopRouteCandidate } from "@/lib/routes";
+import {
+  getRoute,
+  listRouteDetectionCandidates,
+  type RouteDetectionCandidate,
+} from "@/lib/routes";
 import { todayInZurich } from "@/lib/format";
 import { detectLaps, type DetectedLap, type RouteCandidate } from "@/lib/lapDetection";
 
@@ -322,9 +326,9 @@ export interface FreeRideFormState {
   // Innerhalb dieser Fahrt automatisch erkannte Streckenabschnitte (siehe
   // lib/lapDetection.ts) — für den Fazit-Screen, der sie als eigene Karten
   // mit eigenem Sichtbarkeits-Toggle anzeigt. Leer im ganz überwiegenden
-  // Fall (keine Rundstrecke abgedeckt).
+  // Fall (keine hinterlegte Strecke vollständig abgedeckt).
   segments?: (DetectedSegmentSummary & { id: string })[];
-  // Rundstrecken, die spürbar, aber nicht vollständig abgefahren wurden —
+  // Strecken, die spürbar, aber nicht vollständig abgefahren wurden —
   // rein informativ ("fast geschafft"), keine eigene Fahrt, nichts
   // Gespeichertes. Der Fazit-Screen zeigt das kurz an, bevor er wie gewohnt
   // auf die neue Fahrt weiterleitet.
@@ -399,7 +403,7 @@ const MAX_DETECTED_SEGMENTS = 20;
 function buildDetectedSegments(
   trail: TrailPoint[],
   laps: DetectedLap[],
-  candidates: LoopRouteCandidate[],
+  candidates: RouteDetectionCandidate[],
 ): { payloads: DetectedSegmentPayload[]; summaries: DetectedSegmentSummary[] } {
   const payloads: DetectedSegmentPayload[] = [];
   const summaries: DetectedSegmentSummary[] = [];
@@ -524,11 +528,12 @@ export async function logFreeRide(
   let segmentSummaries: DetectedSegmentSummary[] = [];
   let partialAttemptSummaries: PartialAttemptSummary[] = [];
   try {
-    const candidates = await listLoopRouteCandidates(user.id);
+    const candidates = await listRouteDetectionCandidates(user.id);
     if (candidates.length > 0) {
       const routeCandidates: RouteCandidate[] = candidates.map((r) => ({
         routeId: r.id,
         coordinates: r.geometry_geojson.coordinates,
+        isLoop: r.ist_rundfahrt,
       }));
       const { laps, partialAttempts } = detectLaps(simplifiedTrail, routeCandidates);
       const built = buildDetectedSegments(trail, laps, candidates);
@@ -537,7 +542,7 @@ export async function logFreeRide(
 
       // Rein informativ ("fast geschafft"), keine Fahrt und nichts, das
       // gespeichert wird — nur ab einem gewissen Fortschritt zeigen, sonst
-      // wäre jede zufällig gekreuzte Rundstrecke eine Meldung wert.
+      // wäre jede zufällig gekreuzte Strecke eine Meldung wert.
       partialAttemptSummaries = partialAttempts
         .filter((p) => p.maxProgressFraction >= MIN_PARTIAL_HINT_FRACTION)
         .map((p) => ({
