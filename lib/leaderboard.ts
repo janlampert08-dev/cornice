@@ -19,6 +19,11 @@ export interface LeaderboardUserTotalsRow {
   ist_premium: boolean;
   zeigt_premium_badge: boolean;
   fahrten_count: number;
+  // Summe von hoehenmeter_aufstieg (kumulierter Anstieg aus dem GPS-Track)
+  // über alle Fahrten des Nutzers, freie wie Streckenfahrten. Vor
+  // 0056_freie_fahrten_in_bestenlisten.sql war das die Scheitelhöhe der
+  // gefahrenen Strecken (routes.hoehe_m) und liess sich für freie Fahrten
+  // nicht bilden.
   hoehenmeter: number;
   km: number;
   strecken_count: number;
@@ -73,6 +78,13 @@ async function topByMetric(
 // Distanz-/Höhenmeter-Rangliste kommen. Bewusst ohne Zeitfenster:
 // leaderboard_completions liefert kein Datum; ein Rolling-Window wäre eine
 // eigene View-Änderung und ist nicht Teil dieser Phase.
+//
+// Seit 0056_freie_fahrten_in_bestenlisten.sql zählen auch freie Fahrten
+// (art = 'frei') in fahrten_count/hoehenmeter/km mit — vorher (0044) waren
+// die vier Listen ausschliesslich streckenbasiert. strecken_count bleibt
+// unverändert streckenbasiert: count(distinct route_id) in
+// leaderboard_user_totals ignoriert NULL-route_id (freie Fahrten) von
+// selbst, ohne eigenen Filter.
 export async function getGlobalLeaderboards(): Promise<{
   meisteFahrten: LeaderboardEntry[];
   meisteHoehenmeter: LeaderboardEntry[];

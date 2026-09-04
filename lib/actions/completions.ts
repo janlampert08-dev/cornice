@@ -260,7 +260,13 @@ export async function logTrackedCompletion(
 
   const streckenKoordinaten = toCoordinates(simplifyTrack(trail));
 
-  const uploaded = await uploadFotos(supabase, user.id, fotos);
+  // Fotos hochladen und Höhenmeter ableiten sind unabhängige externe
+  // Aufrufe (Storage bzw. swisstopo) — parallel statt nacheinander, gleiches
+  // Muster wie bei der freien Fahrt weiter unten (deriveElevation).
+  const [uploaded, elevation] = await Promise.all([
+    uploadFotos(supabase, user.id, fotos),
+    deriveElevation(streckenKoordinaten),
+  ]);
   if ("error" in uploaded) return { error: uploaded.error };
   const uploadedUrls = uploaded.urls;
 
@@ -284,6 +290,11 @@ export async function logTrackedCompletion(
       ist_oeffentlich: istOeffentlich,
       abdeckung_prozent: abdeckungProzent,
       notiz,
+      // Seit 0054_freie_fahrten_in_bestenlisten.sql zählen Streckenfahrten
+      // in der Höhenmeter-Bestenliste über denselben kumulierten Anstieg
+      // wie freie Fahrten (statt der Scheitelhöhe der Strecke) — deshalb
+      // hier ab jetzt ebenfalls berechnet, nicht mehr nur bei logFreeRide.
+      hoehenmeter_aufstieg: elevation.hoehenmeter_aufstieg,
       // Ab 0044 wird der gefahrene Track gespeichert statt nach der
       // Berechnung verworfen — vereinfacht (die Kennzahlen oben stammen
       // weiterhin aus den Rohpunkten). Nur für den Besitzer lesbar.
@@ -335,10 +346,13 @@ export interface FreeRideFormState {
   partialAttempts?: PartialAttemptSummary[];
 }
 
-// Höhenprofil und Anstieg einer freien Fahrt, best effort: der swisstopo-
-// Dienst kennt nur Schweizer Koordinaten und kann ausfallen. Beides ist
-// Beiwerk — eine Fahrt darf daran nicht scheitern, deshalb ausdrücklich
-// abgefangen statt den Speichervorgang mitzureissen.
+// Höhenprofil und Anstieg einer Fahrt (frei oder Strecke), best effort: der
+// swisstopo-Dienst kennt nur Schweizer Koordinaten und kann ausfallen.
+// Beides ist Beiwerk — eine Fahrt darf daran nicht scheitern, deshalb
+// ausdrücklich abgefangen statt den Speichervorgang mitzureissen. Bei
+// Streckenfahrten wird nur hoehenmeter_aufstieg verwendet (Bestenliste,
+// siehe 0054_freie_fahrten_in_bestenlisten.sql) — das Höhenprofil-Diagramm
+// zeigt dort weiterhin routes.hoehenprofil (app/fahrten/[id]/page.tsx).
 async function deriveElevation(
   coordinates: [number, number][],
 ): Promise<{ hoehenmeter_aufstieg: number | null; hoehenprofil: { km: number; m: number }[] | null }> {
