@@ -5,7 +5,7 @@ import Header from "@/components/Header";
 import TrackLeaderboardChooser from "@/components/TrackLeaderboardChooser";
 import Avatar from "@/components/Avatar";
 import { getGlobalLeaderboards, type LeaderboardEntry } from "@/lib/leaderboard";
-import { getRoutes } from "@/lib/routes";
+import { listRouteChoices } from "@/lib/routes";
 import { createClient } from "@/lib/supabase/server";
 import { MEDAL_COLORS } from "@/lib/constants";
 import Card from "@/components/ui/Card";
@@ -76,11 +76,11 @@ export default async function LeaderboardsPage() {
   const supabase = await createClient();
   const [
     { meisteFahrten, meisteHoehenmeter, meisteKm, meisteStrecken },
-    { routes },
+    routes,
     {
       data: { user },
     },
-  ] = await Promise.all([getGlobalLeaderboards(), getRoutes(), supabase.auth.getUser()]);
+  ] = await Promise.all([getGlobalLeaderboards(), listRouteChoices(), supabase.auth.getUser()]);
   const currentUserId = user?.id ?? null;
 
   return (
@@ -126,9 +126,7 @@ export default async function LeaderboardsPage() {
           />
         </div>
 
-        <TrackLeaderboardChooser
-          routes={routes.map((r) => ({ id: r.id, name: r.name }))}
-        />
+        <TrackLeaderboardChooser routes={routes} />
         </main>
       </div>
     </div>
