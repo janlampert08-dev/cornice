@@ -42,7 +42,7 @@ export default function KudosButton({
       aria-label={given ? "Kudos zurückziehen" : "Kudos geben"}
       className={cn(
         "inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium transition-colors duration-fast disabled:pointer-events-none disabled:opacity-50",
-        given ? "text-danger" : "text-muted hover:text-foreground",
+        given ? "text-accent" : "text-muted hover:text-foreground",
       )}
     >
       <Heart className="h-3.5 w-3.5" aria-hidden="true" fill={given ? "currentColor" : "none"} />
