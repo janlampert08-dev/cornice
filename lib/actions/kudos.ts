@@ -53,13 +53,17 @@ export async function toggleKudos(completionId: string): Promise<{ ok: boolean }
 // profiles.kudos_gesehen_am = now() über mark_kudos_seen,
 // 0053_kudos_gesehen.sql) — aufgerufen beim Laden des eigenen Profils
 // (components/MarkKudosSeen.tsx), setzt den Ungelesen-Zähler in der
-// Navigation (lib/kudos.ts, getUnseenKudosCount) auf null zurück.
-export async function markKudosSeen(): Promise<void> {
+// Navigation (lib/kudos.ts, getUnseenKudosCount) auf null zurück. Gibt
+// zurück, ob es geklappt hat — MarkKudosSeen.tsx soll bei einem
+// fehlgeschlagenen RPC-Aufruf keinen router.refresh() auslösen, der einen
+// erfolgreichen Abschluss vortäuschen würde.
+export async function markKudosSeen(): Promise<{ ok: boolean }> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return;
+  if (!user) return { ok: false };
 
-  await supabase.rpc("mark_kudos_seen");
+  const { error } = await supabase.rpc("mark_kudos_seen");
+  return { ok: !error };
 }
