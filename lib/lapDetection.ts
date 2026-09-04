@@ -154,11 +154,44 @@ function arcDistance(a: number, b: number, lengthKm: number, isLoop: boolean): n
   return Math.min(diff, lengthKm - diff);
 }
 
+// Abstand einer Bogenlängen-Position zu einem ganzen Streckenabschnitt
+// [fromS, toS] — 0, wenn die Position im Abschnitt liegt, sonst der Abstand
+// zum näheren Ende. Die Bogenlänge wächst entlang der Geometrie monoton,
+// ein Abschnitt läuft also nie über den Rundenschluss hinweg; die einfache
+// Bereichsprüfung genügt deshalb auch auf dem Ring.
+function arcDistanceToRange(
+  s: number,
+  fromS: number,
+  toS: number,
+  lengthKm: number,
+  isLoop: boolean,
+): number {
+  if (s >= fromS && s <= toS) return 0;
+  return Math.min(
+    arcDistance(s, fromS, lengthKm, isLoop),
+    arcDistance(s, toS, lengthKm, isLoop),
+  );
+}
+
 // Ohne "window": globale Suche nach dem geometrisch nächsten Punkt (Einstieg,
 // oder solange die Richtung noch nicht feststeht). Mit "window": nur
 // Segmente in der Nähe der erwarteten Bogenlänge — genau der
 // Kontinuitäts-Mechanismus, der Mehrdeutigkeiten an Kreuzungen/sich selbst
 // überschneidenden Streckenabschnitten auflöst (siehe Moduskommentar oben).
+//
+// Das Fenster wird gegen den gesamten Bogenlängen-Bereich eines Segments
+// geprüft, nicht gegen dessen Mittelpunkt. Die frühere Fassung mass ab dem
+// Mittelpunkt und glich das mit einem Zuschlag von SAMPLE_INTERVAL_KM aus —
+// das setzt voraus, dass kein Segment nennenswert länger als dieses
+// Abtastintervall ist. buildArcTable() dünnt dichte Geometrien zwar auf
+// dieses Intervall aus, kann eine grobe aber nicht verfeinern: eine Strecke
+// mit einem einzelnen Segment über mehrere hundert Meter (von Hand
+// gezeichnete lange Gerade) behält es. Steht das Fahrzeug mitten auf einem
+// solchen Segment, lag dessen Mittelpunkt ausserhalb des Fensters, das
+// Segment wurde übersprungen, und der Punkt galt fälschlich als ausserhalb
+// des Korridors — mitten in einer real gefahrenen Strecke. Der
+// Bereichsvergleich braucht den Zuschlag nicht mehr und ist unabhängig von
+// der Stützpunktdichte korrekt.
 function findBestProjection(
   point: [number, number],
   samples: ArcSample[],
@@ -169,14 +202,17 @@ function findBestProjection(
   const cosRefLat = Math.cos((point[1] * Math.PI) / 180);
   let best: { distanceKm: number; s: number } | null = null;
   for (let i = 0; i < samples.length - 1; i++) {
-    if (window) {
-      const mid = (samples[i].s + samples[i + 1].s) / 2;
-      if (
-        arcDistance(mid, window.centerS, lengthKm, isLoop) >
-        window.radiusKm + SAMPLE_INTERVAL_KM
-      ) {
-        continue;
-      }
+    if (
+      window &&
+      arcDistanceToRange(
+        window.centerS,
+        samples[i].s,
+        samples[i + 1].s,
+        lengthKm,
+        isLoop,
+      ) > window.radiusKm
+    ) {
+      continue;
     }
     const projected = projectToSegment(point, samples[i], samples[i + 1], cosRefLat);
     if (!best || projected.distanceKm < best.distanceKm) best = projected;

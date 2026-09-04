@@ -70,23 +70,34 @@ function farAway(seconds: number): TrailPoint {
   return { lng: 9.2, lat: 47.9, t: seconds * 1000 };
 }
 
-// Offene Punkt-zu-Punkt-Strecke A → B, L-förmig, ca. 1.5 km: erst ~500 m nach
-// Osten, dann ~1000 m nach Norden. Kein geschlossener Ring — Anfang und Ende
-// liegen weit auseinander.
-//
-// Bewusst dicht gestützt (~20 m zwischen zwei Punkten, wie eine echte
-// Mapbox-/GPX-Geometrie): buildArcTable() tastet ausschliesslich an
-// vorhandenen Stützpunkten ab und interpoliert nicht, weshalb das
-// Kontinuitäts-Suchfenster in findBestProjection() bei einem sehr langen
-// Einzelsegment ins Leere greifen würde. Das ist eine Eigenschaft der
-// Geometrie, nicht der Erkennung — eine grob gestützte Teststrecke würde
-// hier etwas prüfen, das mit echten Strecken nichts zu tun hat.
-function openRoute(): { coordinates: [number, number][]; lengthKm: number } {
-  const corners: [number, number][] = [
+// Eckpunkte der offenen Punkt-zu-Punkt-Strecke A → B, L-förmig, ca. 1.5 km:
+// erst ~500 m nach Osten, dann ~1000 m nach Norden. Kein geschlossener Ring
+// — Anfang und Ende liegen weit auseinander.
+function openRouteCorners(): [number, number][] {
+  return [
     [8.5, 47.37],
     [8.506635, 47.37],
     [8.506635, 47.378984],
   ];
+}
+
+// Dieselbe Strecke, aber nur mit ihren Eckpunkten — ein einzelnes Segment
+// läuft hier über 1000 m am Stück, wie bei einer von Hand gezeichneten
+// langen Geraden.
+function coarseOpenRoute(): { coordinates: [number, number][]; lengthKm: number } {
+  const coordinates = openRouteCorners();
+  let lengthKm = 0;
+  for (let i = 1; i < coordinates.length; i++) {
+    lengthKm += haversineKm(coordinates[i - 1], coordinates[i]);
+  }
+  return { coordinates, lengthKm };
+}
+
+//
+// Dicht gestützt (~20 m zwischen zwei Punkten), wie eine echte Mapbox-/
+// GPX-Geometrie. Für den grob gestützten Fall siehe coarseOpenRoute() unten.
+function openRoute(): { coordinates: [number, number][]; lengthKm: number } {
+  const corners = openRouteCorners();
   const coordinates: [number, number][] = [corners[0]];
   for (let i = 1; i < corners.length; i++) {
     const steps = Math.max(1, Math.round((haversineKm(corners[i - 1], corners[i]) * 1000) / 20));
@@ -388,6 +399,24 @@ describe("detectLaps", () => {
     const result = detectLaps([...hin.points, ...rueck.points], [candidate]);
     expect(result.laps).toHaveLength(2);
     expect(result.laps[0].exitT).toBeLessThan(result.laps[1].exitT);
+  });
+
+  it("erkennt auch eine grob gestützte Strecke mit sehr langen Einzelsegmenten", () => {
+    const { coordinates, lengthKm } = coarseOpenRoute();
+    const candidate: RouteCandidate = { routeId: "grob", coordinates, isLoop: false };
+
+    // Regression: buildArcTable() dünnt dichte Geometrien auf
+    // SAMPLE_INTERVAL_KM aus, kann eine grobe aber nicht verfeinern — hier
+    // bleibt ein Segment über 1000 m am Stück. Solange das Suchfenster in
+    // findBestProjection() den Abstand ab dem Segment-MITTELPUNKT mass, fiel
+    // ein Fahrzeug mitten auf diesem Segment aus dem Fenster: das Segment
+    // wurde übersprungen, der Punkt galt als ausserhalb des Korridors, und
+    // die Erkennung brach mitten in der Strecke ab.
+    const { points } = driveOpen(coordinates, lengthKm, 0, lengthKm, 0);
+
+    const result = detectLaps(points, [candidate]);
+    expect(result.laps).toHaveLength(1);
+    expect(result.laps[0].entryT).toBe(points[0].t);
   });
 
   it("liefert ein leeres Ergebnis ohne Kandidaten oder mit zu kurzem Trail", () => {
