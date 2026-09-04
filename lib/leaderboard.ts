@@ -12,8 +12,10 @@ export interface LeaderboardRow {
   user_id: string;
   display_name: string | null;
   avatar_url: string | null;
-  route_id: string;
-  hoehe_m: number | null;
+  // Nullable seit 0054_freie_fahrten_in_bestenlisten.sql: freie Fahrten
+  // haben keine route_id.
+  route_id: string | null;
+  hoehenmeter_aufstieg: number | null;
   effektive_distanz_km: number | null;
   ist_premium: boolean;
   zeigt_premium_badge: boolean;
@@ -44,7 +46,10 @@ function toTopEntries(
 
 // Vier bewusst nicht-zeitbezogene Bestenlisten (siehe 0013_leaderboard_view.sql
 // für die Begründung) — belohnen Distanz/Höhenmeter/Anzahl aufgezeichneter
-// Fahrten/unterschiedlicher Strecken, nie Geschwindigkeit.
+// Fahrten/unterschiedlicher Strecken, nie Geschwindigkeit. Seit
+// 0054_freie_fahrten_in_bestenlisten.sql zählen auch freie Fahrten mit
+// (vorher 0044: nur kuratierte Strecken) — ausser bei "meiste Strecken",
+// die naturgemäss eine route_id braucht.
 export function aggregateLeaderboards(rows: LeaderboardRow[]): {
   meisteFahrten: LeaderboardEntry[];
   meisteHoehenmeter: LeaderboardEntry[];
@@ -66,7 +71,10 @@ export function aggregateLeaderboards(rows: LeaderboardRow[]): {
     // Gegensatz zu passCount (lib/profile.ts), das pro Strecke dedupliziert.
     fahrtenByUser.set(row.user_id, (fahrtenByUser.get(row.user_id) ?? 0) + 1);
 
-    hoehenmeterByUser.set(row.user_id, (hoehenmeterByUser.get(row.user_id) ?? 0) + (row.hoehe_m ?? 0));
+    hoehenmeterByUser.set(
+      row.user_id,
+      (hoehenmeterByUser.get(row.user_id) ?? 0) + (row.hoehenmeter_aufstieg ?? 0),
+    );
     kmByUser.set(row.user_id, (kmByUser.get(row.user_id) ?? 0) + (row.effektive_distanz_km ?? 0));
 
     // "Entdecker": Anzahl unterschiedlicher Strecken statt reiner
@@ -77,8 +85,14 @@ export function aggregateLeaderboards(rows: LeaderboardRow[]): {
     // ohne Zeitfenster: leaderboard_completions liefert kein Datum; ein
     // Rolling-Window wäre eine eigene View-Änderung (Migration) und ist
     // nicht Teil dieser Phase.
-    if (!streckenByUser.has(row.user_id)) streckenByUser.set(row.user_id, new Set());
-    streckenByUser.get(row.user_id)!.add(row.route_id);
+    //
+    // Freie Fahrten haben keine route_id (null) und tragen hier bewusst
+    // nichts bei — anders als bei den übrigen drei Listen (siehe
+    // 0054_freie_fahrten_in_bestenlisten.sql).
+    if (row.route_id !== null) {
+      if (!streckenByUser.has(row.user_id)) streckenByUser.set(row.user_id, new Set());
+      streckenByUser.get(row.user_id)!.add(row.route_id);
+    }
   }
 
   const streckenCountByUser = new Map<string, number>(

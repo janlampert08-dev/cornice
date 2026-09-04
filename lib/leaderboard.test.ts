@@ -12,7 +12,7 @@ function row(overrides: Partial<LeaderboardRow>): LeaderboardRow {
     display_name: "Alice",
     avatar_url: null,
     route_id: "r1",
-    hoehe_m: 1000,
+    hoehenmeter_aufstieg: 1000,
     effektive_distanz_km: 20,
     ist_premium: false,
     zeigt_premium_badge: false,
@@ -67,8 +67,8 @@ describe("aggregateLeaderboards", () => {
 
   it("sums elevation and distance across all completions, including repeats", () => {
     const rows = [
-      row({ user_id: "u1", route_id: "r1", hoehe_m: 1000, effektive_distanz_km: 20 }),
-      row({ user_id: "u1", route_id: "r1", hoehe_m: 1000, effektive_distanz_km: 20 }),
+      row({ user_id: "u1", route_id: "r1", hoehenmeter_aufstieg: 1000, effektive_distanz_km: 20 }),
+      row({ user_id: "u1", route_id: "r1", hoehenmeter_aufstieg: 1000, effektive_distanz_km: 20 }),
     ];
     const { meisteHoehenmeter, meisteKm } = aggregateLeaderboards(rows);
     expect(meisteHoehenmeter[0].value).toBe(2000);
@@ -83,8 +83,8 @@ describe("aggregateLeaderboards", () => {
 
   it("ranks users by value, highest first, and labels missing names", () => {
     const rows = [
-      row({ user_id: "u1", display_name: "Alice", route_id: "r1", hoehe_m: 500 }),
-      row({ user_id: "u2", display_name: null, route_id: "r1", hoehe_m: 1500 }),
+      row({ user_id: "u1", display_name: "Alice", route_id: "r1", hoehenmeter_aufstieg: 500 }),
+      row({ user_id: "u2", display_name: null, route_id: "r1", hoehenmeter_aufstieg: 1500 }),
     ];
     const { meisteHoehenmeter } = aggregateLeaderboards(rows);
     expect(meisteHoehenmeter.map((e) => e.name)).toEqual(["Anonym", "Alice"]);
@@ -92,7 +92,7 @@ describe("aggregateLeaderboards", () => {
 
   it("caps each leaderboard at the top 3 entries", () => {
     const rows = Array.from({ length: 5 }, (_, i) =>
-      row({ user_id: `u${i}`, display_name: `User ${i}`, route_id: `r${i}`, hoehe_m: i }),
+      row({ user_id: `u${i}`, display_name: `User ${i}`, route_id: `r${i}`, hoehenmeter_aufstieg: i }),
     );
     const { meisteHoehenmeter } = aggregateLeaderboards(rows);
     expect(meisteHoehenmeter).toHaveLength(3);
@@ -110,6 +110,30 @@ describe("aggregateLeaderboards", () => {
     const byUser = new Map(meisteStrecken.map((e) => [e.userId, e.value]));
     expect(byUser.get("u1")).toBe(2);
     expect(byUser.get("u2")).toBe(1);
+  });
+
+  it("counts free rides (route_id null) toward Fahrten/km/Höhenmeter", () => {
+    const rows = [
+      row({ user_id: "u1", route_id: "r1", hoehenmeter_aufstieg: 500, effektive_distanz_km: 10 }),
+      row({ user_id: "u1", route_id: null, hoehenmeter_aufstieg: 300, effektive_distanz_km: 15 }),
+    ];
+    const { meisteFahrten, meisteHoehenmeter, meisteKm } = aggregateLeaderboards(rows);
+    expect(meisteFahrten[0].value).toBe(2);
+    expect(meisteHoehenmeter[0].value).toBe(800);
+    expect(meisteKm[0].value).toBe(25);
+  });
+
+  it("excludes free rides (route_id null) from meisteStrecken", () => {
+    const rows = [
+      row({ user_id: "u1", route_id: "r1" }),
+      row({ user_id: "u1", route_id: null }),
+      row({ user_id: "u2", route_id: null }),
+    ];
+    const { meisteStrecken } = aggregateLeaderboards(rows);
+    const byUser = new Map(meisteStrecken.map((e) => [e.userId, e.value]));
+    expect(byUser.get("u1")).toBe(1);
+    // u2 hat nur freie Fahrten und taucht daher gar nicht in der Liste auf.
+    expect(byUser.has("u2")).toBe(false);
   });
 });
 
