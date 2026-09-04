@@ -5,6 +5,7 @@ import Link from "next/link";
 import { signUp, type AuthFormState } from "@/lib/actions/auth";
 import { Input } from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
+import { LEGAL_URLS } from "@/lib/constants";
 
 const initialState: AuthFormState = { error: null };
 
@@ -49,6 +50,27 @@ export default function RegistrierenForm() {
           {pending ? "Registrieren…" : "Registrieren"}
         </Button>
       </form>
+      <p className="text-center text-xs text-muted">
+        Mit der Registrierung akzeptierst du unsere{" "}
+        <a
+          href={LEGAL_URLS.agb}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-accent"
+        >
+          AGB
+        </a>{" "}
+        und{" "}
+        <a
+          href={LEGAL_URLS.datenschutz}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-accent"
+        >
+          Datenschutzerklärung
+        </a>
+        .
+      </p>
       <p className="text-sm text-muted">
         Schon ein Konto?{" "}
         <Link href="/anmelden" className="font-medium text-accent hover:underline">
