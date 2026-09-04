@@ -32,3 +32,12 @@ export const REPORT_REASONS = [
   { value: "falsche_angaben", label: "Falsche Angaben" },
   { value: "sonstiges", label: "Sonstiges" },
 ] as const;
+
+// Leben bewusst auf der Marketing-Domain statt als eigene Routen hier —
+// Erreichbarkeit per Link genügt, unabhängig vom Hosting-Ort.
+// TODO: Platzhalter-Domain durch die echte Marketing-Domain ersetzen.
+export const LEGAL_URLS = {
+  impressum: "https://xyz.ch/impressum",
+  datenschutz: "https://xyz.ch/datenschutz",
+  agb: "https://xyz.ch/agb",
+} as const;

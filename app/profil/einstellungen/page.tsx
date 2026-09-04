@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { KeyRound, Lock, MapPin, Palette } from "lucide-react";
+import { KeyRound, Lock, MapPin, Palette, Scale } from "lucide-react";
 import Header from "@/components/Header";
 import VisibilitySettings from "@/components/VisibilitySettings";
 import { DEFAULT_PRIVACY_RADIUS_M } from "@/lib/track";
@@ -10,6 +10,7 @@ import DeleteAccountSection from "@/components/DeleteAccountSection";
 import { createClient } from "@/lib/supabase/server";
 import Card from "@/components/ui/Card";
 import Button, { buttonVariants } from "@/components/ui/Button";
+import { LEGAL_URLS } from "@/lib/constants";
 
 // Ein Einstellungen-Tab statt vorher verstreuter Zugänge: Privatsphäre
 // (bisher app/profil/privatsphaere, hierher verschoben), Darstellung
@@ -165,6 +166,39 @@ export default async function EinstellungenPage() {
                 </Button>
               </form>
               <DeleteAccountSection />
+            </Card>
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <h2 className="flex items-center gap-1.5 text-sm font-semibold tracking-wide text-muted uppercase">
+              <Scale className="h-4 w-4" aria-hidden="true" />
+              Rechtliches
+            </h2>
+            <Card className="flex flex-col divide-y divide-border p-0">
+              <a
+                href={LEGAL_URLS.impressum}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-3 text-sm transition-colors duration-fast hover:text-accent"
+              >
+                Impressum
+              </a>
+              <a
+                href={LEGAL_URLS.datenschutz}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-3 text-sm transition-colors duration-fast hover:text-accent"
+              >
+                Datenschutzerklärung
+              </a>
+              <a
+                href={LEGAL_URLS.agb}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-3 text-sm transition-colors duration-fast hover:text-accent"
+              >
+                AGB
+              </a>
             </Card>
           </section>
         </main>
