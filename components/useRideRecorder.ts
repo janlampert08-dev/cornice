@@ -134,6 +134,12 @@ export function useRideRecorder({
   // Zeitpunkt des letzten GPS-Fix, unabhängig von dessen Genauigkeit — Basis
   // für die Hintergrund-Lücken-Warnung (siehe GPS_GAP_WARNING_MS).
   const lastFixAtRef = useRef<number | null>(null);
+  // PERMISSION_DENIED ist endgültig (siehe watchPosition-Fehler-Callback) —
+  // die transiente Hintergrund-Lücken-Warnung darf diese Meldung nicht
+  // überschreiben, sonst verschwindet der Hinweis "Berechtigung erteilen"
+  // nach einer Minute im Hintergrund und wirkt wie ein normaler
+  // Empfangsverlust.
+  const permissionDeniedRef = useRef(false);
   // Spiegelt distanceKm bzw. hasStarted für den watchPosition-Callback: der
   // Callback ist eine einmal beim Start erzeugte Closure und sähe sonst die
   // veralteten Werte aus dem ersten Render.
@@ -220,7 +226,11 @@ export function useRideRecorder({
     if (phase !== "tracking") return;
     function handleVisibilityChange() {
       if (document.visibilityState !== "visible") return;
-      if (wakeLockRef.current === null) requestWakeLock();
+      // Der Browser markiert das Sentinel bei der automatischen Freigabe als
+      // "released", setzt die Ref aber nicht selbst auf null zurück — ein
+      // reiner `=== null`-Check würde die Neuanfrage nach jedem
+      // Hintergrund-Wechsel für den Rest der Aufzeichnung verhindern.
+      if (wakeLockRef.current === null || wakeLockRef.current.released) requestWakeLock();
 
       // Beim Zurückkehren aus dem Hintergrund prüfen, ob währenddessen eine
       // GPS-Lücke entstanden ist, statt das erst beim Posten über eine
@@ -228,7 +238,11 @@ export function useRideRecorder({
       // GPS_GAP_WARNING_MS). Ein neuer Fix überschreibt diese Meldung von
       // selbst wieder (siehe watchPosition-Erfolgs-Callback).
       const lastFixAt = lastFixAtRef.current;
-      if (lastFixAt !== null && Date.now() - lastFixAt >= GPS_GAP_WARNING_MS) {
+      if (
+        !permissionDeniedRef.current &&
+        lastFixAt !== null &&
+        Date.now() - lastFixAt >= GPS_GAP_WARNING_MS
+      ) {
         const minutes = Math.round((Date.now() - lastFixAt) / 60_000);
         setLocationError(
           `GPS war ca. ${minutes} Minute${minutes === 1 ? "" : "n"} ohne Empfang (vermutlich im Hintergrund) — die Strecke könnte an dieser Stelle eine Lücke haben.`,
@@ -318,6 +332,7 @@ export function useRideRecorder({
       setHeadingDeg(null);
       setDistanceToStartKm(null);
       lastFixAtRef.current = Date.now();
+      permissionDeniedRef.current = false;
 
       if (resume) {
         const lastPoint = resume.trail[resume.trail.length - 1];
@@ -372,6 +387,7 @@ export function useRideRecorder({
           setAccuracyM(browserPosition.coords.accuracy);
           setHeadingDeg(browserPosition.coords.heading);
           lastFixAtRef.current = Date.now();
+          permissionDeniedRef.current = false;
           // Ein früherer Fehler (z.B. kurzer Empfangsverlust im Tunnel) ist
           // erledigt, sobald wieder ein Fix hereinkommt — sonst bliebe die
           // Fehlermeldung für den Rest der Fahrt stehen, obwohl GPS längst
@@ -473,6 +489,7 @@ export function useRideRecorder({
           // watchPosition von selbst weiterversucht und der obige
           // Erfolgs-Callback den Fehler wieder löscht, sobald es klappt.
           if (error.code === error.PERMISSION_DENIED) {
+            permissionDeniedRef.current = true;
             setLocationError(
               "Standortzugriff verweigert — ohne GPS-Berechtigung kann diese Fahrt nicht weiter aufgezeichnet werden. Bitte in den Einstellungen erlauben.",
             );

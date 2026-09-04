@@ -13,7 +13,9 @@ export default function MarkKudosSeen() {
   const router = useRouter();
 
   useEffect(() => {
-    markKudosSeen().then(() => router.refresh());
+    markKudosSeen().then(({ ok }) => {
+      if (ok) router.refresh();
+    });
   }, [router]);
 
   return null;
