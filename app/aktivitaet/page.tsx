@@ -1,13 +1,9 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { Heart } from "lucide-react";
 import Header from "@/components/Header";
-import Avatar from "@/components/Avatar";
 import MarkKudosSeen from "@/components/MarkKudosSeen";
+import ActivityKudosList from "@/components/ActivityKudosList";
 import { getRecentKudosReceived } from "@/lib/kudos";
 import { createClient } from "@/lib/supabase/server";
-import Card from "@/components/ui/Card";
-import EmptyState from "@/components/ui/EmptyState";
 
 export const metadata = {
   title: "Aktivität – Cornice",
@@ -35,7 +31,10 @@ export default async function AktivitaetPage() {
       <Header back="/profil" />
       {/* Markiert beim Laden alle aktuell ungelesenen Kudos als gesehen,
           siehe MarkKudosSeen.tsx — dieselbe Komponente wie bisher auf
-          /profil, hier zusätzlich statt stattdessen. */}
+          /profil, hier zusätzlich statt stattdessen. Das router.refresh()
+          darin würde die "neu"-Flags dieser Liste sofort auf false ziehen,
+          bevor der Nutzer sie gesehen hat — deshalb hält ActivityKudosList
+          einen eigenen Snapshot statt live aus den Props neu zu lesen. */}
       <MarkKudosSeen />
       <div className="flex-1 overflow-y-auto">
         <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-5 py-8 sm:px-6 sm:py-10">
@@ -44,39 +43,7 @@ export default async function AktivitaetPage() {
             <p className="mt-1 text-sm text-muted">Kudos auf deine geteilten Fahrten.</p>
           </div>
 
-          {kudosList.length === 0 ? (
-            <EmptyState icon={Heart} title="Noch keine Kudos erhalten." />
-          ) : (
-            <ul className="flex flex-col gap-3">
-              {kudosList.map((kudos) => (
-                <Card
-                  as="li"
-                  key={`${kudos.completionId}-${kudos.giverId}`}
-                  className="flex items-center gap-3 p-4"
-                >
-                  <Avatar url={kudos.giverAvatarUrl} name={kudos.giverDisplayName} size={40} />
-                  <Link
-                    href={`/fahrten/${kudos.completionId}`}
-                    className="min-w-0 flex-1 transition-colors duration-fast hover:text-accent"
-                  >
-                    <p className="truncate text-sm">
-                      <span className="font-medium">{kudos.giverDisplayName ?? "Ein Fahrer"}</span>{" "}
-                      hat deiner Fahrt Kudos gegeben
-                    </p>
-                    <p className="text-xs text-muted">
-                      {new Date(kudos.erstelltAm).toLocaleString("de-CH", {
-                        day: "numeric",
-                        month: "long",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
-                  </Link>
-                  {kudos.neu && <span className="h-2 w-2 shrink-0 rounded-full bg-accent" aria-label="Neu" />}
-                </Card>
-              ))}
-            </ul>
-          )}
+          <ActivityKudosList initialKudosList={kudosList} />
         </main>
       </div>
     </div>

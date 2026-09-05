@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { throwOnQueryError } from "@/lib/queryError";
 
 export interface KudosInfo {
   count: number;
@@ -71,7 +72,11 @@ export interface ReceivedKudos {
 export async function getRecentKudosReceived(): Promise<ReceivedKudos[]> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("recent_kudos_received");
-  if (error || !data) return [];
+  // Ein echter Query-Fehler darf nicht als "keine Kudos" durchgehen — sonst
+  // sähe ein Ausfall auf /aktivitaet identisch aus wie eine leere, aber
+  // funktionierende Liste. Siehe lib/queryError.ts.
+  throwOnQueryError(error, "Kudos-Aktivität");
+  if (!data) return [];
 
   return (data as Array<Record<string, unknown>>).map((row) => ({
     completionId: row.completion_id as string,
