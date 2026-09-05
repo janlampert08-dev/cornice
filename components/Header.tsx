@@ -57,13 +57,25 @@ export default async function Header({ back }: { back?: string } = {}) {
                 className="flex items-center gap-1.5 whitespace-nowrap text-foreground transition-colors duration-fast hover:text-accent"
               >
                 {item.label}
-                {item.href === "/profil" && unseenKudosCount > 0 && (
-                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-background">
-                    {unseenKudosCount > 9 ? "9+" : unseenKudosCount}
-                  </span>
-                )}
               </Link>
             ),
+          )}
+          {/* Nur auf Desktop, siehe BottomNav.tsx — eine sechste Kachel dort
+              wäre auf schmalen Geräten zu eng (lib/nav.ts), deshalb bleibt
+              der Rückkanal für "Community reagiert" auf Mobile vorerst beim
+              Badge auf dem Profil-Tab. */}
+          {user && (
+            <Link
+              href="/aktivitaet"
+              className="flex items-center gap-1.5 whitespace-nowrap text-foreground transition-colors duration-fast hover:text-accent"
+            >
+              Aktivität
+              {unseenKudosCount > 0 && (
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-background">
+                  {unseenKudosCount > 9 ? "9+" : unseenKudosCount}
+                </span>
+              )}
+            </Link>
           )}
         </nav>
       </header>
