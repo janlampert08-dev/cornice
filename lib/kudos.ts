@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { throwOnQueryError } from "@/lib/queryError";
 
 export interface KudosInfo {
   count: number;
@@ -52,4 +53,37 @@ export async function getUnseenKudosCount(): Promise<number> {
   const { data, error } = await supabase.rpc("count_unseen_kudos");
   if (error || data == null) return 0;
   return Number(data);
+}
+
+export interface ReceivedKudos {
+  completionId: string;
+  giverId: string;
+  giverDisplayName: string | null;
+  giverAvatarUrl: string | null;
+  erstelltAm: string;
+  neu: boolean;
+}
+
+// Die letzten Kudos auf den eigenen Fahrten, für /aktivitaet — dieselbe
+// Sicherheitslogik wie getUnseenKudosCount, nur als Liste statt als reine
+// Zahl. Läuft über die SECURITY-DEFINER-Funktion recent_kudos_received
+// (0057_kudos_aktivitaetsliste.sql), ebenfalls ausschliesslich auf
+// auth.uid() beschränkt.
+export async function getRecentKudosReceived(): Promise<ReceivedKudos[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("recent_kudos_received");
+  // Ein echter Query-Fehler darf nicht als "keine Kudos" durchgehen — sonst
+  // sähe ein Ausfall auf /aktivitaet identisch aus wie eine leere, aber
+  // funktionierende Liste. Siehe lib/queryError.ts.
+  throwOnQueryError(error, "Kudos-Aktivität");
+  if (!data) return [];
+
+  return (data as Array<Record<string, unknown>>).map((row) => ({
+    completionId: row.completion_id as string,
+    giverId: row.giver_id as string,
+    giverDisplayName: row.giver_display_name as string | null,
+    giverAvatarUrl: row.giver_avatar_url as string | null,
+    erstelltAm: row.erstellt_am as string,
+    neu: row.neu as boolean,
+  }));
 }

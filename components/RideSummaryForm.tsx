@@ -7,6 +7,7 @@ import MultiPhotoInput from "@/components/MultiPhotoInput";
 import type { Vehicle } from "@/types/database";
 import { fieldClassName } from "@/components/ui/Input";
 import { buttonVariants } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/Dialog";
 
 export const MAX_NOTIZ_LENGTH = 280;
 
@@ -70,6 +71,7 @@ export default function RideSummaryForm({
   );
   const [submitted, setSubmitted] = useState(false);
   const lastSubmitFormDataRef = useRef<FormData | null>(null);
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
 
   // Fahrzeug-Liste lokal gehalten und ohne Navigation ergänzbar — ein
   // <a target="_blank"> zu /profil/fahrzeuge/neu verlässt sich darauf, dass
@@ -347,12 +349,22 @@ export default function RideSummaryForm({
         </button>
         <button
           type="button"
-          onClick={onDiscard}
+          onClick={() => setDiscardConfirmOpen(true)}
           className="px-2 py-2 text-sm text-muted transition-colors duration-fast hover:text-foreground"
         >
           Verwerfen
         </button>
       </div>
+
+      <ConfirmDialog
+        open={discardConfirmOpen}
+        title="Fahrt verwerfen?"
+        description="Die aufgezeichnete Fahrt wurde noch nicht gespeichert und geht dabei endgültig verloren."
+        confirmLabel="Verwerfen"
+        variant="danger"
+        onConfirm={onDiscard}
+        onCancel={() => setDiscardConfirmOpen(false)}
+      />
     </form>
   );
 }

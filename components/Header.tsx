@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Heart } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { isModerator } from "@/lib/moderation";
 import { getUnseenKudosCount } from "@/lib/kudos";
@@ -15,7 +16,10 @@ export default async function Header({ back }: { back?: string } = {}) {
   const moderator = user ? await isModerator(user.id) : false;
   // Rückkanal für "Community reagiert" im Kernloop (siehe AGENTS.md, "Core
   // User Loop") — ohne diesen Zähler erfährt der Fahrer sonst nie aktiv,
-  // dass eine geteilte Fahrt Kudos bekommen hat.
+  // dass eine geteilte Fahrt Kudos bekommen hat. Zeigt sich am Herz-Icon
+  // unten, das auf jeder Bildschirmgrösse sichtbar ist (anders als die
+  // reine Text-Nav, die auf Mobile hinter BottomNav zurücktritt) — deshalb
+  // hier zentral berechnet statt separat je Surface.
   const unseenKudosCount = user ? await getUnseenKudosCount() : 0;
   // "/" wird hier ausgelassen — das Logo verlinkt bereits dorthin, ein
   // zweiter Link wäre redundant. Einzige Quelle der Nav-Items: lib/nav.ts,
@@ -34,40 +38,57 @@ export default async function Header({ back }: { back?: string } = {}) {
             Cornice
           </Link>
         </div>
-        {/* Auf Mobile übernimmt BottomNav die Navigation — hier nur noch auf
-            Desktop sichtbar, um die Tab-Leiste nicht zu duplizieren. Die
-            Hell/Dunkel-Wahl (vormals hier als eigenes Icon) wohnt jetzt
-            ausschliesslich im Darstellung-Tab der Einstellungen
-            (app/profil/einstellungen); ohne manuelle Wahl gilt weiterhin
-            "System" als Standard. */}
-        <nav className="hidden shrink-0 items-center gap-3 overflow-x-auto text-sm sm:gap-6 md:flex">
-          {items.map((item) =>
-            item.href === "/anmelden" ? (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={buttonVariants({ variant: "primary", size: "sm", className: "whitespace-nowrap" })}
-              >
-                {item.label}
-              </Link>
-            ) : (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="flex items-center gap-1.5 whitespace-nowrap text-foreground transition-colors duration-fast hover:text-accent"
-              >
-                {item.label}
-                {item.href === "/profil" && unseenKudosCount > 0 && (
-                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-background">
-                    {unseenKudosCount > 9 ? "9+" : unseenKudosCount}
-                  </span>
-                )}
-              </Link>
-            ),
+        <div className="flex shrink-0 items-center gap-3 sm:gap-4">
+          {/* Eigener Icon-Link statt eines Nav-Eintrags: liegt hier
+              ausserhalb des "hidden md:flex"-Blocks unten und bleibt damit
+              auch auf Mobile sichtbar, wo BottomNav die Textnavigation
+              ersetzt — Instagram-artige Platzierung oben rechts statt eines
+              siebten/sechsten BottomNav-Tabs (siehe lib/nav.ts, dort schon
+              als zu eng bewertet). */}
+          {user && (
+            <Link
+              href="/aktivitaet"
+              aria-label="Aktivität"
+              className="relative flex items-center justify-center rounded-full p-1.5 text-foreground transition-colors duration-fast hover:text-accent"
+            >
+              <Heart className="h-5 w-5" aria-hidden="true" />
+              {unseenKudosCount > 0 && (
+                <span className="absolute top-0 right-0 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent px-1 text-[9px] font-semibold text-background">
+                  {unseenKudosCount > 9 ? "9+" : unseenKudosCount}
+                </span>
+              )}
+            </Link>
           )}
-        </nav>
+          {/* Auf Mobile übernimmt BottomNav die Navigation — diese Textleiste
+              bleibt nur auf Desktop sichtbar, um die Tab-Leiste nicht zu
+              duplizieren. Die Hell/Dunkel-Wahl (vormals hier als eigenes
+              Icon) wohnt jetzt ausschliesslich im Darstellung-Tab der
+              Einstellungen (app/profil/einstellungen); ohne manuelle Wahl
+              gilt weiterhin "System" als Standard. */}
+          <nav className="hidden items-center gap-3 overflow-x-auto text-sm sm:gap-6 md:flex">
+            {items.map((item) =>
+              item.href === "/anmelden" ? (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={buttonVariants({ variant: "primary", size: "sm", className: "whitespace-nowrap" })}
+                >
+                  {item.label}
+                </Link>
+              ) : (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="flex items-center gap-1.5 whitespace-nowrap text-foreground transition-colors duration-fast hover:text-accent"
+                >
+                  {item.label}
+                </Link>
+              ),
+            )}
+          </nav>
+        </div>
       </header>
-      <BottomNav loggedIn={!!user} moderator={moderator} unseenKudosCount={unseenKudosCount} />
+      <BottomNav loggedIn={!!user} moderator={moderator} />
     </>
   );
 }
